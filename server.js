@@ -170,6 +170,44 @@ app.get('/api/data/center', authenticateToken, async (req, res) => {
   res.json(sliceCenterFromGlobal(global, centerCode));
 });
 
+app.get('/api/data/centers', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'centre' && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  const global = await loadApplicationData();
+  const centerMap = {};
+  
+  const defaults = {
+    'GAIL': { code: 'GAIL', name: 'KNP', sponsor: 'GAIL' },
+    'OIL_INDIA': { code: 'OIL_INDIA', name: 'JDH', sponsor: 'OIL_INDIA' }
+  };
+  
+  global.profiles.forEach((p) => {
+    if (!p.centerCode) return;
+    const code = p.centerCode.toUpperCase();
+    const sponsor = p.SPONSOR || '';
+    const name = p['CENTRE CODE'] || code;
+    
+    if (!centerMap[code]) {
+      centerMap[code] = { code, name, sponsor };
+    } else {
+      if (sponsor) centerMap[code].sponsor = sponsor;
+      if (p['CENTRE CODE']) centerMap[code].name = p['CENTRE CODE'];
+    }
+  });
+  
+  Object.keys(defaults).forEach((code) => {
+    if (!centerMap[code]) {
+      centerMap[code] = defaults[code];
+    } else {
+      if (!centerMap[code].sponsor) centerMap[code].sponsor = defaults[code].sponsor;
+      if (centerMap[code].name === code) centerMap[code].name = defaults[code].name;
+    }
+  });
+
+  res.json(Object.values(centerMap));
+});
+
 app.get('/api/data/student', authenticateToken, async (req, res) => {
   if (req.user.role !== 'student') return res.status(403).json({ message: 'Forbidden' });
   const global = await loadApplicationData();
