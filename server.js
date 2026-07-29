@@ -12,6 +12,7 @@ import StudentOverallWeakTopics from './models/StudentOverallWeakTopics.js';
 import CenterOverallWeakTopics from './models/CenterOverallWeakTopics.js';
 import SyllabusTopics from './models/SyllabusTopics.js';
 import TestScore from './models/TestScore.js';
+import PastYearData from './models/PastYearData.js';
 import { seedTopics } from './seedTopics.js';
 import { parseTestSheet, buildTopicSubjectLookup } from './services/csvParserService.js';
 import { computeWeakTopics } from './services/weakTopicService.js';
@@ -752,6 +753,91 @@ app.get('/api/center/overall-weak-topics/:centerId', authenticateToken, async (r
   } catch (e) {
     console.error('[WeakTopics] center overall route error:', e);
     return res.status(500).json({ success: false, message: e.message || 'Failed to fetch center overall weak topics' });
+  }
+});
+
+// ── Past Year Data Management (separate from main data) ───────────────────────
+
+// Upload past year data (admin only) — expects JSON array from frontend Excel parse
+app.post('/api/past-year-data/upload', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+  try {
+    const rows = req.body.rows;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ message: 'No rows provided' });
+    }
+    // Insert all rows into PastYearData collection
+    const result = await PastYearData.insertMany(rows, { ordered: false });
+    return res.json({ success: true, inserted: result.length });
+  } catch (e) {
+    console.error('[PastYearData] upload error:', e);
+    return res.status(500).json({ message: e.message || 'Upload failed' });
+  }
+});
+
+// Get past year data with optional filters
+app.get('/api/past-year-data', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'centre') {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  try {
+    const filter = {};
+    if (req.query.year) filter.Year = req.query.year;
+    if (req.query.sponsor) filter.Sponsor = { $regex: new RegExp(req.query.sponsor, 'i') };
+    if (req.query.centre) filter['Centre Code'] = { $regex: new RegExp(req.query.centre, 'i') };
+    if (req.query.state) filter.STATE = { $regex: new RegExp(req.query.state, 'i') };
+    if (req.query.category) filter.Category = { $regex: new RegExp(req.query.category, 'i') };
+    if (req.query.gender) filter.Gender = { $regex: new RegExp(req.query.gender, 'i') };
+
+    const docs = await PastYearData.find(filter).lean();
+    return res.json({ success: true, data: docs });
+  } catch (e) {
+    console.error('[PastYearData] fetch error:', e);
+    return res.status(500).json({ message: e.message || 'Fetch failed' });
+  }
+});
+
+// Get distinct filter values for dropdowns
+app.get('/api/past-year-data/filters', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'centre') {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  try {
+    const [years, sponsors, centres, states, categories, genders] = await Promise.all([
+      PastYearData.distinct('Year'),
+      PastYearData.distinct('Sponsor'),
+      PastYearData.distinct('Centre Code'),
+      PastYearData.distinct('STATE'),
+      PastYearData.distinct('Category'),
+      PastYearData.distinct('Gender'),
+    ]);
+    return res.json({
+      success: true,
+      years: years.filter(Boolean).sort(),
+      sponsors: sponsors.filter(Boolean).sort(),
+      centres: centres.filter(Boolean).sort(),
+      states: states.filter(Boolean).sort(),
+      categories: categories.filter(Boolean).sort(),
+      genders: genders.filter(Boolean).sort(),
+    });
+  } catch (e) {
+    console.error('[PastYearData] filters error:', e);
+    return res.status(500).json({ message: e.message || 'Fetch filters failed' });
+  }
+});
+
+// Delete all past year data (admin only)
+app.delete('/api/past-year-data', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+  try {
+    const filter = {};
+    if (req.query.year) filter.Year = req.query.year;
+    if (req.query.sponsor) filter.Sponsor = req.query.sponsor;
+    const result = await PastYearData.deleteMany(filter);
+    return res.json({ success: true, deleted: result.deletedCount });
+  } catch (e) {
+    console.error('[PastYearData] delete error:', e);
+    return res.status(500).json({ message: e.message || 'Delete failed' });
   }
 });
 
