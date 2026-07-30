@@ -789,6 +789,7 @@ app.get('/api/past-year-data', authenticateToken, async (req, res) => {
     if (req.query.state) filter.STATE = { $regex: new RegExp(req.query.state, 'i') };
     if (req.query.category) filter.Category = { $regex: new RegExp(req.query.category, 'i') };
     if (req.query.gender) filter.Gender = { $regex: new RegExp(req.query.gender, 'i') };
+    if (req.query.remark) filter['ADMISSION REMARKS'] = { $regex: new RegExp(req.query.remark, 'i') };
 
     const docs = await PastYearData.find(filter).lean();
     return res.json({ success: true, data: docs });
@@ -804,13 +805,14 @@ app.get('/api/past-year-data/filters', authenticateToken, async (req, res) => {
     return res.status(403).json({ message: 'Forbidden' });
   }
   try {
-    const [years, sponsors, centres, states, categories, genders] = await Promise.all([
+    const [years, sponsors, centres, states, categories, genders, remarks] = await Promise.all([
       PastYearData.distinct('Year'),
       PastYearData.distinct('Sponsor'),
       PastYearData.distinct('Centre Code'),
       PastYearData.distinct('STATE'),
       PastYearData.distinct('Category'),
       PastYearData.distinct('Gender'),
+      PastYearData.distinct('ADMISSION REMARKS'),
     ]);
     return res.json({
       success: true,
@@ -820,6 +822,7 @@ app.get('/api/past-year-data/filters', authenticateToken, async (req, res) => {
       states: states.filter(Boolean).sort(),
       categories: categories.filter(Boolean).sort(),
       genders: genders.filter(Boolean).sort(),
+      remarks: remarks.filter(Boolean).sort(),
     });
   } catch (e) {
     console.error('[PastYearData] filters error:', e);
