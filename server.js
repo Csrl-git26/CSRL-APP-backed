@@ -26,6 +26,7 @@ import {
   getReadCacheStatus,
   invalidateDataCache,
 } from './services/dbService.js';
+import { flatToNested } from './utils/testColumns.js';
 import {
   computeOverview,
   rankStudentsByTest,
@@ -544,6 +545,78 @@ app.delete('/api/students/:rollKey', authenticateToken, requireAdmin, async (req
 });
 
 // ── Test Score Upsert (Admin only) ────────────────────────────────────────────
+
+/**
+ * POST /api/tests/bulk-upsert
+ * High-performance bulk import for test scores.
+ * Body: { marks: [ { rollKey, centerCode, scores }, ... ] }
+ */
+app.post('/api/tests/bulk-upsert', authenticateToken, requireAdmin, async (req, res) => {
+  const { marks } = req.body;
+  if (!Array.isArray(marks) || marks.length === 0) {
+    return res.status(400).json({ message: 'marks array is required' });
+  }
+
+  try {
+    if (!isDbEnabled()) {
+      return res.status(500).json({ message: 'Database not enabled' });
+    }
+    await initMongo();
+    const TestScore = (await import('./models/TestScore.js')).default;
+
+    const ops = marks.map((mark) => {
+      const roll = normalizeRollKey(mark.rollKey);
+      const center = normalizeCenterCode(mark.centerCode);
+      if (!roll || !center) return null;
+
+      const $setObj = { stream: mark.scores?.stream || 'JEE' };
+      
+      let patchNested;
+      if (mark.scores && typeof mark.scores.tests === 'object') {
+        patchNested = { tests: mark.scores.tests };
+      } else {
+        patchNested = flatToNested(mark.scores || {});
+      }
+
+      if (patchNested.tests) {
+        for (const [testName, testData] of Object.entries(patchNested.tests)) {
+          for (const [subject, value] of Object.entries(testData)) {
+            // MongoDB safe key (dots are not allowed in object keys, but here we intentionally use them for update paths)
+            const safeTestName = testName.replace(/\./g, '___dot___');
+            const safeSubject = subject.replace(/\./g, '___dot___');
+            $setObj[`tests.${safeTestName}.${safeSubject}`] = value;
+          }
+        }
+      }
+
+      return {
+        updateOne: {
+          filter: { ROLL_KEY: roll, centerCode: center },
+          update: { $set: $setObj },
+          upsert: true,
+        },
+      };
+    }).filter(Boolean);
+
+    if (ops.length === 0) {
+      return res.status(400).json({ message: 'No valid marks in array' });
+    }
+
+    const result = await TestScore.bulkWrite(ops, { ordered: false });
+    invalidateDataCache();
+    console.log(`[BULK] Upserted ${marks.length} test scores`);
+
+    return res.json({ 
+      success: true, 
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+      upsertedCount: result.upsertedCount
+    });
+  } catch (e) {
+    console.error('[BULK] Bulk upsert tests failed:', e);
+    return res.status(500).json({ message: e.message || 'Bulk upsert tests failed' });
+  }
+});
 
 /**
  * POST /api/tests/:rollKey?centerCode=
