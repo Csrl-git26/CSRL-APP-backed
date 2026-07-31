@@ -353,6 +353,68 @@ app.get('/api/analytics/test-columns', authenticateToken, async (req, res) => {
 
 // ── Student CRUD (Admin only) ──────────────────────────────────────────────────
 
+/**
+ * POST /api/students/bulk-upsert
+ * High-performance bulk import: accepts an array of student objects and uses
+ * MongoDB bulkWrite to insert/update ALL of them in a single database round-trip.
+ * Body: { students: [ { ROLL_KEY, centerCode, ... }, ... ] }
+ */
+app.post('/api/students/bulk-upsert', authenticateToken, requireAdmin, async (req, res) => {
+  const { students } = req.body;
+  if (!Array.isArray(students) || students.length === 0) {
+    return res.status(400).json({ message: 'students array is required' });
+  }
+
+  try {
+    if (!isDbEnabled()) {
+      return res.status(500).json({ message: 'Database not enabled' });
+    }
+
+    await initMongo();
+
+    const ops = students.map((student) => {
+      const roll = normalizeRollKey(student.ROLL_KEY);
+      const center = normalizeCenterCode(student.centerCode);
+      if (!roll || !center) return null;
+
+      const doc = { ...student, ROLL_KEY: roll, centerCode: center };
+      if (!doc.stream) doc.stream = 'JEE';
+
+      return {
+        updateOne: {
+          filter: { ROLL_KEY: roll, centerCode: center },
+          update: { $set: doc },
+          upsert: true,
+        },
+      };
+    }).filter(Boolean);
+
+    if (ops.length === 0) {
+      return res.status(400).json({ message: 'No valid students in array' });
+    }
+
+    const Profile = (await import('./models/Profile.js')).default;
+    const result = await Profile.bulkWrite(ops, { ordered: false });
+
+    invalidateDataCache();
+
+    const inserted = result.upsertedCount || 0;
+    const modified = result.modifiedCount || 0;
+    console.log(`[BULK] Bulk upsert: ${inserted} inserted, ${modified} updated out of ${ops.length} students`);
+
+    return res.json({
+      success: true,
+      inserted,
+      updated: modified,
+      total: ops.length,
+      message: `Bulk import complete: ${inserted} new, ${modified} updated.`,
+    });
+  } catch (e) {
+    console.error('[BULK] Bulk upsert failed:', e);
+    return res.status(500).json({ message: e.message || 'Bulk upsert failed' });
+  }
+});
+
 app.post('/api/students', authenticateToken, requireAdmin, async (req, res) => {
   const student = req.body;
   if (!student.ROLL_KEY) return res.status(400).json({ message: 'ROLL_KEY is required' });
