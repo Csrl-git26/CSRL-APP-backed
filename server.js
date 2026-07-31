@@ -70,10 +70,7 @@ function normalizeRollKey(v) {
 }
 
 function normalizeCenterCode(v) {
-  const code = String(v ?? '').trim().toUpperCase();
-  if (code === 'KNP' || code === 'KANPUR') return 'GAIL';
-  if (code === 'JDH' || code === 'JDP' || code === 'JODHPUR') return 'OIL_INDIA';
-  return code;
+  return String(v ?? '').trim().toUpperCase();
 }
 
 function findProfileIndex(globalData, rollKey, centerCode) {

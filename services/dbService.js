@@ -123,10 +123,7 @@ export async function loadApplicationData() {
 }
 
 function normalizeCenterCode(v) {
-  const code = String(v ?? '').trim().toUpperCase();
-  if (code === 'KNP' || code === 'KANPUR') return 'GAIL';
-  if (code === 'JDH' || code === 'JDP' || code === 'JODHPUR') return 'OIL_INDIA';
-  return code;
+  return String(v ?? '').trim().toUpperCase();
 }
 
 export function sliceCenterFromGlobal(globalData, centerCode) {
