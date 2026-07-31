@@ -377,7 +377,14 @@ app.post('/api/students/bulk-upsert', authenticateToken, requireAdmin, async (re
       const center = normalizeCenterCode(student.centerCode);
       if (!roll || !center) return null;
 
-      const doc = { ...student, ROLL_KEY: roll, centerCode: center };
+      // MongoDB does not allow dots in field names.
+      const sanitizedStudent = {};
+      for (const [k, v] of Object.entries(student)) {
+        const safeKey = k.replace(/\./g, '___dot___');
+        sanitizedStudent[safeKey] = v;
+      }
+
+      const doc = { ...sanitizedStudent, ROLL_KEY: roll, centerCode: center };
       if (!doc.stream) doc.stream = 'JEE';
 
       return {
