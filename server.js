@@ -485,6 +485,38 @@ app.put('/api/students/:rollKey', authenticateToken, requireAdmin, async (req, r
   }
 });
 
+/**
+ * POST /api/students/bulk-delete
+ * Fast deletion of multiple students using MongoDB $in operator.
+ * Body: { rollKeys: ["roll1", "roll2", ...] }
+ */
+app.post('/api/students/bulk-delete', authenticateToken, requireAdmin, async (req, res) => {
+  const { rollKeys } = req.body;
+  if (!Array.isArray(rollKeys) || rollKeys.length === 0) {
+    return res.status(400).json({ message: 'rollKeys array is required' });
+  }
+
+  try {
+    if (!isDbEnabled()) {
+      return res.status(500).json({ message: 'Database not enabled' });
+    }
+    await initMongo();
+    const Profile = (await import('./models/Profile.js')).default;
+    const TestScore = (await import('./models/TestScore.js')).default;
+
+    const profileResult = await Profile.deleteMany({ ROLL_KEY: { $in: rollKeys } });
+    await TestScore.deleteMany({ ROLL_KEY: { $in: rollKeys } });
+
+    invalidateDataCache();
+    console.log(`[BULK] Deleted ${profileResult.deletedCount} student profiles for ${rollKeys.length} requested keys.`);
+
+    return res.json({ success: true, deletedCount: profileResult.deletedCount });
+  } catch (e) {
+    console.error('[BULK] Bulk delete failed:', e);
+    return res.status(500).json({ message: e.message || 'Bulk delete failed' });
+  }
+});
+
 app.delete('/api/students/:rollKey', authenticateToken, requireAdmin, async (req, res) => {
   const { rollKey } = req.params;
   const centerCode = req.query.centerCode;
