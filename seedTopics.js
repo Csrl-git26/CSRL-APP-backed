@@ -13,7 +13,7 @@ export const syllabusData = [
       "Work, Power & Energy",
       "Center of Mass & Collisions",
       "Rotation",
-      "SHM (Simple Harmonic Motion)",
+      "SHM",
       "WAVES",
       "Electrostatics",
       "Gravitation",
@@ -26,8 +26,8 @@ export const syllabusData = [
       "Semi Conductors",
       "Magnetic effect of current",
       "Magnetism",
-      "EMI (Electromagnetic Induction)",
-      "AC (Alternating Current)",
+      "EMI",
+      "AC",
       "Thermal Physics",
       "Elasticity",
       "Fluid"
@@ -74,7 +74,7 @@ export const syllabusData = [
   {
     subject: "Mathematics",
     topics: [
-      "Basic Maths, Sets & Relation (Basic trigonometry, Inequalities, Modulus, Logarithm, Functions & graphs, Greatest integer Function, Surds & Indices)",
+      "Basic Maths, Sets & Relation(Basic trigonometry, Inequalities, Modulus, Logarithm, Functions & graphs, Greatest integer Function, Surds & Indices.)",
       "Quadratic Equations",
       "Sequence & Series",
       "Trigonometric Identities, Equations & Inequalities, Properties & Solutions of Triangles",
@@ -89,13 +89,13 @@ export const syllabusData = [
       "Statistics",
       "Inverse trigonometric & Function",
       "Limits, Continuity & Differentiability",
-      "MOD (Method of Differentiation), Application of Derivatives",
+      "MOD, Application of Derivatives",
       "Indefinite Integration",
       "Definite Integration",
       "Area",
       "Differential Equations",
       "Complex Numbers",
-      "P & C (Permutation & Combination)",
+      "P & C",
       "Probability"
     ]
   }
