@@ -325,7 +325,39 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
   const chartData = buildStudentChartData(testDoc, source.testColumns);
   const weakSubj = computeStudentWeakSubject(testDoc, source.testColumns);
 
-  res.json({ chartData, weakSubject: weakSubj });
+  try {
+    const weakTopics = await StudentWeakTopics.find({ studentId: rollKey }).lean();
+    const weakMap = {};
+    for (const wt of weakTopics) {
+      weakMap[wt.testId] = wt;
+    }
+
+    const enrichedChartData = chartData.map((row) => {
+      const wt = weakMap[row.name];
+      if (wt) {
+        ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
+          const outSub = sub === 'Mathematics' ? 'Math' : sub;
+          const metrics = wt.subjectMetrics?.[sub];
+          if (metrics && metrics.attempted > 0) {
+            row[`${outSub}_Attempted`] = metrics.attempted;
+            row[`${outSub}_Correct`] = metrics.correct;
+            row[`${outSub}_Accuracy`] = Math.round((metrics.correct / metrics.attempted) * 100);
+          }
+        });
+        if (wt.attempted > 0) {
+          row['Total_Attempted'] = wt.attempted;
+          row['Total_Correct'] = wt.correct;
+          row['Total_Accuracy'] = Math.round((wt.correct / wt.attempted) * 100);
+        }
+      }
+      return row;
+    });
+
+    res.json({ chartData: enrichedChartData, weakSubject: weakSubj });
+  } catch (e) {
+    console.error('Error fetching student chart details', e);
+    res.json({ chartData, weakSubject: weakSubj });
+  }
 });
 
 /**
