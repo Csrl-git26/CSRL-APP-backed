@@ -347,7 +347,7 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
     }
 
     // Sort again just in case we appended tests
-    enrichedChartData.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    enrichedChartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
 
     const finalChartData = enrichedChartData.map((row) => {
       const normRowName = (row.name || '').replace(/\s+/g, '').toUpperCase();
