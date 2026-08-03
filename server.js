@@ -316,6 +316,10 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
  * Chart-ready performance data for a single student.
  */
 app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const { rollKey, centerCode } = req.query;
   if (!rollKey) return res.status(400).json({ message: 'rollKey is required' });
 
@@ -1087,7 +1091,7 @@ app.listen(PORT, async () => {
   console.log(`[Server] Core API Backend running on port ${PORT}`);
 
   try {
-    if (process.env.MONGODB_URI) {
+    if (process.env.MONGODB_URI || process.env.MONGO_URI) {
       await initMongo();
       await seedTopics(); // Seed the syllabus right after connecting!
     }
