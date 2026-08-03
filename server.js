@@ -378,7 +378,37 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
     res.json({ chartData: finalChartData, weakSubject: weakSubj });
   } catch (e) {
     console.error('Error fetching student chart details', e);
+    // fallback with error info for debugging
+    chartData.push({ name: 'ERROR: ' + e.message, Physics: 0, Chemistry: 0, Math: 0, Biology: 0, Total: 0 });
     res.json({ chartData, weakSubject: weakSubj });
+  }
+});
+
+// TEMPORARY DEBUG ROUTE
+app.get('/api/debug-chart/:rollKey', async (req, res) => {
+  try {
+    const rollKey = req.params.rollKey;
+    const global = await loadApplicationData();
+    const testDoc = global.tests.find((t) => t.ROLL_KEY === rollKey) || {};
+    const chartData = buildStudentChartData(testDoc, global.testColumns);
+    
+    const weakTopics = await StudentWeakTopics.find({ studentId: rollKey }).lean();
+    const weakMap = {};
+    for (const wt of weakTopics) {
+      const normKey = (wt.testId || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      weakMap[normKey] = wt;
+    }
+
+    res.json({
+      rollKey,
+      chartData,
+      weakTopicsCount: weakTopics.length,
+      weakTopicsRaw: weakTopics.map(w => w.testId),
+      weakMapKeys: Object.keys(weakMap),
+      testDocKeys: Object.keys(testDoc)
+    });
+  } catch (e) {
+    res.json({ error: e.message });
   }
 });
 
