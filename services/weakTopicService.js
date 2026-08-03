@@ -165,12 +165,10 @@ export async function computeWeakTopics(testId) {
         if (subj && subjectMetrics[subj]) {
           subjectMetrics[subj].totalQuestions++;
         }
-        
-        if (mark !== 0) {
-          attempted++;
-          if (subj && subjectMetrics[subj]) {
-            subjectMetrics[subj].attempted++;
-          }
+        // Since mark !== null, the question was attempted (even if the mark is 0)
+        attempted++;
+        if (subj && subjectMetrics[subj]) {
+          subjectMetrics[subj].attempted++;
         }
 
         if (mark > 0) {

@@ -333,7 +333,7 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
     const weakTopics = await StudentWeakTopics.find({ studentId: rollKey }).lean();
     const weakMap = {};
     for (const wt of weakTopics) {
-      const normKey = (wt.testId || '').replace(/\s+/g, '').toUpperCase();
+      const normKey = (wt.testId || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       weakMap[normKey] = wt;
     }
 
@@ -341,8 +341,8 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
 
     // Add any tests from weakTopics that are NOT in chartData (e.g. if they only uploaded Weak Topics and not Flat Marks)
     for (const wt of weakTopics) {
-      const normKey = (wt.testId || '').replace(/\s+/g, '').toUpperCase();
-      if (!enrichedChartData.some(r => (r.name || '').replace(/\s+/g, '').toUpperCase() === normKey)) {
+      const normKey = (wt.testId || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (!enrichedChartData.some(r => (r.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === normKey)) {
         enrichedChartData.push({
           name: wt.testId,
           Physics: null, Chemistry: null, Math: null, Biology: null, Total: null
@@ -354,7 +354,7 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
     enrichedChartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
 
     const finalChartData = enrichedChartData.map((row) => {
-      const normRowName = (row.name || '').replace(/\s+/g, '').toUpperCase();
+      const normRowName = (row.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       const wt = weakMap[normRowName];
       if (wt) {
         ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
