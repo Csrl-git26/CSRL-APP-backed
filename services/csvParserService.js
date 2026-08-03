@@ -36,7 +36,8 @@ export function buildTopicSubjectLookup(syllabusEntries) {
   for (const entry of syllabusEntries) {
     if (!KNOWN_SUBJECTS.has(entry.subject)) continue;
     for (const topic of (entry.topics || [])) {
-      TOPIC_SUBJECT_MAP[topic.trim()] = entry.subject;
+      const normalizedTopic = (topic || '').replace(/\s+/g, ' ').trim().toUpperCase();
+      TOPIC_SUBJECT_MAP[normalizedTopic] = entry.subject;
     }
   }
 }
@@ -53,6 +54,7 @@ export function buildTopicSubjectLookup(syllabusEntries) {
  */
 function inferSubject(rawTopic) {
   const trimmed = (rawTopic || '').trim();
+  const normalized = (rawTopic || '').replace(/\s+/g, ' ').trim().toUpperCase();
 
   // Format: "Physics: Kinematics" or "Chemistry:Thermodynamics"
   const colonIdx = trimmed.indexOf(':');
@@ -61,14 +63,15 @@ function inferSubject(rawTopic) {
     const topic  = trimmed.slice(colonIdx + 1).trim();
     if (KNOWN_SUBJECTS.has(prefix)) {
       // Also register in our runtime lookup so cross-question consistency works
-      TOPIC_SUBJECT_MAP[topic] = prefix;
+      const normTopic = topic.replace(/\s+/g, ' ').trim().toUpperCase();
+      TOPIC_SUBJECT_MAP[normTopic] = prefix;
       return { subject: prefix, topic };
     }
   }
 
   // Plain topic name → look up in runtime map
-  if (TOPIC_SUBJECT_MAP[trimmed]) {
-    return { subject: TOPIC_SUBJECT_MAP[trimmed], topic: trimmed };
+  if (TOPIC_SUBJECT_MAP[normalized]) {
+    return { subject: TOPIC_SUBJECT_MAP[normalized], topic: trimmed };
   }
 
   return { subject: null, topic: trimmed };
