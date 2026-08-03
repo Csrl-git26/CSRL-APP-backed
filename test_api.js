@@ -1,31 +1,17 @@
-import axios from 'axios';
-import { CENTERS_CONFIG } from './config/centers.js';
+import jwt from 'jsonwebtoken';
+import fetch from 'node-fetch';
 
-async function testBackend() {
-  try {
-    const loginRes = await axios.post('http://localhost:5000/api/auth/login', {
-      role: 'centre',
-      id: 'GAIL',
-      password: 'center123'
-    });
-    const token = loginRes.data.token;
-    console.log("Got token.");
+const secret = process.env.JWT_SECRET || 'csrl_super_secret_key_2026';
+const token = jwt.sign({ id: '2601001', role: 'student', centerCode: 'KNP' }, secret);
 
-    const centerRes = await axios.get('http://localhost:5000/api/data/center', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const data = centerRes.data;
-    console.log(`Profiles: ${data.profiles.length}`);
-    console.log(`Tests: ${data.tests.length}`);
-    console.log(`Test Columns:`, data.testColumns);
-    
-    if (data.profiles.length > 0) {
-      console.log("Sample Profile ROLL_KEY:", data.profiles[0].ROLL_KEY);
-      const studentTests = data.tests.find(t => t.ROLL_KEY === data.profiles[0].ROLL_KEY);
-      console.log("Sample Test Record:", !!studentTests ? "Exists" : "MISSING for ROLL_KEY " + data.profiles[0].ROLL_KEY);
-    }
-  } catch (error) {
-    console.error(error.response?.data || error.message);
-  }
+async function test() {
+  const url = 'https://csrl-app-backed.onrender.com/api/analytics/student-chart?rollKey=2601001';
+  const res = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  console.log(res.status);
+  const data = await res.json();
+  console.log(JSON.stringify(data, null, 2));
 }
-testBackend();
+
+test().catch(console.error);

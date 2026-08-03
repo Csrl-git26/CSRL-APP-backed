@@ -334,7 +334,35 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
     const weakMap = {};
     for (const wt of weakTopics) {
       const normKey = (wt.testId || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      weakMap[normKey] = wt;
+      if (!weakMap[normKey]) {
+        weakMap[normKey] = {
+          attempted: 0,
+          correct: 0,
+          wrong: 0,
+          totalQuestions: 0,
+          subjectMetrics: {
+            Physics: { attempted: 0, correct: 0, wrong: 0 },
+            Chemistry: { attempted: 0, correct: 0, wrong: 0 },
+            Mathematics: { attempted: 0, correct: 0, wrong: 0 },
+            Biology: { attempted: 0, correct: 0, wrong: 0 },
+          }
+        };
+      }
+      
+      const target = weakMap[normKey];
+      target.attempted += (wt.attempted || 0);
+      target.correct += (wt.correct || 0);
+      target.wrong += (wt.wrong || 0);
+      
+      if (wt.subjectMetrics) {
+        ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach(sub => {
+          if (wt.subjectMetrics[sub]) {
+            target.subjectMetrics[sub].attempted += (wt.subjectMetrics[sub].attempted || 0);
+            target.subjectMetrics[sub].correct += (wt.subjectMetrics[sub].correct || 0);
+            target.subjectMetrics[sub].wrong += (wt.subjectMetrics[sub].wrong || 0);
+          }
+        });
+      }
     }
 
     let enrichedChartData = [...chartData];
