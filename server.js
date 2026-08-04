@@ -450,7 +450,8 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
       return row;
     });
 
-    const overallWeak = await mongoose.model('StudentOverallWeakTopics').findOne({ studentId: rollKey }).lean();
+    const StudentOverallWeakTopics = (await import('./models/StudentOverallWeakTopics.js')).default;
+    const overallWeak = await StudentOverallWeakTopics.findOne({ studentId: rollKey }).lean();
 
     res.json({
       rollKey,
