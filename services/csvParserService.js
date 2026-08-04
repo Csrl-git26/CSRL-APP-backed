@@ -23,7 +23,79 @@ export const KNOWN_SUBJECTS = new Set(['Physics', 'Chemistry', 'Mathematics']);
 // Allows the upload sheet to carry only a topic name per question, while the
 // backend infers the subject. Extend this map or use SyllabusTopics from DB.
 // If a topic is not in this map, we return null (unknown subject → validation error).
-const TOPIC_SUBJECT_MAP = {};
+const TOPIC_SUBJECT_MAP = {
+  // Hardcoded mappings provided by the user for standardizing uploads
+  // Physics
+  'GENERAL PHYSICS AND EXPERIMENTAL SKILLS': 'Physics',
+  'KINEMATICS': 'Physics',
+  'CIRCULAR MOTION': 'Physics',
+  'WORK, POWER & ENERGY': 'Physics',
+  'LAWS OF MOTION, FRICTION': 'Physics',
+  'SHM': 'Physics',
+  'ROTATION': 'Physics',
+  'CENTER OF MASS & COLLISIONS': 'Physics',
+  'GRAVITATION': 'Physics',
+  'THERMAL PHYSICS': 'Physics',
+  'ELECTROSTATICS': 'Physics',
+  'EMI': 'Physics',
+  'CAPACITORS': 'Physics',
+  'CURRENT ELECTRICITY': 'Physics',
+  'MAGNETIC EFFECT OF CURRENT': 'Physics',
+  'GEOMETRIC OPTICS': 'Physics',
+  'MODERN PHYSICS': 'Physics',
+  'WAVE OPTICS': 'Physics',
+  'EM WAVES': 'Physics',
+  'ELASTICITY': 'Physics',
+  'FLUID': 'Physics',
+  'FLUID MECHANICS': 'Physics',
+
+  // Chemistry
+  'PURIFICATION & CHARACTERISATION OF ORGANIC COMPOUNDS': 'Chemistry',
+  'CLASSIFICATION OF ELEMENTS & PERIODICITY IN PROPERTIES': 'Chemistry',
+  'CHEMICAL EQUILIBRIUM': 'Chemistry',
+  'CHEMICAL KINETICS': 'Chemistry',
+  'SOLUTIONS': 'Chemistry',
+  'REDOX REACTIONS': 'Chemistry',
+  'CHEMICAL THERMODYNAMICS': 'Chemistry',
+  'HYDROCARBONS-ALKANES, ALKENES, ALKYNES & AROMATIC HYDROCARBONS': 'Chemistry',
+  'ORGANIC COMPOUNDS CONTAINING NITROGEN-AMINES & DIAZONIUM SALTS': 'Chemistry',
+  'BIOMOLECULES': 'Chemistry',
+  'D & F BLOCK ELEMENTS': 'Chemistry',
+  'ORGANIC COMPOUNDS CONTAINING OXYGEN-ALCOHOLS, PHENOLS & ETHERS, ALDEHYDES & KETONES, CARBOXYLIC ACIDS': 'Chemistry',
+  'P BLOCK ELEMENTS': 'Chemistry',
+  'PRINCIPLES RELATED TO PRACTICAL CHEMISTRY-INORGANIC & ORGANIC': 'Chemistry',
+  'ELECTROCHEMISTRY': 'Chemistry',
+  'COORDINATION COMPOUNDS': 'Chemistry',
+  'ORGANIC COMPOUNDS CONTAINING HALOGENS-HALOALKANES & HALOARENES': 'Chemistry',
+  'CHEMICAL BONDING & MOLECULAR STRUCTURE': 'Chemistry',
+  'SOME BASIC CONCEPTS OF CHEMISTRY': 'Chemistry',
+  'IONIC EQUILIBRIUM': 'Chemistry',
+  'ISOMERISM - STRUCTURAL & STEREOISOMERISM': 'Chemistry',
+
+  // Mathematics
+  '3-D GEOMETRY': 'Mathematics',
+  'COMPLEX NUMBERS': 'Mathematics',
+  'MATRICES & DETERMINANTS': 'Mathematics',
+  'PROBABILITY': 'Mathematics',
+  'VECTORS': 'Mathematics',
+  'INDEFINITE INTEGRATION': 'Mathematics',
+  'ELLIPSE & HYPERBOLA': 'Mathematics',
+  'MOD, APPLICATION OF DERIVATIVES': 'Mathematics',
+  'DEFINITE INTEGRATION': 'Mathematics',
+  'DIFFERENTIAL EQUATIONS': 'Mathematics',
+  'SEQUENCE & SERIES': 'Mathematics',
+  'INVERSE TRIGONOMETRIC & FUNCTION': 'Mathematics',
+  'BASIC MATHS, SETS & RELATION(BASIC TRIGONOMETRY, INEQUALITIES, MODULUS, LOGARITHM, FUNCTIONS & GRAPHS, GREATEST INTEGER FUNCTION, SURDS & INDICES.)': 'Mathematics',
+  'QUADRATIC EQUATIONS': 'Mathematics',
+  'LIMITS, CONTINUITY & DIFFERENTIABILITY': 'Mathematics',
+  'AREA': 'Mathematics',
+  'BINOMIAL THEOREM': 'Mathematics',
+  'STATISTICS': 'Mathematics',
+  'TRIGONOMETRIC IDENTITIES, EQUATIONS & INEQUALITIES, PROPERTIES & SOLUTIONS OF TRIANGLES': 'Mathematics',
+  'STRAIGHT LINES AND PAIR OF STRAIGHT LINES': 'Mathematics',
+  'PARABOLA': 'Mathematics',
+  'P & C': 'Mathematics',
+};
 
 /**
  * buildTopicSubjectLookup — merge topic→subject entries from the DB (SyllabusTopics)
