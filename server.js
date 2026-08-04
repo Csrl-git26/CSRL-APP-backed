@@ -427,9 +427,32 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
       weakMap[normKey] = wt;
     }
 
+    const enrichedChartData = [...chartData];
+    const finalChartData = enrichedChartData.map((row) => {
+      const normRowName = (row.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      const wt = weakMap[normRowName];
+      if (wt) {
+        ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
+          const outSub = sub === 'Mathematics' ? 'Math' : sub;
+          const metrics = wt.subjectMetrics?.[sub];
+          if (metrics && metrics.attempted > 0) {
+            row[`${outSub}_Attempted`] = metrics.attempted;
+            row[`${outSub}_Correct`] = metrics.correct;
+            row[`${outSub}_Accuracy`] = Math.round((metrics.correct / metrics.attempted) * 100);
+          }
+        });
+        if (wt.attempted > 0) {
+          row['Total_Attempted'] = wt.attempted;
+          row['Total_Correct'] = wt.correct;
+          row['Total_Accuracy'] = Math.round((wt.correct / wt.attempted) * 100);
+        }
+      }
+      return row;
+    });
+
     res.json({
       rollKey,
-      chartData,
+      chartData: finalChartData,
       weakTopicsCount: weakTopics.length,
       weakTopicsRaw: weakTopics.map(w => w.testId),
       weakMapKeys: Object.keys(weakMap),
