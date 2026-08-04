@@ -433,6 +433,7 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
       weakTopicsCount: weakTopics.length,
       weakTopicsRaw: weakTopics.map(w => w.testId),
       weakMapKeys: Object.keys(weakMap),
+      weakMapFull: weakMap,
       testDocKeys: Object.keys(testDoc)
     });
   } catch (e) {
