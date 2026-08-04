@@ -129,7 +129,9 @@ function normalizeCenterCode(v) {
 export function sliceCenterFromGlobal(globalData, centerCode) {
   const normCenter = normalizeCenterCode(centerCode);
   const profiles = globalData.profiles.filter((p) => normalizeCenterCode(p.centerCode) === normCenter);
-  const tests = globalData.tests.filter((t) => normalizeCenterCode(t.centerCode) === normCenter);
+  
+  const rollSet = new Set(profiles.map(p => p.ROLL_KEY));
+  const tests = globalData.tests.filter((t) => rollSet.has(t.ROLL_KEY));
   const colSet = new Set();
   tests.forEach((t) => {
     Object.keys(t).forEach((k) => {
