@@ -146,12 +146,24 @@ function inferSubject(rawTopic) {
     return { subject: TOPIC_SUBJECT_MAP[normalized], topic: trimmed };
   }
 
-  // Fallback: Prefix/Substring matching for truncated topics (e.g. "Basic Maths, Sets & Relation...")
+  // Fallback 1: Prefix/Substring matching for truncated topics (e.g. "Basic Maths, Sets & Relation...")
   // We use /[\.…]+$/ to catch both three dots and the single unicode ellipsis character
   const normNoEllipsis = normalized.replace(/[\.…]+$/, '').trim();
   for (const [knownTopic, knownSubject] of Object.entries(TOPIC_SUBJECT_MAP)) {
     if (knownTopic.startsWith(normNoEllipsis) || normNoEllipsis.startsWith(knownTopic)) {
       return { subject: knownSubject, topic: trimmed };
+    }
+  }
+
+  // Fallback 2: Ultra-normalized matching (strip ALL non-alphanumeric characters)
+  // This defeats zero-width spaces, punctuation typos, and formatting differences.
+  const ultraIn = normalized.replace(/[^a-zA-Z0-9]/g, '');
+  if (ultraIn.length > 5) { // Only do this for reasonably long topics to avoid false positives
+    for (const [knownTopic, knownSubject] of Object.entries(TOPIC_SUBJECT_MAP)) {
+      const ultraKnown = knownTopic.replace(/[^a-zA-Z0-9]/g, '');
+      if (ultraKnown.startsWith(ultraIn) || ultraIn.startsWith(ultraKnown)) {
+        return { subject: knownSubject, topic: trimmed };
+      }
     }
   }
 
