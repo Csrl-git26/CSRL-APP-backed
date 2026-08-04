@@ -147,7 +147,8 @@ function inferSubject(rawTopic) {
   }
 
   // Fallback: Prefix/Substring matching for truncated topics (e.g. "Basic Maths, Sets & Relation...")
-  const normNoEllipsis = normalized.replace(/\.+$/, '').trim();
+  // We use /[\.…]+$/ to catch both three dots and the single unicode ellipsis character
+  const normNoEllipsis = normalized.replace(/[\.…]+$/, '').trim();
   for (const [knownTopic, knownSubject] of Object.entries(TOPIC_SUBJECT_MAP)) {
     if (knownTopic.startsWith(normNoEllipsis) || normNoEllipsis.startsWith(knownTopic)) {
       return { subject: knownSubject, topic: trimmed };
