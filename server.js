@@ -450,6 +450,8 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
       return row;
     });
 
+    const overallWeak = await mongoose.model('StudentOverallWeakTopics').findOne({ studentId: rollKey }).lean();
+
     res.json({
       rollKey,
       chartData: finalChartData,
@@ -457,6 +459,7 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
       weakTopicsRaw: weakTopics.map(w => w.testId),
       weakMapKeys: Object.keys(weakMap),
       weakMapFull: weakMap,
+      overallWeakUpdatedAt: overallWeak ? overallWeak.updatedAt : null,
       testDocKeys: Object.keys(testDoc)
     });
   } catch (e) {
