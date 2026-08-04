@@ -141,18 +141,9 @@ function inferSubject(rawTopic) {
     }
   }
 
-  // Plain topic name → look up in runtime map
+  // Exact Match
   if (TOPIC_SUBJECT_MAP[normalized]) {
     return { subject: TOPIC_SUBJECT_MAP[normalized], topic: trimmed };
-  }
-
-  // Fallback 1: Prefix/Substring matching for truncated topics (e.g. "Basic Maths, Sets & Relation...")
-  // We use /[\.…]+$/ to catch both three dots and the single unicode ellipsis character
-  const normNoEllipsis = normalized.replace(/[\.…]+$/, '').trim();
-  for (const [knownTopic, knownSubject] of Object.entries(TOPIC_SUBJECT_MAP)) {
-    if (knownTopic.startsWith(normNoEllipsis) || normNoEllipsis.startsWith(knownTopic)) {
-      return { subject: knownSubject, topic: trimmed };
-    }
   }
 
   // Fallback 2: Ultra-normalized matching (strip ALL non-alphanumeric characters)
