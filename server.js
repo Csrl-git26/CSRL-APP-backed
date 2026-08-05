@@ -177,11 +177,6 @@ app.get('/api/data/centers', authenticateToken, async (req, res) => {
   const global = await loadApplicationData();
   const centerMap = {};
   
-  const defaults = {
-    'GAIL': { code: 'GAIL', name: 'KNP', sponsor: 'GAIL' },
-    'OIL_INDIA': { code: 'OIL_INDIA', name: 'JDH', sponsor: 'OIL_INDIA' }
-  };
-  
   global.profiles.forEach((p) => {
     if (!p.centerCode) return;
     const code = p.centerCode.toUpperCase();
@@ -197,23 +192,7 @@ app.get('/api/data/centers', authenticateToken, async (req, res) => {
     
     centerMap[code].name = currentSponsor ? `${currentSponsor}-${currentCenterCode}` : currentCenterCode;
   });
-  
-  Object.keys(defaults).forEach((code) => {
-    if (!centerMap[code]) {
-      const def = defaults[code];
-      centerMap[code] = {
-        code: def.code,
-        sponsor: def.sponsor,
-        name: def.sponsor ? `${def.sponsor}-${def.name}` : def.name
-      };
-    } else {
-      if (!centerMap[code].sponsor) centerMap[code].sponsor = defaults[code].sponsor;
-      const currentSponsor = centerMap[code].sponsor;
-      // If it still equals code, use default name
-      const baseName = (centerMap[code].name === code || centerMap[code].name === `${currentSponsor}-${code}`) ? defaults[code].name : centerMap[code].name.replace(`${currentSponsor}-`, '');
-      centerMap[code].name = currentSponsor ? `${currentSponsor}-${baseName}` : baseName;
-    }
-  });
+
 
   res.json(Object.values(centerMap));
 });
