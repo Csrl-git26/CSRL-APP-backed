@@ -366,7 +366,7 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
       // Calculate global rankings for this test
       ['Total', 'Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
         const outSub = sub === 'Mathematics' ? 'Math' : sub;
-        const testKey = `${row.name}-${sub}`;
+        const testKey = sub === 'Total' ? row.name : `${row.name}_${sub}`;
         const rankedList = rankStudentsByTest(global.profiles, global.tests, testKey);
         const studentRankObj = rankedList.find(s => s.roll === rollKey);
         if (studentRankObj && studentRankObj.rank !== '-') {
