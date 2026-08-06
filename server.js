@@ -364,13 +364,12 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
       const normRowName = (row.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       
       // Calculate global rankings for this test
-      ['Total', 'Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
-        const outSub = sub === 'Mathematics' ? 'Math' : sub;
+      ['Total', 'Physics', 'Chemistry', 'Math', 'Biology'].forEach((sub) => {
         const testKey = sub === 'Total' ? row.name : `${row.name}_${sub}`;
         const rankedList = rankStudentsByTest(global.profiles, global.tests, testKey);
         const studentRankObj = rankedList.find(s => s.roll === rollKey);
         if (studentRankObj && studentRankObj.rank !== '-') {
-          row[`${outSub}_Rank`] = studentRankObj.rank;
+          row[`${sub}_Rank`] = studentRankObj.rank;
         }
       });
 
