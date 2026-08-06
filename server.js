@@ -362,6 +362,18 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
 
     const finalChartData = enrichedChartData.map((row) => {
       const normRowName = (row.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      
+      // Calculate global rankings for this test
+      ['Total', 'Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
+        const outSub = sub === 'Mathematics' ? 'Math' : sub;
+        const testKey = `${row.name}-${sub}`;
+        const rankedList = rankStudentsByTest(global.profiles, global.tests, testKey);
+        const studentRankObj = rankedList.find(s => s.roll === rollKey);
+        if (studentRankObj && studentRankObj.rank !== '-') {
+          row[`${outSub}_Rank`] = studentRankObj.rank;
+        }
+      });
+
       const wt = weakMap[normRowName];
       if (wt) {
         ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
@@ -409,6 +421,18 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
     const enrichedChartData = [...chartData];
     const finalChartData = enrichedChartData.map((row) => {
       const normRowName = (row.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      
+      // Calculate global rankings for this test
+      ['Total', 'Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
+        const outSub = sub === 'Mathematics' ? 'Math' : sub;
+        const testKey = `${row.name}-${sub}`;
+        const rankedList = rankStudentsByTest(global.profiles, global.tests, testKey);
+        const studentRankObj = rankedList.find(s => s.roll === rollKey);
+        if (studentRankObj && studentRankObj.rank !== '-') {
+          row[`${outSub}_Rank`] = studentRankObj.rank;
+        }
+      });
+
       const wt = weakMap[normRowName];
       if (wt) {
         ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
