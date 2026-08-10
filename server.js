@@ -26,7 +26,7 @@ import {
   getReadCacheStatus,
   invalidateDataCache,
 } from './services/dbService.js';
-import { flatToNested } from './utils/testColumns.js';
+import { flatToNested, parseTestColumn } from './utils/testColumns.js';
 import {
   computeOverview,
   rankStudentsByTest,
