@@ -560,7 +560,8 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
           const b = parseFloat(t[testColB] || 0);
           
           const profile = source.profiles.find(pr => pr.ROLL_KEY === t.ROLL_KEY);
-          const stream = profile ? (profile['STREAM'] || '').toUpperCase() : 'JEE';
+          const streamRaw = profile?.stream || profile?.STREAM || t.stream || 'JEE';
+          const stream = String(streamRaw).toUpperCase();
           
           if (stream === 'JEE') {
             if (tot >= 120 && p >= 35 && c >= 35 && m >= 35) qualified++;
