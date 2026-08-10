@@ -256,7 +256,51 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
   const global = await loadApplicationData();
-  const result = rankCentresByTest(global.profiles, global.tests, testKey, global.testColumns);
+  let result = rankCentresByTest(global.profiles, global.tests, testKey, global.testColumns);
+
+  try {
+    const weakData = await CenterWeakTopics.find({ testId: testKey }).lean();
+    
+    result = result.map(centre => {
+      const centerAccData = weakData.find(d => d.centerId === centre.code);
+      let accuracyWeakSubject = 'None';
+      
+      if (centerAccData && centerAccData.weakSubjects) {
+        let highestPercent = 0;
+        let weakestSub = null;
+        let isMedium = false;
+        
+        Object.keys(centerAccData.weakSubjects).forEach(sub => {
+          const strong = centerAccData.weakSubjects[sub]?.strongWeak;
+          if (strong && strong.length > 0 && strong[0].percentage > highestPercent) {
+            highestPercent = strong[0].percentage;
+            weakestSub = sub;
+            isMedium = false;
+          }
+        });
+        
+        if (!weakestSub) {
+          Object.keys(centerAccData.weakSubjects).forEach(sub => {
+            const medium = centerAccData.weakSubjects[sub]?.mediumWeak;
+            if (medium && medium.length > 0 && medium[0].percentage > highestPercent) {
+              highestPercent = medium[0].percentage;
+              weakestSub = sub;
+              isMedium = true;
+            }
+          });
+        }
+        
+        if (weakestSub) {
+          accuracyWeakSubject = isMedium ? `${weakestSub} (Medium)` : weakestSub;
+        }
+      }
+      
+      return { ...centre, accuracyWeakSubject };
+    });
+  } catch (error) {
+    console.error('Error fetching accuracy weak topics for leaderboard:', error);
+  }
+
   res.json(result);
 });
 
