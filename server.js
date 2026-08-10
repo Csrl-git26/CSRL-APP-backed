@@ -257,6 +257,8 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
 
   const global = await loadApplicationData();
   let result = rankCentresByTest(global.profiles, global.tests, testKey, global.testColumns);
+  
+  const insights = computeTestInsights(global.profiles, global.tests, testKey, global.testColumns);
 
   try {
     const weakData = await CenterWeakTopics.find({ testId: testKey }).lean();
@@ -295,7 +297,11 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
         }
       }
       
-      return { ...centre, accuracyWeakSubject };
+      const insightRow = insights.centreRows.find(r => r.code === centre.code);
+      const qualRate = insightRow ? insightRow.qualRate : 0;
+      const qualifiedCount = insightRow ? insightRow.qualified : 0;
+      
+      return { ...centre, accuracyWeakSubject, qualRate, qualifiedCount };
     });
   } catch (error) {
     console.error('Error fetching accuracy weak topics for leaderboard:', error);
