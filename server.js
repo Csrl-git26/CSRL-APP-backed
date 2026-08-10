@@ -539,39 +539,13 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
         }
       }
 
-      let qualified = 0;
-      let tested = 0;
       const testName = row.name;
       
-      const testColTotal = source.testColumns.find(c => parseTestColumn(c).testName === testName && (parseTestColumn(c).isTotal || parseTestColumn(c).subject === 'Total'));
-      const testColP = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Physics');
-      const testColC = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Chemistry');
-      const testColM = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Math');
-      const testColB = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Biology');
-
-      centerTests.forEach(t => {
-        const totRaw = t[testColTotal];
-        if (totRaw !== undefined && totRaw !== null && totRaw !== '' && !isNaN(parseFloat(totRaw))) {
-          tested++;
-          const tot = parseFloat(totRaw);
-          const p = parseFloat(t[testColP] || 0);
-          const c = parseFloat(t[testColC] || 0);
-          const m = parseFloat(t[testColM] || 0);
-          const b = parseFloat(t[testColB] || 0);
-          
-          const profile = source.profiles.find(pr => pr.ROLL_KEY === t.ROLL_KEY);
-          const streamRaw = profile?.stream || profile?.STREAM || t.stream || 'JEE';
-          const stream = String(streamRaw).toUpperCase();
-          
-          if (stream === 'JEE') {
-            if (tot >= 120 && p >= 35 && c >= 35 && m >= 35) qualified++;
-          } else {
-            if (tot >= 550 && b >= 126 && p >= 63 && c >= 63) qualified++;
-          }
-        }
-      });
+      // Use computeTestInsights to guarantee 100% identical qualification rate as Leaderboard
+      const insights = computeTestInsights(global.profiles, global.tests, testName, global.testColumns, {});
+      const centreRow = insights.centreRows.find(r => r.code === centerCode);
       
-      row.qualRate = tested > 0 ? Math.round((qualified / tested) * 100) : null;
+      row.qualRate = centreRow && centreRow.appeared > 0 ? centreRow.qualRate : null;
 
       return row;
     });
