@@ -538,6 +538,40 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
           row['Total_Accuracy'] = Math.round((wt.totalCorrect / wt.totalAttempted) * 100);
         }
       }
+
+      let qualified = 0;
+      let tested = 0;
+      const testName = row.name;
+      
+      const testColTotal = source.testColumns.find(c => parseTestColumn(c).testName === testName && (parseTestColumn(c).isTotal || parseTestColumn(c).subject === 'Total'));
+      const testColP = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Physics');
+      const testColC = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Chemistry');
+      const testColM = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Mathematics');
+      const testColB = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Biology');
+
+      centerTests.forEach(t => {
+        const totRaw = t[testColTotal];
+        if (totRaw !== undefined && totRaw !== null && totRaw !== '' && !isNaN(parseFloat(totRaw))) {
+          tested++;
+          const tot = parseFloat(totRaw);
+          const p = parseFloat(t[testColP] || 0);
+          const c = parseFloat(t[testColC] || 0);
+          const m = parseFloat(t[testColM] || 0);
+          const b = parseFloat(t[testColB] || 0);
+          
+          const profile = source.profiles.find(pr => pr.ROLL_KEY === t.ROLL_KEY);
+          const stream = profile ? (profile['STREAM'] || '').toUpperCase() : 'JEE';
+          
+          if (stream === 'JEE') {
+            if (tot >= 120 && p >= 35 && c >= 35 && m >= 35) qualified++;
+          } else {
+            if (tot >= 550 && b >= 126 && p >= 63 && c >= 63) qualified++;
+          }
+        }
+      });
+      
+      row.qualRate = tested > 0 ? Math.round((qualified / tested) * 100) : null;
+
       return row;
     });
 
