@@ -546,7 +546,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
       const testColTotal = source.testColumns.find(c => parseTestColumn(c).testName === testName && (parseTestColumn(c).isTotal || parseTestColumn(c).subject === 'Total'));
       const testColP = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Physics');
       const testColC = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Chemistry');
-      const testColM = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Mathematics');
+      const testColM = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Math');
       const testColB = source.testColumns.find(c => parseTestColumn(c).testName === testName && parseTestColumn(c).subject === 'Biology');
 
       centerTests.forEach(t => {
