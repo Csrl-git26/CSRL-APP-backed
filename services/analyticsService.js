@@ -642,3 +642,45 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       'Based on stored marks only. Score % uses stream maxima (JEE: 300 total, 100 per subject; NEET: 720 total, 180+180+360). Qualification uses default cutoffs (JEE: 40% of total, NEET: fixed 550 total, and 35% per subject). Attempt accuracy is not stored in this system.',
   };
 }
+
+/**
+ * Build chart-ready average data for an entire centre.
+ */
+export function buildCentreChartData(centerTests, testColumns) {
+  const testsMap = {};
+
+  centerTests.forEach((t) => {
+    (testColumns || []).forEach((col) => {
+      const { subject, testName, isTotal } = parseTestColumn(col);
+      if (!testsMap[testName]) testsMap[testName] = { name: testName, count: 0, sumTotal: 0, subjectSums: {}, subjectCounts: {} };
+      
+      const raw = t[col];
+      if (hasUsableScore(raw)) {
+        const m = parseFloat(raw);
+        if (!isNaN(m)) {
+          if (isTotal || subject === 'Total') {
+            testsMap[testName].sumTotal += m;
+            testsMap[testName].count += 1;
+          } else {
+            if (!testsMap[testName].subjectSums[subject]) {
+              testsMap[testName].subjectSums[subject] = 0;
+              testsMap[testName].subjectCounts[subject] = 0;
+            }
+            testsMap[testName].subjectSums[subject] += m;
+            testsMap[testName].subjectCounts[subject] += 1;
+          }
+        }
+      }
+    });
+  });
+
+  return Object.values(testsMap).map(agg => {
+    const row = { name: agg.name, Total: agg.count > 0 ? Math.round(agg.sumTotal / agg.count) : null };
+    ['Physics', 'Chemistry', 'Math', 'Biology'].forEach(sub => {
+      const sum = agg.subjectSums[sub];
+      const count = agg.subjectCounts[sub];
+      row[sub] = (count > 0) ? Math.round(sum / count) : null;
+    });
+    return row;
+  }).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+}

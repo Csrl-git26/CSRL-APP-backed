@@ -35,9 +35,9 @@ import {
   computeWeakSubjectAnalysis,
   subjectAverages,
   subjectAveragesForTest,
-  buildStudentChartData,
   computeStudentWeakSubject,
   computeTestInsights,
+  buildCentreChartData,
 } from './services/analyticsService.js';
 import { CENTERS_CONFIG, ADMIN_CREDENTIALS } from './config/centers.js';
 
@@ -449,6 +449,102 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
     // fallback with error info for debugging
     chartData.push({ name: 'ERROR: ' + e.message, Physics: 0, Chemistry: 0, Math: 0, Biology: 0, Total: 0 });
     res.json({ chartData, weakSubject: weakSubj });
+  }
+});
+
+/**
+ * GET /api/analytics/centre-chart?centerCode=
+ * Aggregates all students in a centre to provide chart-ready performance averages.
+ */
+app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
+  const { centerCode } = req.query;
+  if (!centerCode) return res.status(400).json({ message: 'centerCode is required' });
+
+  try {
+    const global = await loadApplicationData();
+    const source = sliceCenterFromGlobal(global, centerCode);
+    const centerTests = source.tests;
+    const rollKeys = centerTests.map(t => t.ROLL_KEY);
+
+    const chartData = buildCentreChartData(centerTests, source.testColumns);
+
+    const weakTopics = await StudentWeakTopics.find({ studentId: { $in: rollKeys } }).lean();
+    const weakMap = {};
+    
+    for (const wt of weakTopics) {
+      const normKey = (wt.testId || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (!weakMap[normKey]) {
+        weakMap[normKey] = {
+          studentCountTotal: 0, totalAttempted: 0, totalCorrect: 0,
+          subjectMetrics: {
+            Physics: { attempted: 0, correct: 0, students: 0 },
+            Chemistry: { attempted: 0, correct: 0, students: 0 },
+            Mathematics: { attempted: 0, correct: 0, students: 0 },
+            Biology: { attempted: 0, correct: 0, students: 0 },
+          }
+        };
+      }
+      
+      const target = weakMap[normKey];
+      if (wt.attempted > 0) {
+         target.studentCountTotal++;
+         target.totalAttempted += wt.attempted;
+         target.totalCorrect += wt.correct;
+      }
+      
+      if (wt.subjectMetrics) {
+        ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach(sub => {
+          if (wt.subjectMetrics[sub] && wt.subjectMetrics[sub].attempted > 0) {
+            target.subjectMetrics[sub].students++;
+            target.subjectMetrics[sub].attempted += wt.subjectMetrics[sub].attempted;
+            target.subjectMetrics[sub].correct += wt.subjectMetrics[sub].correct;
+          }
+        });
+      }
+    }
+
+    for (const normKey of Object.keys(weakMap)) {
+      if (!chartData.some(r => (r.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === normKey)) {
+        const wtDoc = weakTopics.find(wt => (wt.testId || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === normKey);
+        chartData.push({
+          name: wtDoc ? wtDoc.testId : normKey,
+          Physics: null, Chemistry: null, Math: null, Biology: null, Total: null
+        });
+      }
+    }
+
+    chartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
+
+    const finalChartData = chartData.map((row) => {
+      const normRowName = (row.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      const wt = weakMap[normRowName];
+      if (wt) {
+        ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
+          const outSub = sub === 'Mathematics' ? 'Math' : sub;
+          const metrics = wt.subjectMetrics?.[sub];
+          if (metrics && metrics.students > 0) {
+            row[`${outSub}_Attempted`] = Math.round(metrics.attempted / metrics.students);
+            row[`${outSub}_Correct`] = Math.round(metrics.correct / metrics.students);
+            row[`${outSub}_Accuracy`] = Math.round((metrics.correct / metrics.attempted) * 100);
+          }
+        });
+        if (wt.studentCountTotal > 0) {
+          row['Total_Attempted'] = Math.round(wt.totalAttempted / wt.studentCountTotal);
+          row['Total_Correct'] = Math.round(wt.totalCorrect / wt.studentCountTotal);
+          row['Total_Accuracy'] = Math.round((wt.totalCorrect / wt.totalAttempted) * 100);
+        }
+      }
+      return row;
+    });
+
+    res.json({ chartData: finalChartData });
+  } catch (e) {
+    console.error('Error fetching centre chart details', e);
+    res.status(500).json({ chartData: [], message: e.message });
   }
 });
 
