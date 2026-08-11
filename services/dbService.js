@@ -28,8 +28,19 @@ const globalDataCache = new NodeCache({
 
 let redisClient = null;
 if (process.env.REDIS_URL) {
-  redisClient = new Redis(process.env.REDIS_URL);
-  redisClient.on('error', (err) => console.error('[Redis] Error:', err));
+  try {
+    let url = process.env.REDIS_URL;
+    // Auto-fix if the user accidentally pasted the Upstash CLI command instead of just the URL
+    if (url.includes('--tls -u ')) {
+      url = url.split('--tls -u ')[1].trim();
+    }
+    
+    redisClient = new Redis(url);
+    redisClient.on('error', (err) => console.error('[Redis] Error:', err));
+  } catch (err) {
+    console.error('[Redis] Failed to initialize Redis client. Falling back to NodeCache. Error:', err.message);
+    redisClient = null;
+  }
 }
 
 async function getCacheAsync(key) {
