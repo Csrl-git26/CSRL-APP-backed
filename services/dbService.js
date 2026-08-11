@@ -9,8 +9,8 @@ const GLOBAL_DATA_CACHE_KEY = 'globalData';
 function readCacheTtlMs() {
   const raw = process.env.DB_READ_CACHE_TTL_MS || process.env.FIRESTORE_READ_CACHE_TTL_MS;
   if (raw === '0' || raw === '') return 0;
-  const n = parseInt(raw ?? '90000', 10);
-  return Number.isFinite(n) && n >= 0 ? n : 90000;
+  const n = parseInt(raw ?? '10000', 10);
+  return Number.isFinite(n) && n >= 0 ? n : 10000;
 }
 
 function readCacheTtlSeconds() {
@@ -18,10 +18,10 @@ function readCacheTtlSeconds() {
   return ms <= 0 ? 0 : Math.max(1, Math.floor(ms / 1000));
 }
 
-const ttlSec = readCacheTtlSeconds() || 90;
+const ttlSec = readCacheTtlSeconds() || 10;
 const globalDataCache = new NodeCache({
   stdTTL: ttlSec,
-  checkperiod: Math.min(120, Math.max(20, Math.floor(ttlSec / 2))),
+  checkperiod: Math.min(120, Math.max(5, Math.floor(ttlSec / 2))),
   useClones: true,
 });
 

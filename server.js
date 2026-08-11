@@ -215,6 +215,9 @@ app.get('/api/data/student', authenticateToken, async (req, res) => {
  * Returns high-level KPIs. Scoped to a centre if centerCode is provided.
  */
 app.get('/api/analytics/overview', authenticateToken, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const { centerCode } = req.query;
   const global = await loadApplicationData();
   const source = centerCode ? sliceCenterFromGlobal(global, centerCode) : global;
@@ -228,6 +231,9 @@ app.get('/api/analytics/overview', authenticateToken, async (req, res) => {
  * order=asc returns bottom (lowest scores first).
  */
 app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const { testKey, centerCode, limit = '30', order = 'desc' } = req.query;
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
@@ -252,6 +258,9 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
  * Rank all centres by average score for the given test column.
  */
 app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const { testKey } = req.query;
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
@@ -316,6 +325,9 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
  * If testKey is set, only that test’s subject columns are included (not all tests).
  */
 app.get('/api/analytics/subject-averages', authenticateToken, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const { centerCode, testKey } = req.query;
   const global = await loadApplicationData();
   const source = centerCode ? sliceCenterFromGlobal(global, centerCode) : global;
@@ -330,6 +342,9 @@ app.get('/api/analytics/subject-averages', authenticateToken, async (req, res) =
  * CAT-style analysis (marks-based). Uses global data. Optional rollKey for student card.
  */
 app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const { testKey, rollKey } = req.query;
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
@@ -345,6 +360,9 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
  * Chart-ready performance data for a single student.
  */
 app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
@@ -650,6 +668,9 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
  * Scoped to a centre if centerCode provided.
  */
 app.get('/api/analytics/test-columns', authenticateToken, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const { centerCode } = req.query;
   const global = await loadApplicationData();
   const source = centerCode ? sliceCenterFromGlobal(global, centerCode) : global;
