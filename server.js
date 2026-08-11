@@ -552,8 +552,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
         row['Total_Rank'] = insights.centreRows.findIndex(r => r.code === centerCode) + 1;
         
         // Subject Ranks
-        ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach(sub => {
-          const outSub = sub === 'Mathematics' ? 'Math' : sub;
+        ['Physics', 'Chemistry', 'Math', 'Biology'].forEach(sub => {
           
           // Filter centres that have a score for this subject
           const validCentres = insights.centreRows.filter(r => r.subjectAvgs[sub] !== null && r.subjectAvgs[sub] !== undefined);
@@ -562,7 +561,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
             // Sort descending by subject average
             validCentres.sort((a, b) => b.subjectAvgs[sub] - a.subjectAvgs[sub]);
             const rank = validCentres.findIndex(r => r.code === centerCode) + 1;
-            row[`${outSub}_Rank`] = rank;
+            row[`${sub}_Rank`] = rank;
           }
         });
       }
