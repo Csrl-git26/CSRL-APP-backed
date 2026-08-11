@@ -543,9 +543,29 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
       
       // Use computeTestInsights to guarantee 100% identical qualification rate as Leaderboard
       const insights = computeTestInsights(global.profiles, global.tests, testName, global.testColumns, {});
-      const centreRow = insights.centreRows.find(r => r.code === centerCode);
       
+      const centreRow = insights.centreRows.find(r => r.code === centerCode);
       row.qualRate = centreRow && centreRow.appeared > 0 ? centreRow.qualRate : null;
+      
+      if (centreRow) {
+        // Total Rank: centreRows is already sorted by totalAvg descending
+        row['Total_Rank'] = insights.centreRows.findIndex(r => r.code === centerCode) + 1;
+        
+        // Subject Ranks
+        ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach(sub => {
+          const outSub = sub === 'Mathematics' ? 'Math' : sub;
+          
+          // Filter centres that have a score for this subject
+          const validCentres = insights.centreRows.filter(r => r.subjectAvgs[sub] !== null && r.subjectAvgs[sub] !== undefined);
+          
+          if (validCentres.some(r => r.code === centerCode)) {
+            // Sort descending by subject average
+            validCentres.sort((a, b) => b.subjectAvgs[sub] - a.subjectAvgs[sub]);
+            const rank = validCentres.findIndex(r => r.code === centerCode) + 1;
+            row[`${outSub}_Rank`] = rank;
+          }
+        });
+      }
 
       return row;
     });
