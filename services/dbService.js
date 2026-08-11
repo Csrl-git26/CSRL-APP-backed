@@ -35,8 +35,25 @@ if (process.env.REDIS_URL) {
       url = url.split('--tls -u ')[1].trim();
     }
     
-    redisClient = new Redis(url);
-    redisClient.on('error', (err) => console.error('[Redis] Error:', err));
+    // Enforce TLS for Upstash/managed Redis by ensuring protocol is rediss://
+    if (url.startsWith('redis://') && url.includes('upstash.io')) {
+      url = url.replace('redis://', 'rediss://');
+    }
+    
+    redisClient = new Redis(url, {
+      tls: url.startsWith('rediss://') ? { rejectUnauthorized: false } : undefined,
+      retryStrategy(times) {
+        return Math.min(times * 50, 2000); // Reconnect after 50ms, max 2s
+      },
+      maxRetriesPerRequest: null,
+    });
+    
+    redisClient.on('error', (err) => {
+      // Suppress ECONNRESET logs to prevent log spam when idle connections drop
+      if (err.code !== 'ECONNRESET') {
+        console.error('[Redis] Error:', err);
+      }
+    });
   } catch (err) {
     console.error('[Redis] Failed to initialize Redis client. Falling back to NodeCache. Error:', err.message);
     redisClient = null;
