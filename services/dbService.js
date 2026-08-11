@@ -1,4 +1,5 @@
 import NodeCache from 'node-cache';
+import Redis from 'ioredis';
 import { isMongoReady, initMongo } from './mongoInit.js';
 import Profile from '../models/Profile.js';
 import TestScore from '../models/TestScore.js';
@@ -25,8 +26,45 @@ const globalDataCache = new NodeCache({
   useClones: true,
 });
 
+let redisClient = null;
+if (process.env.REDIS_URL) {
+  redisClient = new Redis(process.env.REDIS_URL);
+  redisClient.on('error', (err) => console.error('[Redis] Error:', err));
+}
+
+async function getCacheAsync(key) {
+  if (redisClient) {
+    try {
+      const data = await redisClient.get(key);
+      if (data) return JSON.parse(data);
+    } catch (err) {
+      console.error('[Redis] GET error for key', key, ':', err);
+    }
+  }
+  return globalDataCache.get(key);
+}
+
+async function setCacheAsync(key, value, ttlSeconds) {
+  if (redisClient) {
+    try {
+      if (ttlSeconds > 0) {
+        await redisClient.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+      } else {
+        await redisClient.set(key, JSON.stringify(value));
+      }
+      return;
+    } catch (err) {
+      console.error('[Redis] SET error for key', key, ':', err);
+    }
+  }
+  globalDataCache.set(key, value);
+}
+
 export function invalidateDataCache() {
   globalDataCache.flushAll();
+  if (redisClient) {
+    redisClient.flushdb().catch(err => console.error('[Redis] flushdb error:', err));
+  }
 }
 
 // Keep the same export name as the old one so server.js doesn't break if anything still imports it
@@ -35,7 +73,7 @@ export const invalidateFirestoreReadCache = invalidateDataCache;
 export function getReadCacheStatus() {
   const ttlMs = readCacheTtlMs();
   return {
-    backend: 'node-cache',
+    backend: redisClient ? 'redis' : 'node-cache',
     ttlMs,
     ttlSeconds: ttlMs > 0 ? ttlSec : 0,
     enabled: ttlMs > 0,
@@ -246,9 +284,10 @@ export async function loadGlobalDataFromDb() {
   }
 
   const ttlMs = readCacheTtlMs();
+  const ttlSec = readCacheTtlSeconds();
 
   if (ttlMs > 0) {
-    const cached = globalDataCache.get(GLOBAL_DATA_CACHE_KEY);
+    const cached = await getCacheAsync(GLOBAL_DATA_CACHE_KEY);
     if (cached) {
       return {
         profiles: cached.profiles ?? [],
@@ -266,11 +305,11 @@ export async function loadGlobalDataFromDb() {
       testColumns: data.testColumns,
     };
     if (ttlMs > 0) {
-      globalDataCache.set(GLOBAL_DATA_CACHE_KEY, {
+      await setCacheAsync(GLOBAL_DATA_CACHE_KEY, {
         profiles: out.profiles,
         tests: out.tests,
         testColumns: out.testColumns,
-      });
+      }, ttlSec);
     }
     return out;
   } catch (err) {
@@ -287,9 +326,10 @@ export async function loadCenterDataFromDb(centerCode) {
   const normCenter = normalizeCenterCode(centerCode);
   const cacheKey = `centerData_${normCenter}`;
   const ttlMs = readCacheTtlMs();
+  const ttlSec = readCacheTtlSeconds();
 
   if (ttlMs > 0) {
-    const cached = globalDataCache.get(cacheKey);
+    const cached = await getCacheAsync(cacheKey);
     if (cached) {
       return {
         profiles: cached.profiles ?? [],
@@ -307,11 +347,11 @@ export async function loadCenterDataFromDb(centerCode) {
       testColumns: data.testColumns,
     };
     if (ttlMs > 0) {
-      globalDataCache.set(cacheKey, {
+      await setCacheAsync(cacheKey, {
         profiles: out.profiles,
         tests: out.tests,
         testColumns: out.testColumns,
-      });
+      }, ttlSec);
     }
     return out;
   } catch (err) {
