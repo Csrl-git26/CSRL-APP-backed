@@ -26,7 +26,7 @@ const globalDataCache = new NodeCache({
 });
 
 export function invalidateDataCache() {
-  globalDataCache.del(GLOBAL_DATA_CACHE_KEY);
+  globalDataCache.flushAll();
 }
 
 // Keep the same export name as the old one so server.js doesn't break if anything still imports it
@@ -122,6 +122,13 @@ export async function loadApplicationData() {
   return loadGlobalDataFromDb();
 }
 
+export async function loadCenterApplicationData(centerCode) {
+  if (!isDbEnabled()) {
+    return sliceCenterFromGlobal(getMemoryDevStore(), centerCode);
+  }
+  return loadCenterDataFromDb(centerCode);
+}
+
 function normalizeCenterCode(v) {
   return String(v ?? '').trim().toUpperCase();
 }
@@ -147,14 +154,7 @@ export function sliceCenterFromGlobal(globalData, centerCode) {
   return { profiles, tests, testColumns };
 }
 
-async function fetchGlobalDataFromDbOnce() {
-  await initMongo();
-  
-  const [profilesDocs, tDocs] = await Promise.all([
-    Profile.find({}).lean(),
-    TestScore.find({}).lean()
-  ]);
-
+function processDbDocuments(profilesDocs, tDocs) {
   const pDocs = profilesDocs.map(d => {
     // Restore any dot-encoded keys (___dot___ -> .) stored to work around MongoDB restrictions
     const obj = restoreKeysFromMongo({ ...d });
@@ -215,6 +215,31 @@ async function fetchGlobalDataFromDbOnce() {
   };
 }
 
+async function fetchGlobalDataFromDbOnce() {
+  await initMongo();
+  
+  const [profilesDocs, tDocs] = await Promise.all([
+    Profile.find({}).lean(),
+    TestScore.find({}).lean()
+  ]);
+
+  return processDbDocuments(profilesDocs, tDocs);
+}
+
+async function fetchCenterDataFromDbOnce(centerCode) {
+  await initMongo();
+  const normCenter = normalizeCenterCode(centerCode);
+  
+  const profilesDocs = await Profile.find({ centerCode: new RegExp(`^${normCenter}$`, 'i') }).lean();
+  
+  // Get all ROLL_KEYs for this centre to fetch their tests
+  const rollKeys = profilesDocs.map(p => p.ROLL_KEY);
+  
+  const tDocs = await TestScore.find({ ROLL_KEY: { $in: rollKeys } }).lean();
+
+  return processDbDocuments(profilesDocs, tDocs);
+}
+
 export async function loadGlobalDataFromDb() {
   if (!isDbEnabled()) {
     return { profiles: [], tests: [], testColumns: [] };
@@ -249,8 +274,49 @@ export async function loadGlobalDataFromDb() {
     }
     return out;
   } catch (err) {
-    console.error('[DB] loadGlobalDataFromDb failed:', err.message || err);
-    throw new Error(`Database read failed: ${err.message}`);
+    console.error('Error in loadGlobalDataFromDb:', err);
+    return { profiles: [], tests: [], testColumns: [] };
+  }
+}
+
+export async function loadCenterDataFromDb(centerCode) {
+  if (!isDbEnabled()) {
+    return { profiles: [], tests: [], testColumns: [] };
+  }
+
+  const normCenter = normalizeCenterCode(centerCode);
+  const cacheKey = `centerData_${normCenter}`;
+  const ttlMs = readCacheTtlMs();
+
+  if (ttlMs > 0) {
+    const cached = globalDataCache.get(cacheKey);
+    if (cached) {
+      return {
+        profiles: cached.profiles ?? [],
+        tests: cached.tests ?? [],
+        testColumns: cached.testColumns ?? [],
+      };
+    }
+  }
+
+  try {
+    const data = await fetchCenterDataFromDbOnce(normCenter);
+    const out = {
+      profiles: data.profiles,
+      tests: data.tests,
+      testColumns: data.testColumns,
+    };
+    if (ttlMs > 0) {
+      globalDataCache.set(cacheKey, {
+        profiles: out.profiles,
+        tests: out.tests,
+        testColumns: out.testColumns,
+      });
+    }
+    return out;
+  } catch (err) {
+    console.error(`Error in loadCenterDataFromDb for ${centerCode}:`, err);
+    return { profiles: [], tests: [], testColumns: [] };
   }
 }
 

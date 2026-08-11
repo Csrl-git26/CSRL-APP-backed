@@ -22,6 +22,7 @@ import {
   deleteStudentDocs,
   upsertTestDoc,
   loadApplicationData,
+  loadCenterApplicationData,
   sliceCenterFromGlobal,
   getReadCacheStatus,
   invalidateDataCache,
@@ -166,8 +167,7 @@ app.get('/api/data/global', authenticateToken, async (req, res) => {
 app.get('/api/data/center', authenticateToken, async (req, res) => {
   if (req.user.role !== 'centre') return res.status(403).json({ message: 'Forbidden' });
   const centerCode = req.query.centerCode || req.user.id;
-  const global = await loadApplicationData();
-  res.json(sliceCenterFromGlobal(global, centerCode));
+  res.json(await loadCenterApplicationData(centerCode));
 });
 
 app.get('/api/data/centers', authenticateToken, async (req, res) => {
@@ -199,8 +199,7 @@ app.get('/api/data/centers', authenticateToken, async (req, res) => {
 
 app.get('/api/data/student', authenticateToken, async (req, res) => {
   if (req.user.role !== 'student') return res.status(403).json({ message: 'Forbidden' });
-  const global = await loadApplicationData();
-  const centerData = sliceCenterFromGlobal(global, req.user.centerCode);
+  const centerData = await loadCenterApplicationData(req.user.centerCode);
   res.json({
     profiles: centerData.profiles.filter((p) => p.ROLL_KEY === req.user.id),
     tests: centerData.tests.filter((t) => t.ROLL_KEY === req.user.id),
@@ -219,8 +218,12 @@ app.get('/api/analytics/overview', authenticateToken, async (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   const { centerCode } = req.query;
-  const global = await loadApplicationData();
-  const source = centerCode ? sliceCenterFromGlobal(global, centerCode) : global;
+  let source;
+  if (centerCode) {
+    source = await loadCenterApplicationData(centerCode);
+  } else {
+    source = await loadApplicationData();
+  }
   const result = computeOverview(source.profiles, source.tests, source.testColumns);
   res.json(result);
 });
@@ -237,8 +240,7 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
   const { testKey, centerCode, limit = '30', order = 'desc' } = req.query;
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
-  const global = await loadApplicationData();
-  const source = centerCode ? sliceCenterFromGlobal(global, centerCode) : global;
+  const source = centerCode ? await loadCenterApplicationData(centerCode) : await loadApplicationData();
   let ranked = rankStudentsByTest(source.profiles, source.tests, testKey);
   const absent = absentCount(source.profiles, source.tests, testKey);
 
@@ -329,8 +331,7 @@ app.get('/api/analytics/subject-averages', authenticateToken, async (req, res) =
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   const { centerCode, testKey } = req.query;
-  const global = await loadApplicationData();
-  const source = centerCode ? sliceCenterFromGlobal(global, centerCode) : global;
+  const source = centerCode ? await loadCenterApplicationData(centerCode) : await loadApplicationData();
   const result = testKey
     ? subjectAveragesForTest(source.tests, source.testColumns, testKey)
     : subjectAverages(source.tests, source.testColumns);
@@ -370,8 +371,7 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
   const { rollKey, centerCode } = req.query;
   if (!rollKey) return res.status(400).json({ message: 'rollKey is required' });
 
-  const global = await loadApplicationData();
-  const source = centerCode ? sliceCenterFromGlobal(global, centerCode) : global;
+  const source = centerCode ? await loadCenterApplicationData(centerCode) : await loadApplicationData();
   const testDoc = source.tests.find((t) => t.ROLL_KEY === rollKey) || {};
   const chartData = buildStudentChartData(testDoc, source.testColumns);
   const weakSubj = computeStudentWeakSubject(testDoc, source.testColumns);
@@ -672,8 +672,7 @@ app.get('/api/analytics/test-columns', authenticateToken, async (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   const { centerCode } = req.query;
-  const global = await loadApplicationData();
-  const source = centerCode ? sliceCenterFromGlobal(global, centerCode) : global;
+  const source = centerCode ? await loadCenterApplicationData(centerCode) : await loadApplicationData();
   const columns = source.testColumns;
 
   // Derive unique test names (total columns = no underscore / recognised total)
