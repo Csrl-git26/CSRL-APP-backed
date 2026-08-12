@@ -137,6 +137,7 @@ export function computeWeakSubjectAnalysis(tests, testColumns) {
     (testColumns || []).forEach((col) => {
       const { subject, isTotal } = parseTestColumn(col);
       if (isTotal || subject === 'Total') return;
+      if (subject.includes('_Accuracy') || subject.includes('_Attempted') || subject.includes('_Rank') || subject.includes('_Correct') || subject.includes('_Wrong')) return;
       const mark = numericScore(t[col]);
       if (mark === null) return;
       totals[subject] = (totals[subject] || 0) + mark;
@@ -168,6 +169,7 @@ export function computeWeakSubjectAnalysisForTest(tests, testColumns, testKey) {
       const { subject, isTotal, testName } = parseTestColumn(col);
       if (isTotal || subject === 'Total') return;
       if (testName !== testKey) return;
+      if (subject.includes('_Accuracy') || subject.includes('_Attempted') || subject.includes('_Rank') || subject.includes('_Correct') || subject.includes('_Wrong')) return;
       
       const mark = numericScore(t[col]);
       if (mark !== null) {
@@ -272,7 +274,16 @@ export function buildStudentChartData(studentTestFlat, testColumns) {
   Object.values(testsMap).forEach((testRow) => {
     if (testRow.Total !== undefined && testRow.Total !== null) return;
     const vals = Object.entries(testRow)
-      .filter(([k, v]) => k !== 'name' && k !== 'Total' && typeof v === 'number');
+      .filter(([k, v]) => 
+        k !== 'name' && 
+        k !== 'Total' && 
+        typeof v === 'number' &&
+        !k.includes('_Accuracy') &&
+        !k.includes('_Attempted') &&
+        !k.includes('_Rank') &&
+        !k.includes('_Correct') &&
+        !k.includes('_Wrong')
+      );
     testRow.Total = vals.length ? vals.reduce((s, [, v]) => s + v, 0) : null;
   });
 
@@ -292,6 +303,8 @@ export function computeStudentWeakSubject(studentTestFlat, testColumns) {
   (testColumns || []).forEach((col) => {
     const { subject, isTotal } = parseTestColumn(col);
     if (isTotal || subject === 'Total') return;
+    if (subject.includes('_Accuracy') || subject.includes('_Attempted') || subject.includes('_Rank') || subject.includes('_Correct') || subject.includes('_Wrong')) return;
+
     const mark = numericScore(studentTestFlat[col]);
     if (mark === null) return;
     totals[subject] = (totals[subject] || 0) + mark;
