@@ -312,7 +312,16 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
       const qualRate = insightRow ? insightRow.qualRate : 0;
       const qualifiedCount = insightRow ? insightRow.qualified : 0;
       
-      return { ...centre, accuracyWeakSubject, qualRate, qualifiedCount };
+      const notQualBySub = {};
+      if (insights.subjects) {
+         insights.subjects.forEach(subj => {
+            if (insights.notQualifiedBySubject[subj] && insights.notQualifiedBySubject[subj][centre.code]) {
+               notQualBySub[subj] = insights.notQualifiedBySubject[subj][centre.code];
+            }
+         });
+      }
+      
+      return { ...centre, accuracyWeakSubject, qualRate, qualifiedCount, notQualBySub };
     });
   } catch (error) {
     console.error('Error fetching accuracy weak topics for leaderboard:', error);
