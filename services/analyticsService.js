@@ -160,16 +160,27 @@ export function computeWeakSubjectAnalysisForTest(tests, testColumns, testKey) {
   if (!testKey) return [];
   const totals = {};
   const counts = {};
+  const accTotals = {};
+  const accCounts = {};
 
   tests.forEach((t) => {
     (testColumns || []).forEach((col) => {
       const { subject, isTotal, testName } = parseTestColumn(col);
       if (isTotal || subject === 'Total') return;
       if (testName !== testKey) return;
+      
       const mark = numericScore(t[col]);
-      if (mark === null) return;
-      totals[subject] = (totals[subject] || 0) + mark;
-      counts[subject] = (counts[subject] || 0) + 1;
+      if (mark !== null) {
+        totals[subject] = (totals[subject] || 0) + mark;
+        counts[subject] = (counts[subject] || 0) + 1;
+      }
+      
+      const accKey = `${col}_Accuracy`;
+      const accRaw = numericScore(t[accKey]);
+      if (accRaw !== null) {
+        accTotals[subject] = (accTotals[subject] || 0) + accRaw;
+        accCounts[subject] = (accCounts[subject] || 0) + 1;
+      }
     });
   });
 
@@ -177,6 +188,7 @@ export function computeWeakSubjectAnalysisForTest(tests, testColumns, testKey) {
     .map((sub) => ({
       subject: sub,
       avg: parseFloat((totals[sub] / counts[sub]).toFixed(1)),
+      accAvg: accCounts[sub] ? parseFloat((accTotals[sub] / accCounts[sub]).toFixed(1)) : null,
       count: counts[sub],
     }))
     .sort((a, b) => a.avg - b.avg);
