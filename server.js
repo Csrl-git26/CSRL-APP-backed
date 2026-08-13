@@ -1238,11 +1238,19 @@ app.get('/api/center/weak-topics/:centerId', authenticateToken, async (req, res)
     await initMongo();
 
     if (testId) {
-      const doc = await CenterWeakTopics.findOne({ centerId, testId }).lean();
+      let doc = await CenterWeakTopics.findOne({ centerId, testId }).lean();
+      // Fallback: test sheets may have used 'ABN' as a generic centre code
+      if (!doc || !doc.centerId) {
+        doc = await CenterWeakTopics.findOne({ centerId: 'ABN', testId }).lean();
+      }
       return res.json({ success: true, data: doc || {} });
     }
 
-    const docs = await CenterWeakTopics.find({ centerId }).sort({ testId: 1 }).lean();
+    let docs = await CenterWeakTopics.find({ centerId }).sort({ testId: 1 }).lean();
+    // Fallback: test sheets may have used 'ABN' as a generic centre code
+    if (!docs || docs.length === 0) {
+      docs = await CenterWeakTopics.find({ centerId: 'ABN' }).sort({ testId: 1 }).lean();
+    }
     const filtered = docs.filter(d => d.testId && d.testId.length > 1 && d.testId !== 'CAT4');
     return res.json({ success: true, data: filtered });
   } catch (e) {
@@ -1278,7 +1286,11 @@ app.get('/api/center/overall-weak-topics/:centerId', authenticateToken, async (r
     if (centerId === 'GAIL')      centerId = 'KNP';
     if (centerId === 'OIL_INDIA') centerId = 'JDH';
     await initMongo();
-    const doc = await CenterOverallWeakTopics.findOne({ centerId }).lean();
+    let doc = await CenterOverallWeakTopics.findOne({ centerId }).lean();
+    // Fallback: test sheets may have used 'ABN' as a generic centre code
+    if (!doc || !doc.centerId) {
+      doc = await CenterOverallWeakTopics.findOne({ centerId: 'ABN' }).lean();
+    }
     return res.json({ success: true, data: doc || {} });
   } catch (e) {
     console.error('[WeakTopics] center overall route error:', e);
