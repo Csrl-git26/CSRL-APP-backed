@@ -6,5 +6,6 @@ const ProfileSchema = new mongoose.Schema({
 }, { strict: false, timestamps: true });
 
 ProfileSchema.index({ centerCode: 1, ROLL_KEY: 1 }, { unique: true });
+ProfileSchema.index({ ROLL_KEY: 1 });
 
 export default mongoose.models.Profile || mongoose.model('Profile', ProfileSchema);

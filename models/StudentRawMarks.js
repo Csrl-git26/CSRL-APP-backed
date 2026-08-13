@@ -13,6 +13,8 @@ const StudentRawMarksSchema = new mongoose.Schema({
 
 // Index for bulk queries by testId
 StudentRawMarksSchema.index({ testId: 1 });
+StudentRawMarksSchema.index({ centerId: 1 });
+StudentRawMarksSchema.index({ centerId: 1, testId: 1 });
 
 // Unique per student+test (one record per student per test, no paper branching)
 StudentRawMarksSchema.index({ studentId: 1, testId: 1 }, { unique: true });

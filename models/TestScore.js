@@ -8,5 +8,6 @@ const TestScoreSchema = new mongoose.Schema({
 }, { strict: false, timestamps: true });
 
 TestScoreSchema.index({ centerCode: 1, ROLL_KEY: 1 }, { unique: true });
+TestScoreSchema.index({ ROLL_KEY: 1 });
 
 export default mongoose.models.TestScore || mongoose.model('TestScore', TestScoreSchema);
