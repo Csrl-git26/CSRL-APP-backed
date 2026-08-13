@@ -112,6 +112,11 @@ app.post('/api/auth/login', async (req, res) => {
       const token = jwt.sign({ role: 'centre', id: 'centre' }, JWT_SECRET, { expiresIn: '12h' });
       return res.json({ success: true, token, role: 'centre', id: 'centre', name: 'Centre Dashboard' });
     }
+  } else if (role === 'bog') {
+    if (id === 'BOG' && password === 'Csrl@123') {
+      const token = jwt.sign({ role: 'bog', id: 'bog' }, JWT_SECRET, { expiresIn: '12h' });
+      return res.json({ success: true, token, role: 'bog', id: 'bog', name: 'BOG Dashboard' });
+    }
   } else if (role === 'student') {
     const globalData = await loadApplicationData();
     const normalizedId = normalizeRollKey(id);
@@ -165,13 +170,15 @@ app.get('/api/data/global', authenticateToken, async (req, res) => {
 });
 
 app.get('/api/data/center', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'centre') return res.status(403).json({ message: 'Forbidden' });
+  if (req.user.role !== 'centre' && req.user.role !== 'admin' && req.user.role !== 'bog') {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
   const centerCode = req.query.centerCode || req.user.id;
   res.json(await loadCenterApplicationData(centerCode));
 });
 
 app.get('/api/data/centers', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'centre' && req.user.role !== 'admin') {
+  if (req.user.role !== 'centre' && req.user.role !== 'admin' && req.user.role !== 'bog') {
     return res.status(403).json({ message: 'Forbidden' });
   }
   const global = await loadApplicationData();
