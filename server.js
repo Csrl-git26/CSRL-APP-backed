@@ -1253,26 +1253,18 @@ app.get('/api/center/weak-topics/:centerId', authenticateToken, async (req, res)
   try {
     let { centerId } = req.params;
     const { testId } = req.query;
-    // Normalize sponsor/alias codes → physical centre codes stored in the DB
-    if (centerId === 'GAIL')      centerId = 'KNP';
-    if (centerId === 'OIL_INDIA') centerId = 'JDH';
+    // Normalize physical centre codes from frontend to sponsor/alias codes stored in the DB
+    if (centerId === 'KNP') centerId = 'GAIL';
+    if (centerId === 'JDH') centerId = 'OIL_INDIA';
 
     await initMongo();
 
     if (testId) {
-      let doc = await CenterWeakTopics.findOne({ centerId, testId }).lean();
-      // Fallback: test sheets may have used 'ABN' as a generic centre code
-      if (!doc || !doc.centerId) {
-        doc = await CenterWeakTopics.findOne({ centerId: 'ABN', testId }).lean();
-      }
+      const doc = await CenterWeakTopics.findOne({ centerId, testId }).lean();
       return res.json({ success: true, data: doc || {} });
     }
 
-    let docs = await CenterWeakTopics.find({ centerId }).sort({ testId: 1 }).lean();
-    // Fallback: test sheets may have used 'ABN' as a generic centre code
-    if (!docs || docs.length === 0) {
-      docs = await CenterWeakTopics.find({ centerId: 'ABN' }).sort({ testId: 1 }).lean();
-    }
+    const docs = await CenterWeakTopics.find({ centerId }).sort({ testId: 1 }).lean();
     const filtered = docs.filter(d => d.testId && d.testId.length > 1 && d.testId !== 'CAT4');
     return res.json({ success: true, data: filtered });
   } catch (e) {
@@ -1304,15 +1296,11 @@ app.get('/api/student/overall-weak-topics/:studentId', authenticateToken, async 
 app.get('/api/center/overall-weak-topics/:centerId', authenticateToken, async (req, res) => {
   try {
     let { centerId } = req.params;
-    // Normalize sponsor/alias codes → physical centre codes stored in the DB
-    if (centerId === 'GAIL')      centerId = 'KNP';
-    if (centerId === 'OIL_INDIA') centerId = 'JDH';
+    // Normalize physical centre codes from frontend to sponsor/alias codes stored in the DB
+    if (centerId === 'KNP') centerId = 'GAIL';
+    if (centerId === 'JDH') centerId = 'OIL_INDIA';
     await initMongo();
-    let doc = await CenterOverallWeakTopics.findOne({ centerId }).lean();
-    // Fallback: test sheets may have used 'ABN' as a generic centre code
-    if (!doc || !doc.centerId) {
-      doc = await CenterOverallWeakTopics.findOne({ centerId: 'ABN' }).lean();
-    }
+    const doc = await CenterOverallWeakTopics.findOne({ centerId }).lean();
     return res.json({ success: true, data: doc || {} });
   } catch (e) {
     console.error('[WeakTopics] center overall route error:', e);
