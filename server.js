@@ -1229,8 +1229,11 @@ app.get('/api/student/weak-topics/:studentId', authenticateToken, async (req, re
  */
 app.get('/api/center/weak-topics/:centerId', authenticateToken, async (req, res) => {
   try {
-    const { centerId } = req.params;
+    let { centerId } = req.params;
     const { testId } = req.query;
+    // Normalize sponsor/alias codes → physical centre codes stored in the DB
+    if (centerId === 'GAIL')      centerId = 'KNP';
+    if (centerId === 'OIL_INDIA') centerId = 'JDH';
 
     await initMongo();
 
@@ -1270,7 +1273,10 @@ app.get('/api/student/overall-weak-topics/:studentId', authenticateToken, async 
  */
 app.get('/api/center/overall-weak-topics/:centerId', authenticateToken, async (req, res) => {
   try {
-    const { centerId } = req.params;
+    let { centerId } = req.params;
+    // Normalize sponsor/alias codes → physical centre codes stored in the DB
+    if (centerId === 'GAIL')      centerId = 'KNP';
+    if (centerId === 'OIL_INDIA') centerId = 'JDH';
     await initMongo();
     const doc = await CenterOverallWeakTopics.findOne({ centerId }).lean();
     return res.json({ success: true, data: doc || {} });
