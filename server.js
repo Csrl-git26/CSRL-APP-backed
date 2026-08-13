@@ -1077,6 +1077,28 @@ app.delete('/api/admin/weak-topics/clear', authenticateToken, requireAdmin, asyn
 });
 
 /**
+ * DELETE /api/admin/raw-marks/clear
+ * Clear all marks-awarded-sheet (StudentRawMarks) data. Admin only.
+ */
+app.delete('/api/admin/raw-marks/clear', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { testId } = req.query;
+    await initMongo();
+    if (testId) {
+      const result = await StudentRawMarks.deleteMany({ testId });
+      console.log(`[RawMarks] Cleared ${result.deletedCount} records for testId="${testId}".`);
+      return res.json({ success: true, message: `Cleared ${result.deletedCount} records for test "${testId}".`, deletedCount: result.deletedCount });
+    }
+    const result = await StudentRawMarks.deleteMany({});
+    console.log(`[RawMarks] All raw marks cleared (${result.deletedCount} records).`);
+    return res.json({ success: true, message: `All marks awarded data cleared (${result.deletedCount} records).`, deletedCount: result.deletedCount });
+  } catch (e) {
+    console.error('[RawMarks] Clear error:', e);
+    return res.status(500).json({ success: false, message: e.message || 'Failed to clear marks data.' });
+  }
+});
+
+/**
  * POST /api/admin/weak-topics/upload-test-sheet
  * Upload a unified test sheet (CSV) containing headers, topic row, answer-key row,
  * and all student marks in a single file — no paper1/paper2 split.
