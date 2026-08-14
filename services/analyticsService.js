@@ -436,11 +436,12 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
     const stream = p.stream || doc?.stream || 'JEE';
     const caps = streamCaps(stream);
-    const overallMin = stream === 'NEET' ? neetOverallMin : (caps.maxTotal * overallQualifyRatio);
+    const overallMin = stream === 'NEET' ? neetOverallMin : (caps.maxTotal * jeeOverallQualifyRatio);
     const subjectMins = {};
+    const subRatio = stream === 'JEE' ? jeeSubjectQualifyRatio : neetSubjectQualifyRatio;
     subjectCols.forEach((col) => {
       const subj = parseTestColumn(col).subject;
-      subjectMins[subj] = maxForSubject(stream, subj) * subjectQualifyRatio;
+      subjectMins[subj] = maxForSubject(stream, subj) * subRatio;
     });
 
     const subjectScores = {};
