@@ -350,9 +350,10 @@ function round2(n) {
  * Qualification uses configurable % of max total / max per-subject marks (not attempt counts).
  */
 export function computeTestInsights(profiles, tests, testKey, testColumns, options = {}) {
-  const overallQualifyRatio = options.overallQualifyRatio ?? 0.4;
-  const subjectQualifyRatio = options.subjectQualifyRatio ?? 0.35;
+  const jeeOverallQualifyRatio = options.jeeOverallQualifyRatio ?? (100 / 300);
+  const jeeSubjectQualifyRatio = options.jeeSubjectQualifyRatio ?? 0.25;
   const neetOverallMin = options.neetOverallMin ?? 550;
+  const neetSubjectQualifyRatio = options.neetSubjectQualifyRatio ?? 0.35;
   const rollKeyFilter = options.rollKey || null;
 
   if (!testKey) {
@@ -610,12 +611,13 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
   const buildCutoffsForStream = (streamName) => {
     const caps = streamCaps(streamName);
     const subjectMinBySubject = {};
+    const subRatio = streamName === 'JEE' ? jeeSubjectQualifyRatio : neetSubjectQualifyRatio;
     Object.keys(caps.maxBySubject).forEach((k) => {
-      subjectMinBySubject[k] = round2(caps.maxBySubject[k] * subjectQualifyRatio);
+      subjectMinBySubject[k] = round2(caps.maxBySubject[k] * subRatio);
     });
     const overallMin = streamName === 'NEET'
       ? neetOverallMin
-      : round2(caps.maxTotal * overallQualifyRatio);
+      : round2(caps.maxTotal * jeeOverallQualifyRatio);
     return {
       maxTotal: caps.maxTotal,
       maxBySubject: caps.maxBySubject,
@@ -625,8 +627,10 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
   };
 
   const cutoffs = {
-    overallQualifyRatio,
-    subjectQualifyRatio,
+    jeeOverallQualifyRatio,
+    jeeSubjectQualifyRatio,
+    neetOverallMin,
+    neetSubjectQualifyRatio,
     JEE: buildCutoffsForStream('JEE'),
     NEET: buildCutoffsForStream('NEET'),
   };
@@ -664,7 +668,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     qualificationRateByCentre,
     studentInsight,
     note:
-      'Based on stored marks only. Score % uses stream maxima (JEE: 300 total, 100 per subject; NEET: 720 total, 180+180+360). Qualification uses default cutoffs (JEE: 40% of total, NEET: fixed 550 total, and 35% per subject). Attempt accuracy is not stored in this system.',
+      'Based on stored marks only. Score % uses stream maxima (JEE: 300 total, 100 per subject; NEET: 720 total, 180+180+360). Qualification uses default cutoffs (JEE: 100/300 total, and 25% per subject; NEET: fixed 550 total, and 35% per subject). Attempt accuracy is not stored in this system.',
   };
 }
 
