@@ -747,6 +747,28 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
  * Return all known test columns and their parsed metadata.
  * Scoped to a centre if centerCode provided.
  */
+app.get('/api/debug-state/:rollKey', async (req, res) => {
+  try {
+    const rollKey = req.params.rollKey;
+    const rawMarks = await StudentRawMarks.find({ studentId: rollKey }).lean();
+    const weakTopics = await StudentWeakTopics.find({ studentId: rollKey }).lean();
+    const allRaw = await StudentRawMarks.find({ testId: 'FMT02' }).select('studentId').lean();
+    
+    res.json({
+      rollKey,
+      rawMarksCount: rawMarks.length,
+      weakTopicsCount: weakTopics.length,
+      rawMarksTests: rawMarks.map(m => m.testId),
+      weakTopicsTests: weakTopics.map(w => w.testId),
+      isFMT02InRaw: rawMarks.some(m => m.testId === 'FMT02' || m.testId === 'fmt02'),
+      totalStudentsInFMT02: allRaw.length,
+      allRollsInFMT02: allRaw.map(m => m.studentId).slice(0, 10) // just a sample
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/analytics/test-columns', authenticateToken, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
