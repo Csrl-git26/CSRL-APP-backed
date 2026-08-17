@@ -415,7 +415,14 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
             let totalAttempted = 0;
             let totalCorrect = 0;
             
-            Object.entries(rawMarkDoc.marks).forEach(([q, mark]) => {
+            let marksEntries = [];
+            if (rawMarkDoc.marks instanceof Map) {
+              marksEntries = Array.from(rawMarkDoc.marks.entries());
+            } else if (typeof rawMarkDoc.marks === 'object' && rawMarkDoc.marks !== null) {
+              marksEntries = Object.entries(rawMarkDoc.marks);
+            }
+            
+            marksEntries.forEach(([q, mark]) => {
               const sub = qToSub[q];
               if (!sub) return;
               if (!metrics[sub]) metrics[sub] = { attempted: 0, correct: 0 };
@@ -436,14 +443,15 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
               row[`${outSub}_Correct`] = metrics[sub].correct;
               if (metrics[sub].attempted > 0) {
                 row[`${outSub}_Accuracy`] = Math.round((metrics[sub].correct / metrics[sub].attempted) * 100);
+              } else {
+                row[`${outSub}_Accuracy`] = 0;
               }
             });
             
-            if (totalAttempted > 0) {
-              row['Total_Attempted'] = totalAttempted;
-              row['Total_Correct'] = totalCorrect;
-              row['Total_Accuracy'] = Math.round((totalCorrect / totalAttempted) * 100);
-            }
+            row['Total_Attempted'] = totalAttempted;
+            row['Total_Correct'] = totalCorrect;
+            row['Total_Accuracy'] = totalAttempted > 0 ? Math.round((totalCorrect / totalAttempted) * 100) : 0;
+            row['FALLBACK_DEBUG'] = 'RAN';
           }
         }
       });
