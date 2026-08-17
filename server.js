@@ -251,7 +251,7 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
   let ranked = rankStudentsByTest(source.profiles, source.tests, testKey);
   const absent = absentCount(source.profiles, source.tests, testKey);
 
-  if (order === 'asc') ranked = [...ranked].reverse();
+  if (order === 'asc') ranked = ranked.filter(s => s.marks !== 'Absent').reverse();
 
   const n = Math.min(parseInt(limit, 10) || 30, ranked.length);
   res.json({
