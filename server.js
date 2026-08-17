@@ -395,14 +395,56 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
   try {
     const rawMarks = await StudentRawMarks.find({ studentId: rollKey }).lean();
     if (rawMarks && rawMarks.length > 0) {
+      const topicMaps = await TopicMap.find({ testId: { $in: rawMarks.map(m => m.testId) } }).lean();
+      
       chartData.forEach(row => {
-        const rawMarkDoc = rawMarks.find(m => m.testId === row.name);
-        if (rawMarkDoc) {
-          Object.keys(rawMarkDoc).forEach(k => {
-            if (k.endsWith('_Attempted') || k.endsWith('_Accuracy') || k.endsWith('_Rank') || k.endsWith('_Correct') || k.endsWith('_Wrong')) {
-              row[k] = rawMarkDoc[k];
+        const normRowName = row.name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        const rawMarkDoc = rawMarks.find(m => m.testId && m.testId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === normRowName);
+        
+        if (rawMarkDoc && rawMarkDoc.marks) {
+          const tMap = topicMaps.find(t => t.testId === rawMarkDoc.testId);
+          if (tMap) {
+            const qToSub = {};
+            (tMap.topics || []).forEach(t => {
+              (t.questions || []).forEach(q => {
+                qToSub[q] = t.subject;
+              });
+            });
+            
+            const metrics = {};
+            let totalAttempted = 0;
+            let totalCorrect = 0;
+            
+            Object.entries(rawMarkDoc.marks).forEach(([q, mark]) => {
+              const sub = qToSub[q];
+              if (!sub) return;
+              if (!metrics[sub]) metrics[sub] = { attempted: 0, correct: 0 };
+              
+              if (mark !== undefined && mark !== null) {
+                metrics[sub].attempted++;
+                totalAttempted++;
+                if (Number(mark) > 0) {
+                  metrics[sub].correct++;
+                  totalCorrect++;
+                }
+              }
+            });
+            
+            Object.keys(metrics).forEach(sub => {
+              const outSub = sub === 'Mathematics' ? 'Math' : sub;
+              row[`${outSub}_Attempted`] = metrics[sub].attempted;
+              row[`${outSub}_Correct`] = metrics[sub].correct;
+              if (metrics[sub].attempted > 0) {
+                row[`${outSub}_Accuracy`] = Math.round((metrics[sub].correct / metrics[sub].attempted) * 100);
+              }
+            });
+            
+            if (totalAttempted > 0) {
+              row['Total_Attempted'] = totalAttempted;
+              row['Total_Correct'] = totalCorrect;
+              row['Total_Accuracy'] = Math.round((totalCorrect / totalAttempted) * 100);
             }
-          });
+          }
         }
       });
     }
