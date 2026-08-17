@@ -393,6 +393,20 @@ app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
   const weakSubj = computeStudentWeakSubject(testDoc, source.testColumns);
 
   try {
+    const rawMarks = await StudentRawMarks.find({ studentId: rollKey }).lean();
+    if (rawMarks && rawMarks.length > 0) {
+      chartData.forEach(row => {
+        const rawMarkDoc = rawMarks.find(m => m.testId === row.name);
+        if (rawMarkDoc) {
+          Object.keys(rawMarkDoc).forEach(k => {
+            if (k.endsWith('_Attempted') || k.endsWith('_Accuracy') || k.endsWith('_Rank') || k.endsWith('_Correct') || k.endsWith('_Wrong')) {
+              row[k] = rawMarkDoc[k];
+            }
+          });
+        }
+      });
+    }
+
     const weakTopics = await StudentWeakTopics.find({ studentId: rollKey }).lean();
     const weakMap = {};
     for (const wt of weakTopics) {
