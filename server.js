@@ -727,16 +727,37 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
     const StudentOverallWeakTopics = (await import('./models/StudentOverallWeakTopics.js')).default;
     const overallWeak = await StudentOverallWeakTopics.findOne({ studentId: rollKey }).lean();
 
-    res.json({
-      rollKey,
-      chartData: finalChartData,
-      weakTopicsCount: weakTopics.length,
-      weakTopicsRaw: weakTopics.map(w => w.testId),
-      weakMapKeys: Object.keys(weakMap),
-      weakMapFull: weakMap,
-      overallWeakUpdatedAt: overallWeak ? overallWeak.updatedAt : null,
-      testDocKeys: Object.keys(testDoc)
+    
+    const rawFMT02 = await StudentRawMarks.findOne({ testId: 'FMT02', studentId: rollKey }).lean();
+    const topicMapFMT02 = await TopicMap.findOne({ testId: 'FMT02' }).lean();
+    const weakFMT02 = await StudentWeakTopics.findOne({ testId: 'FMT02', studentId: rollKey }).lean();
+    
+    // Simulate the fallback logic
+    let marksEntries = [];
+    if (rawFMT02 && rawFMT02.marks) {
+      if (rawFMT02.marks instanceof Map) marksEntries = Array.from(rawFMT02.marks.entries());
+      else if (typeof rawFMT02.marks === 'object' && rawFMT02.marks !== null) marksEntries = Object.entries(rawFMT02.marks);
+    }
+    
+    let qToSub = {};
+    if (topicMapFMT02) {
+      (topicMapFMT02.topics || []).forEach(t => {
+        (t.questions || []).forEach(q => {
+          qToSub[q] = t.subject;
+        });
+      });
+    }
+
+    res.json({ 
+      hasRaw: !!rawFMT02,
+      rawMarksKeys: rawFMT02 ? Object.keys(rawFMT02.marks || {}).slice(0, 5) : [],
+      marksEntriesCount: marksEntries.length,
+      hasTopicMap: !!topicMapFMT02,
+      topicMapTopicsCount: topicMapFMT02 ? (topicMapFMT02.topics || []).length : 0,
+      qToSubKeysCount: Object.keys(qToSub).length,
+      weakTopics: weakFMT02
     });
+
   } catch (e) {
     res.json({ error: e.message });
   }
@@ -754,16 +775,37 @@ app.get('/api/debug-state/:rollKey', async (req, res) => {
     const weakTopics = await StudentWeakTopics.find({ studentId: rollKey }).lean();
     const allRaw = await StudentRawMarks.find({ testId: 'FMT02' }).select('studentId').lean();
     
-    res.json({
-      rollKey,
-      rawMarksCount: rawMarks.length,
-      weakTopicsCount: weakTopics.length,
-      rawMarksTests: rawMarks.map(m => m.testId),
-      weakTopicsTests: weakTopics.map(w => w.testId),
-      isFMT02InRaw: rawMarks.some(m => m.testId === 'FMT02' || m.testId === 'fmt02'),
-      totalStudentsInFMT02: allRaw.length,
-      allRollsInFMT02: allRaw.map(m => m.studentId).slice(0, 10) // just a sample
+    
+    const rawFMT02 = await StudentRawMarks.findOne({ testId: 'FMT02', studentId: rollKey }).lean();
+    const topicMapFMT02 = await TopicMap.findOne({ testId: 'FMT02' }).lean();
+    const weakFMT02 = await StudentWeakTopics.findOne({ testId: 'FMT02', studentId: rollKey }).lean();
+    
+    // Simulate the fallback logic
+    let marksEntries = [];
+    if (rawFMT02 && rawFMT02.marks) {
+      if (rawFMT02.marks instanceof Map) marksEntries = Array.from(rawFMT02.marks.entries());
+      else if (typeof rawFMT02.marks === 'object' && rawFMT02.marks !== null) marksEntries = Object.entries(rawFMT02.marks);
+    }
+    
+    let qToSub = {};
+    if (topicMapFMT02) {
+      (topicMapFMT02.topics || []).forEach(t => {
+        (t.questions || []).forEach(q => {
+          qToSub[q] = t.subject;
+        });
+      });
+    }
+
+    res.json({ 
+      hasRaw: !!rawFMT02,
+      rawMarksKeys: rawFMT02 ? Object.keys(rawFMT02.marks || {}).slice(0, 5) : [],
+      marksEntriesCount: marksEntries.length,
+      hasTopicMap: !!topicMapFMT02,
+      topicMapTopicsCount: topicMapFMT02 ? (topicMapFMT02.topics || []).length : 0,
+      qToSubKeysCount: Object.keys(qToSub).length,
+      weakTopics: weakFMT02
     });
+
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
