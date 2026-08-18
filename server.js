@@ -641,7 +641,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
       const testName = row.name;
       
       // Use computeTestInsights to guarantee 100% identical qualification rate as Leaderboard
-      const insights = computeTestInsights(source.profiles, source.tests, testName, global.testColumns, {});
+      const insights = computeTestInsights(global.profiles, global.tests, testName, global.testColumns, {});
       
       const centreRow = insights.centreRows.find(r => r.code === centerCode);
       row.qualRate = centreRow && centreRow.appeared > 0 ? centreRow.qualRate : null;
