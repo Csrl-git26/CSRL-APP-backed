@@ -275,9 +275,9 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
   const global = await loadApplicationData();
-  let result = rankCentresByTest(source.profiles, source.tests, testKey, global.testColumns);
+  let result = rankCentresByTest(global.profiles, global.tests, testKey, global.testColumns);
   
-  const insights = computeTestInsights(source.profiles, source.tests, testKey, global.testColumns);
+  const insights = computeTestInsights(global.profiles, global.tests, testKey, global.testColumns);
 
   try {
     const weakData = await CenterWeakTopics.find({ testId: testKey }).lean();
@@ -367,7 +367,7 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
   const global = await loadApplicationData();
-  const result = computeTestInsights(source.profiles, source.tests, testKey, global.testColumns, {
+  const result = computeTestInsights(global.profiles, global.tests, testKey, global.testColumns, {
     rollKey: rollKey || undefined,
   });
   res.json(result);
@@ -698,7 +698,7 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
       ['Total', 'Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
         const outSub = sub === 'Mathematics' ? 'Math' : sub;
         const testKey = `${row.name}-${sub}`;
-        const rankedList = rankStudentsByTest(source.profiles, source.tests, testKey);
+        const rankedList = rankStudentsByTest(global.profiles, global.tests, testKey);
         const studentRankObj = rankedList.find(s => s.roll === rollKey);
         if (studentRankObj && studentRankObj.rank !== '-') {
           row[`${outSub}_Rank`] = studentRankObj.rank;
