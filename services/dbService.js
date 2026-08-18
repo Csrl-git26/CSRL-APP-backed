@@ -6,12 +6,13 @@ import TestScore from '../models/TestScore.js';
 import { flatToNested, nestedToFlat, extractColumnsFromNestedTests } from '../utils/testColumns.js';
 
 const GLOBAL_DATA_CACHE_KEY = 'globalData';
+const pendingGlobalQueries = new Map();
 
 function readCacheTtlMs() {
   const raw = process.env.DB_READ_CACHE_TTL_MS || process.env.FIRESTORE_READ_CACHE_TTL_MS;
   if (raw === '0' || raw === '') return 0;
-  const n = parseInt(raw ?? '10000', 10);
-  return Number.isFinite(n) && n >= 0 ? n : 10000;
+  const n = parseInt(raw ?? '3600000', 10);
+  return Number.isFinite(n) && n >= 0 ? n : 3600000;
 }
 
 function readCacheTtlSeconds() {
@@ -311,39 +312,50 @@ export async function loadGlobalDataFromDb() {
     return { profiles: [], tests: [], testColumns: [] };
   }
 
-  const ttlMs = readCacheTtlMs();
-  const ttlSec = readCacheTtlSeconds();
-
-  if (ttlMs > 0) {
-    const cached = await getCacheAsync(GLOBAL_DATA_CACHE_KEY);
-    if (cached) {
-      return {
-        profiles: cached.profiles ?? [],
-        tests: cached.tests ?? [],
-        testColumns: cached.testColumns ?? [],
-      };
-    }
+  if (pendingGlobalQueries.has(GLOBAL_DATA_CACHE_KEY)) {
+    return pendingGlobalQueries.get(GLOBAL_DATA_CACHE_KEY);
   }
 
-  try {
-    const data = await fetchGlobalDataFromDbOnce();
-    const out = {
-      profiles: data.profiles,
-      tests: data.tests,
-      testColumns: data.testColumns,
-    };
+  const promise = (async () => {
+    const ttlMs = readCacheTtlMs();
+    const ttlSec = readCacheTtlSeconds();
+
     if (ttlMs > 0) {
-      await setCacheAsync(GLOBAL_DATA_CACHE_KEY, {
-        profiles: out.profiles,
-        tests: out.tests,
-        testColumns: out.testColumns,
-      }, ttlSec);
+      const cached = await getCacheAsync(GLOBAL_DATA_CACHE_KEY);
+      if (cached) {
+        return {
+          profiles: cached.profiles ?? [],
+          tests: cached.tests ?? [],
+          testColumns: cached.testColumns ?? [],
+        };
+      }
     }
-    return out;
-  } catch (err) {
-    console.error('Error in loadGlobalDataFromDb:', err);
-    return { profiles: [], tests: [], testColumns: [] };
-  }
+
+    try {
+      const data = await fetchGlobalDataFromDbOnce();
+      const out = {
+        profiles: data.profiles,
+        tests: data.tests,
+        testColumns: data.testColumns,
+      };
+      if (ttlMs > 0) {
+        await setCacheAsync(GLOBAL_DATA_CACHE_KEY, {
+          profiles: out.profiles,
+          tests: out.tests,
+          testColumns: out.testColumns,
+        }, ttlSec);
+      }
+      return out;
+    } catch (err) {
+      console.error('Error in loadGlobalDataFromDb:', err);
+      return { profiles: [], tests: [], testColumns: [] };
+    } finally {
+      pendingGlobalQueries.delete(GLOBAL_DATA_CACHE_KEY);
+    }
+  })();
+
+  pendingGlobalQueries.set(GLOBAL_DATA_CACHE_KEY, promise);
+  return promise;
 }
 
 export async function loadCenterDataFromDb(centerCode) {
@@ -353,39 +365,51 @@ export async function loadCenterDataFromDb(centerCode) {
 
   const normCenter = normalizeCenterCode(centerCode);
   const cacheKey = `centerData_${normCenter}`;
-  const ttlMs = readCacheTtlMs();
-  const ttlSec = readCacheTtlSeconds();
-
-  if (ttlMs > 0) {
-    const cached = await getCacheAsync(cacheKey);
-    if (cached) {
-      return {
-        profiles: cached.profiles ?? [],
-        tests: cached.tests ?? [],
-        testColumns: cached.testColumns ?? [],
-      };
-    }
+  
+  if (pendingGlobalQueries.has(cacheKey)) {
+    return pendingGlobalQueries.get(cacheKey);
   }
 
-  try {
-    const data = await fetchCenterDataFromDbOnce(normCenter);
-    const out = {
-      profiles: data.profiles,
-      tests: data.tests,
-      testColumns: data.testColumns,
-    };
+  const promise = (async () => {
+    const ttlMs = readCacheTtlMs();
+    const ttlSec = readCacheTtlSeconds();
+
     if (ttlMs > 0) {
-      await setCacheAsync(cacheKey, {
-        profiles: out.profiles,
-        tests: out.tests,
-        testColumns: out.testColumns,
-      }, ttlSec);
+      const cached = await getCacheAsync(cacheKey);
+      if (cached) {
+        return {
+          profiles: cached.profiles ?? [],
+          tests: cached.tests ?? [],
+          testColumns: cached.testColumns ?? [],
+        };
+      }
     }
-    return out;
-  } catch (err) {
-    console.error(`Error in loadCenterDataFromDb for ${centerCode}:`, err);
-    return { profiles: [], tests: [], testColumns: [] };
-  }
+
+    try {
+      const data = await fetchCenterDataFromDbOnce(normCenter);
+      const out = {
+        profiles: data.profiles,
+        tests: data.tests,
+        testColumns: data.testColumns,
+      };
+      if (ttlMs > 0) {
+        await setCacheAsync(cacheKey, {
+          profiles: out.profiles,
+          tests: out.tests,
+          testColumns: out.testColumns,
+        }, ttlSec);
+      }
+      return out;
+    } catch (err) {
+      console.error(`Error in loadCenterDataFromDb for ${centerCode}:`, err);
+      return { profiles: [], tests: [], testColumns: [] };
+    } finally {
+      pendingGlobalQueries.delete(cacheKey);
+    }
+  })();
+
+  pendingGlobalQueries.set(cacheKey, promise);
+  return promise;
 }
 
 export async function upsertProfileDoc(student) {
@@ -457,4 +481,37 @@ export async function upsertTestDoc(centerCode, rollKey, scores) {
 
   invalidateDataCache();
   return nestedToFlat(base);
+}
+
+export async function loadSingleStudentDataFromDb(centerCode, rollKey) {
+  if (!isDbEnabled()) {
+    const mem = sliceCenterFromGlobal(getMemoryDevStore(), centerCode);
+    return {
+      profiles: mem.profiles.filter(p => p.ROLL_KEY === rollKey),
+      tests: mem.tests.filter(t => t.ROLL_KEY === rollKey),
+      testColumns: mem.testColumns
+    };
+  }
+
+  await initMongo();
+  const normCenter = normalizeCenterCode(centerCode);
+
+  const [profileDoc, testDoc] = await Promise.all([
+    Profile.findOne({ centerCode: new RegExp(`^${normCenter}$`, 'i'), ROLL_KEY: rollKey }).lean(),
+    TestScore.findOne({ centerCode: new RegExp(`^${normCenter}$`, 'i'), ROLL_KEY: rollKey }).lean()
+  ]);
+
+  const pDocs = profileDoc ? [profileDoc] : [];
+  const tDocs = testDoc ? [testDoc] : [];
+  
+  const processed = processDbDocuments(pDocs, tDocs);
+  
+  // We still need the global testColumns so charts render properly
+  const centerData = await loadCenterDataFromDb(centerCode);
+  
+  return {
+    profiles: processed.profiles,
+    tests: processed.tests,
+    testColumns: centerData.testColumns
+  };
 }

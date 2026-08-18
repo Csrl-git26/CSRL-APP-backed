@@ -1,6 +1,7 @@
 import './bootstrap-env.js';
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import { isMongoReady, initMongo } from './services/mongoInit.js';
@@ -23,6 +24,7 @@ import {
   upsertTestDoc,
   loadApplicationData,
   loadCenterApplicationData,
+  loadSingleStudentDataFromDb,
   sliceCenterFromGlobal,
   getReadCacheStatus,
   invalidateDataCache,
@@ -44,6 +46,7 @@ import {
 import { CENTERS_CONFIG, ADMIN_CREDENTIALS } from './config/centers.js';
 
 const app = express();
+app.use(compression());
 const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'csrl_super_secret_key_2026';
 
@@ -207,12 +210,13 @@ app.get('/api/data/centers', authenticateToken, async (req, res) => {
 
 app.get('/api/data/student', authenticateToken, async (req, res) => {
   if (req.user.role !== 'student') return res.status(403).json({ message: 'Forbidden' });
-  const centerData = await loadCenterApplicationData(req.user.centerCode);
-  res.json({
-    profiles: centerData.profiles.filter((p) => p.ROLL_KEY === req.user.id),
-    tests: centerData.tests.filter((t) => t.ROLL_KEY === req.user.id),
-    testColumns: centerData.testColumns,
-  });
+  try {
+    const studentData = await loadSingleStudentDataFromDb(req.user.centerCode, req.user.id);
+    res.json(studentData);
+  } catch (err) {
+    console.error('Error fetching student data:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
 });
 
 // ── Analytics Routes ───────────────────────────────────────────────────────────
@@ -388,7 +392,12 @@ app.get('/api/analytics/student-chart', async (req, res) => {
   const { rollKey, centerCode } = req.query;
   if (!rollKey) return res.status(400).json({ message: 'rollKey is required' });
 
-  const source = centerCode ? await loadCenterApplicationData(centerCode) : await loadApplicationData();
+  let source;
+  if (centerCode) {
+    source = await loadSingleStudentDataFromDb(centerCode, rollKey);
+  } else {
+    source = await loadApplicationData(); // Fallback if no centerCode provided
+  }
   const testDoc = source.tests.find((t) => t.ROLL_KEY === rollKey) || {};
   const chartData = buildStudentChartData(testDoc, source.testColumns);
   const weakSubj = computeStudentWeakSubject(testDoc, source.testColumns);
