@@ -376,7 +376,7 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
  * GET /api/analytics/student-chart?rollKey=&centerCode=
  * Chart-ready performance data for a single student.
  */
-app.get('/api/analytics/student-chart', authenticateToken, async (req, res) => {
+app.get('/api/analytics/student-chart', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
