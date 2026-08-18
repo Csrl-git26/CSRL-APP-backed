@@ -157,8 +157,9 @@ export function computeWeakSubjectAnalysis(tests, testColumns) {
 /**
  * Per-subject averages for one test only (columns whose parsed testName matches testKey).
  */
-export function computeWeakSubjectAnalysisForTest(tests, testColumns, testKey) {
-  if (!testKey) return [];
+export function computeWeakSubjectAnalysisForTest(tests, testColumns, testKeyRaw) {
+  if (!testKeyRaw) return [];
+  const validNames = testKeyRaw.split(',').map(k => k.trim());
   const totals = {};
   const counts = {};
   const accTotals = {};
@@ -168,7 +169,7 @@ export function computeWeakSubjectAnalysisForTest(tests, testColumns, testKey) {
     (testColumns || []).forEach((col) => {
       const { subject, isTotal, testName } = parseTestColumn(col);
       if (isTotal || subject === 'Total') return;
-      if (testName !== testKey) return;
+      if (!validNames.includes(testName)) return;
       if (subject.includes('_Accuracy') || subject.includes('_Attempted') || subject.includes('_Rank') || subject.includes('_Correct') || subject.includes('_Wrong')) return;
       
       const mark = numericScore(t[col]);
@@ -200,8 +201,9 @@ export function computeWeakSubjectAnalysisForTest(tests, testColumns, testKey) {
  * Rank centres by average score for a single test column.
  * Returns [{ rank, code, avg, top, tested, studentCount, weakSubject }]
  */
-export function rankCentresByTest(profiles, tests, testKey, testColumns) {
-  if (!testKey || !profiles.length) return [];
+export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
+  if (!testKeyRaw || !profiles.length) return [];
+  const testKeys = testKeyRaw.split(',').map(k => k.trim());
 
   const centreAgg = {};
 
@@ -213,11 +215,14 @@ export function rankCentresByTest(profiles, tests, testKey, testColumns) {
     centreAgg[code].studentCount++;
 
     if (!doc) return;
-    const mark = numericScore(doc[testKey]);
-    if (mark === null) return;
-    centreAgg[code].sum   += mark;
-    centreAgg[code].count += 1;
-    if (mark > centreAgg[code].max) centreAgg[code].max = mark;
+    
+    testKeys.forEach(key => {
+      const mark = numericScore(doc[key]);
+      if (mark === null) return;
+      centreAgg[code].sum   += mark;
+      centreAgg[code].count += 1;
+      if (mark > centreAgg[code].max) centreAgg[code].max = mark;
+    });
   });
 
   return Object.entries(centreAgg)
@@ -229,8 +234,8 @@ export function rankCentresByTest(profiles, tests, testKey, testColumns) {
         profiles.filter((p) => (p.centerCode || 'UNKNOWN') === code).map((p) => p.ROLL_KEY)
       );
       const centreTests    = tests.filter((t) => rollSet.has(t.ROLL_KEY));
-      const parsedKey      = parseTestColumn(testKey);
-      const weakAnalysis   = computeWeakSubjectAnalysisForTest(centreTests, testColumns, parsedKey.testName);
+      const parsedKeys = testKeys.map(k => parseTestColumn(k).testName).join(',');
+      const weakAnalysis = computeWeakSubjectAnalysisForTest(centreTests, testColumns, parsedKeys);
       const weakSubject    = weakAnalysis.length ? weakAnalysis[0].subject : 'N/A';
       return { code, avg, top, tested: s.count, studentCount: s.studentCount, weakSubject };
     })
