@@ -229,7 +229,8 @@ export function rankCentresByTest(profiles, tests, testKey, testColumns) {
         profiles.filter((p) => (p.centerCode || 'UNKNOWN') === code).map((p) => p.ROLL_KEY)
       );
       const centreTests    = tests.filter((t) => rollSet.has(t.ROLL_KEY));
-      const weakAnalysis   = computeWeakSubjectAnalysisForTest(centreTests, testColumns, testKey);
+      const parsedKey      = parseTestColumn(testKey);
+      const weakAnalysis   = computeWeakSubjectAnalysisForTest(centreTests, testColumns, parsedKey.testName);
       const weakSubject    = weakAnalysis.length ? weakAnalysis[0].subject : 'N/A';
       return { code, avg, top, tested: s.count, studentCount: s.studentCount, weakSubject };
     })
