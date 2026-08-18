@@ -845,13 +845,37 @@ app.post('/api/students/bulk-upsert', authenticateToken, requireAdmin, async (re
     const modified = result.modifiedCount || 0;
     console.log(`[BULK] Bulk upsert: ${inserted} inserted, ${modified} updated out of ${ops.length} students`);
 
-    return res.json({
-      success: true,
-      inserted,
-      updated: modified,
-      total: ops.length,
-      message: `Bulk import complete: ${inserted} new, ${modified} updated.`,
+    
+    const rawFMT02 = await StudentRawMarks.findOne({ testId: 'FMT02', studentId: rollKey }).lean();
+    const topicMapFMT02 = await TopicMap.findOne({ testId: 'FMT02' }).lean();
+    const weakFMT02 = await StudentWeakTopics.findOne({ testId: 'FMT02', studentId: rollKey }).lean();
+    
+    // Simulate the fallback logic
+    let marksEntries = [];
+    if (rawFMT02 && rawFMT02.marks) {
+      if (rawFMT02.marks instanceof Map) marksEntries = Array.from(rawFMT02.marks.entries());
+      else if (typeof rawFMT02.marks === 'object' && rawFMT02.marks !== null) marksEntries = Object.entries(rawFMT02.marks);
+    }
+    
+    let qToSub = {};
+    if (topicMapFMT02) {
+      (topicMapFMT02.topics || []).forEach(t => {
+        (t.questions || []).forEach(q => {
+          qToSub[q] = t.subject;
+        });
+      });
+    }
+
+    return res.json({ 
+      hasRaw: !!rawFMT02,
+      rawMarksKeys: rawFMT02 ? Object.keys(rawFMT02.marks || {}).slice(0, 5) : [],
+      marksEntriesCount: marksEntries.length,
+      hasTopicMap: !!topicMapFMT02,
+      topicMapTopicsCount: topicMapFMT02 ? (topicMapFMT02.topics || []).length : 0,
+      qToSubKeysCount: Object.keys(qToSub).length,
+      weakTopics: weakFMT02
     });
+
   } catch (e) {
     console.error('[BULK] Bulk upsert failed:', e);
     return res.status(500).json({ message: e.message || 'Bulk upsert failed' });
