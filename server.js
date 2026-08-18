@@ -39,6 +39,7 @@ import {
   computeStudentWeakSubject,
   computeTestInsights,
   buildCentreChartData,
+  buildStudentChartData,
 } from './services/analyticsService.js';
 import { CENTERS_CONFIG, ADMIN_CREDENTIALS } from './config/centers.js';
 
