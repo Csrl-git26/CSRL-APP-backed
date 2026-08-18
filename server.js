@@ -275,9 +275,9 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
   const global = await loadApplicationData();
-  let result = rankCentresByTest(global.profiles, global.tests, testKey, global.testColumns);
+  let result = rankCentresByTest(source.profiles, source.tests, testKey, global.testColumns);
   
-  const insights = computeTestInsights(global.profiles, global.tests, testKey, global.testColumns);
+  const insights = computeTestInsights(source.profiles, source.tests, testKey, global.testColumns);
 
   try {
     const weakData = await CenterWeakTopics.find({ testId: testKey }).lean();
@@ -367,7 +367,7 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
   const global = await loadApplicationData();
-  const result = computeTestInsights(global.profiles, global.tests, testKey, global.testColumns, {
+  const result = computeTestInsights(source.profiles, source.tests, testKey, global.testColumns, {
     rollKey: rollKey || undefined,
   });
   res.json(result);
@@ -515,7 +515,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
       // Calculate global rankings for this test
       ['Total', 'Physics', 'Chemistry', 'Math', 'Biology'].forEach((sub) => {
         const testKey = sub === 'Total' ? row.name : `${row.name}_${sub}`;
-        const rankedList = rankStudentsByTest(global.profiles, global.tests, testKey);
+        const rankedList = rankStudentsByTest(source.profiles, source.tests, testKey);
         const studentRankObj = rankedList.find(s => s.roll === rollKey);
         if (studentRankObj && studentRankObj.rank !== '-') {
           row[`${sub}_Rank`] = studentRankObj.rank;
@@ -641,7 +641,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
       const testName = row.name;
       
       // Use computeTestInsights to guarantee 100% identical qualification rate as Leaderboard
-      const insights = computeTestInsights(global.profiles, global.tests, testName, global.testColumns, {});
+      const insights = computeTestInsights(source.profiles, source.tests, testName, global.testColumns, {});
       
       const centreRow = insights.centreRows.find(r => r.code === centerCode);
       row.qualRate = centreRow && centreRow.appeared > 0 ? centreRow.qualRate : null;
@@ -698,7 +698,7 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
       ['Total', 'Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
         const outSub = sub === 'Mathematics' ? 'Math' : sub;
         const testKey = `${row.name}-${sub}`;
-        const rankedList = rankStudentsByTest(global.profiles, global.tests, testKey);
+        const rankedList = rankStudentsByTest(source.profiles, source.tests, testKey);
         const studentRankObj = rankedList.find(s => s.roll === rollKey);
         if (studentRankObj && studentRankObj.rank !== '-') {
           row[`${outSub}_Rank`] = studentRankObj.rank;
