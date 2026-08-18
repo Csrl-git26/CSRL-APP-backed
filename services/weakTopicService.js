@@ -165,10 +165,12 @@ export async function computeWeakTopics(testId) {
         if (subj && subjectMetrics[subj]) {
           subjectMetrics[subj].totalQuestions++;
         }
-        // Since mark !== null, the question was attempted (even if the mark is 0)
-        attempted++;
-        if (subj && subjectMetrics[subj]) {
-          subjectMetrics[subj].attempted++;
+        // A mark of 0 indicates unattempted in standard OMR output, only count if mark != 0
+        if (mark !== 0) {
+          attempted++;
+          if (subj && subjectMetrics[subj]) {
+            subjectMetrics[subj].attempted++;
+          }
         }
 
         if (mark > 0) {

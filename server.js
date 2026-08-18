@@ -428,7 +428,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
               if (!sub) return;
               if (!metrics[sub]) metrics[sub] = { attempted: 0, correct: 0 };
               
-              if (mark !== undefined && mark !== null) {
+              if (mark !== undefined && mark !== null && mark !== 0) {
                 metrics[sub].attempted++;
                 totalAttempted++;
                 if (Number(mark) > 0) {
