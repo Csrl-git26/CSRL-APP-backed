@@ -394,7 +394,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
 
   let source;
   if (centerCode) {
-    source = await loadSingleStudentDataFromDb(centerCode, rollKey);
+    source = await loadCenterApplicationData(centerCode);
   } else {
     source = await loadApplicationData(); // Fallback if no centerCode provided
   }
