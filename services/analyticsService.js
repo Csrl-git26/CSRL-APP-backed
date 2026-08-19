@@ -71,13 +71,21 @@ export function computeOverview(profiles, tests, testColumns) {
  */
 export function rankStudentsByTest(profiles, tests, testKey) {
   if (!testKey) return [];
+  const testKeys = testKey.split(',').map(k => k.trim());
 
   const scored = [];
   const absent = [];
   profiles.forEach((p) => {
     const testDoc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
-    const rawMark = testDoc ? testDoc[testKey] : null;
-    const mark = numericScore(rawMark);
+    
+    let sum = 0, count = 0;
+    if (testDoc) {
+      testKeys.forEach(k => {
+        const m = numericScore(testDoc[k]);
+        if (m !== null) { sum += m; count++; }
+      });
+    }
+    const mark = count > 0 ? Math.round(sum / count) : null;
     
     if (mark === null) {
       absent.push({
@@ -117,11 +125,19 @@ export function rankStudentsByTest(profiles, tests, testKey) {
  * Absent count for a test key across a set of profiles.
  */
 export function absentCount(profiles, tests, testKey) {
+  if (!testKey) return 0;
+  const validTestKeys = testKey.split(',').map(k => k.trim());
   return profiles.filter((p) => {
     const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
     if (!doc) return false;
-    const v = doc[testKey];
-    return !v || String(v).toLowerCase() === 'absent';
+    let hasAnyScore = false;
+    validTestKeys.forEach(k => {
+      const v = doc[k];
+      if (v && String(v).toLowerCase() !== 'absent') {
+        hasAnyScore = true;
+      }
+    });
+    return !hasAnyScore;
   }).length;
 }
 
@@ -385,9 +401,10 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     };
   }
 
+  const validTestKeys = testKey.split(',').map(k => k.trim());
   const subjectCols = (testColumns || []).filter((col) => {
     const p = parseTestColumn(col);
-    return !p.isTotal && p.testName === testKey;
+    return !p.isTotal && validTestKeys.includes(p.testName);
   });
 
   const subjects = [...new Set(subjectCols.map((c) => parseTestColumn(c).subject))];
@@ -409,7 +426,12 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
   profiles.forEach((p) => {
     const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
     if (!doc) return;
-    const t = numericScore(doc[testKey]);
+    let sum = 0, count = 0;
+    validTestKeys.forEach(k => {
+      const m = numericScore(doc[k]);
+      if (m !== null) { sum += m; count++; }
+    });
+    const t = count > 0 ? sum / count : null;
     if (t === null) return;
     const stream = p.stream || doc.stream || 'JEE';
     const { maxTotal } = streamCaps(stream);
@@ -451,9 +473,22 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     });
 
     const subjectScores = {};
+    const subjectCounts = {};
     subjectCols.forEach((col) => {
       const subj = parseTestColumn(col).subject;
-      subjectScores[subj] = doc ? numericScore(doc[col]) : null;
+      const m = doc ? numericScore(doc[col]) : null;
+      if (m !== null) {
+        subjectScores[subj] = (subjectScores[subj] || 0) + m;
+        subjectCounts[subj] = (subjectCounts[subj] || 0) + 1;
+      }
+    });
+    
+    subjects.forEach(subj => {
+       if (subjectCounts[subj]) {
+           subjectScores[subj] = subjectScores[subj] / subjectCounts[subj];
+       } else {
+           subjectScores[subj] = null;
+       }
     });
 
     if (!doc) {
@@ -471,7 +506,12 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       return;
     }
 
-    const total = numericScore(doc[testKey]);
+    let sum = 0, count = 0;
+    validTestKeys.forEach(k => {
+      const m = numericScore(doc[k]);
+      if (m !== null) { sum += m; count++; }
+    });
+    const total = count > 0 ? sum / count : null;
     const appeared =
       total !== null ||
       Object.values(subjectScores).some((v) => v !== null && v !== undefined);
