@@ -548,14 +548,14 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     }
 
     let qualified = total !== null && total >= overallMin;
-    if (qualified) {
+    if (qualified && stream !== 'JEE') {
       for (const col of subjectCols) {
         const subj = parseTestColumn(col).subject;
         const m = numericScore(doc[col]);
         const smin = subjectMins[subj];
         if (m !== null && smin !== undefined && m < smin) qualified = false;
       }
-    } else {
+    } else if (!qualified) {
       qualified = false;
     }
 
@@ -589,7 +589,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     subjects.forEach((subj) => {
       const m = st.subjectScores[subj];
       const smin = st.subjectMins[subj];
-      if (m !== null && smin !== undefined && m < smin) {
+      if (m !== null && smin !== undefined && m <= smin) {
         const c = st.center;
         notQualifiedBySubject[subj][c] = (notQualifiedBySubject[subj][c] || 0) + 1;
       }
