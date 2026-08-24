@@ -279,10 +279,17 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
   const global = await loadApplicationData();
-  let result = rankCentresByTest(global.profiles, global.tests, testKey, global.testColumns);
   
-  const baseTestKeys = testKey.split(',').map(k => k.split('_')[0]).join(',');
-  const insights = computeTestInsights(global.profiles, global.tests, baseTestKeys, global.testColumns);
+  let resolvedTestKey = testKey;
+  if (testKey === 'ALL_FMT') {
+    const fmtKeys = Array.from(new Set(global.testColumns.filter(k => k.startsWith('FMT')).map(k => k.split('_')[0])));
+    resolvedTestKey = fmtKeys.join(',');
+  }
+
+  let result = rankCentresByTest(global.profiles, global.tests, resolvedTestKey, global.testColumns);
+  
+  const baseTestKeys = resolvedTestKey.split(',').map(k => k.split('_')[0]).join(',');
+  const insights = computeTestInsights(global.profiles, global.tests, baseTestKeys, global.testColumns, { isAllFMT: testKey === 'ALL_FMT' });
 
   try {
     const weakData = await CenterWeakTopics.find({ testId: testKey }).lean();
@@ -374,7 +381,7 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
   const global = await loadApplicationData();
   let resolvedTestKey = testKey;
   if (testKey === 'ALL_FMT') {
-    const fmtKeys = Array.from(new Set(Object.keys(global.testColumns).filter(k => k.startsWith('FMT')).map(k => k.split('_')[0])));
+    const fmtKeys = Array.from(new Set(global.testColumns.filter(k => k.startsWith('FMT')).map(k => k.split('_')[0])));
     resolvedTestKey = fmtKeys.join(',');
   }
   const result = computeTestInsights(global.profiles, global.tests, resolvedTestKey, global.testColumns, {
