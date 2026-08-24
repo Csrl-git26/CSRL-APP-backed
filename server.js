@@ -281,7 +281,8 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
   const global = await loadApplicationData();
   let result = rankCentresByTest(global.profiles, global.tests, testKey, global.testColumns);
   
-  const insights = computeTestInsights(global.profiles, global.tests, testKey, global.testColumns);
+  const baseTestKeys = testKey.split(',').map(k => k.split('_')[0]).join(',');
+  const insights = computeTestInsights(global.profiles, global.tests, baseTestKeys, global.testColumns);
 
   try {
     const weakData = await CenterWeakTopics.find({ testId: testKey }).lean();
