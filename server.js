@@ -253,8 +253,15 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
   const source = centerCode ? await loadCenterApplicationData(centerCode) : await loadApplicationData();
-  let ranked = rankStudentsByTest(source.profiles, source.tests, testKey);
-  const absent = absentCount(source.profiles, source.tests, testKey);
+  
+  let resolvedTestKey = testKey;
+  if (testKey === 'ALL_FMT') {
+    const fmtKeys = Array.from(new Set(source.testColumns.filter(k => k.startsWith('FMT')).map(k => k.split('_')[0])));
+    resolvedTestKey = fmtKeys.join(',');
+  }
+
+  let ranked = rankStudentsByTest(source.profiles, source.tests, resolvedTestKey);
+  const absent = absentCount(source.profiles, source.tests, resolvedTestKey);
 
   if (order === 'asc') ranked = ranked.filter(s => s.marks !== 'Absent').reverse();
 
