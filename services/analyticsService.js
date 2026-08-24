@@ -464,13 +464,29 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
     const stream = p.stream || doc?.stream || 'JEE';
     const caps = streamCaps(stream);
-    const overallMin = stream === 'NEET' ? neetOverallMin : (caps.maxTotal * jeeOverallQualifyRatio);
+    let overallMin;
     const subjectMins = {};
-    const subRatio = stream === 'JEE' ? jeeSubjectQualifyRatio : neetSubjectQualifyRatio;
-    subjectCols.forEach((col) => {
-      const subj = parseTestColumn(col).subject;
-      subjectMins[subj] = maxForSubject(stream, subj) * subRatio;
-    });
+    if (stream === 'JEE') {
+      const cat = (p.CATEGORY || '').toUpperCase().trim();
+      if (cat.includes('PWD')) overallMin = 30;
+      else if (cat.includes('ST')) overallMin = 60;
+      else if (cat.includes('SC')) overallMin = 65;
+      else if (cat.includes('OBC')) overallMin = 85;
+      else if (cat.includes('EWS')) overallMin = 90;
+      else overallMin = 110; // GEN or default
+
+      subjectCols.forEach((col) => {
+        const subj = parseTestColumn(col).subject;
+        subjectMins[subj] = 20; // 20 marks per subject for all categories
+      });
+    } else {
+      overallMin = neetOverallMin;
+      const subRatio = neetSubjectQualifyRatio;
+      subjectCols.forEach((col) => {
+        const subj = parseTestColumn(col).subject;
+        subjectMins[subj] = maxForSubject(stream, subj) * subRatio;
+      });
+    }
 
     const subjectScores = {};
     const subjectCounts = {};
