@@ -98,7 +98,8 @@ export function rankStudentsByTest(profiles, tests, testKey) {
         gender:   p.GENDER || '',
         stream:   p.stream     || (testDoc ? testDoc.stream : 'JEE'),
         photo:    p['STUDENT PHOTO URL'] || null,
-        rank:     '-'
+        rank:     '-',
+        rawScores: testDoc || {}
       });
     } else {
       scored.push({
@@ -111,6 +112,7 @@ export function rankStudentsByTest(profiles, tests, testKey) {
         gender:   p.GENDER || '',
         stream:   p.stream     || (testDoc ? testDoc.stream : 'JEE'),
         photo:    p['STUDENT PHOTO URL'] || null,
+        rawScores: testDoc || {}
       });
     }
   });
