@@ -227,7 +227,7 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
     const code = p.centerCode || 'UNKNOWN';
     const doc  = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
 
-    if (!centreAgg[code]) centreAgg[code] = { sum: 0, count: 0, max: -Infinity, studentCount: 0 };
+    if (!centreAgg[code]) centreAgg[code] = { sum: 0, count: 0, max: -Infinity, min: Infinity, studentCount: 0 };
     centreAgg[code].studentCount++;
 
     if (!doc) return;
@@ -238,6 +238,7 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
       centreAgg[code].sum   += mark;
       centreAgg[code].count += 1;
       if (mark > centreAgg[code].max) centreAgg[code].max = mark;
+      if (mark < centreAgg[code].min) centreAgg[code].min = mark;
     });
   });
 
@@ -246,6 +247,7 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
     .map(([code, s]) => {
       const avg     = s.count ? Math.round(s.sum / s.count) : 0;
       const top     = s.max === -Infinity ? 0 : s.max;
+      const bottom  = s.min === Infinity ? 0 : s.min;
       const rollSet = new Set(
         profiles.filter((p) => (p.centerCode || 'UNKNOWN') === code).map((p) => p.ROLL_KEY)
       );
@@ -253,7 +255,7 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
       const parsedKeys = testKeys.map(k => parseTestColumn(k).testName).join(',');
       const weakAnalysis = computeWeakSubjectAnalysisForTest(centreTests, testColumns, parsedKeys);
       const weakSubject    = weakAnalysis.length ? weakAnalysis[0].subject : 'N/A';
-      return { code, avg, top, tested: s.count, studentCount: s.studentCount, weakSubject };
+      return { code, avg, top, bottom, tested: s.count, studentCount: s.studentCount, weakSubject };
     })
     .sort((a, b) => b.avg - a.avg)
     .map((c, i) => ({ ...c, rank: i + 1 }));
