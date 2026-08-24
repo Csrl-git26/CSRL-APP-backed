@@ -372,8 +372,14 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
   const global = await loadApplicationData();
-  const result = computeTestInsights(global.profiles, global.tests, testKey, global.testColumns, {
+  let resolvedTestKey = testKey;
+  if (testKey === 'ALL_FMT') {
+    const fmtKeys = Array.from(new Set(Object.keys(global.testColumns).filter(k => k.startsWith('FMT')).map(k => k.split('_')[0])));
+    resolvedTestKey = fmtKeys.join(',');
+  }
+  const result = computeTestInsights(global.profiles, global.tests, resolvedTestKey, global.testColumns, {
     rollKey: rollKey || undefined,
+    isAllFMT: testKey === 'ALL_FMT'
   });
   res.json(result);
 });

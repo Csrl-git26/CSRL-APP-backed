@@ -87,6 +87,27 @@ export function rankStudentsByTest(profiles, tests, testKey) {
     }
     const mark = count > 0 ? Math.round(sum / count) : null;
     
+    let injectedRawScores = { ...(testDoc || {}) };
+    if (testDoc && testKeys.length > 1) {
+      // Calculate subject averages across all testKeys
+      const subjects = ["Physics", "Chemistry", "Math", "Mathematics", "Biology", "Botany", "Zoology"];
+      subjects.forEach(sub => {
+        let subSum = 0;
+        let subCount = 0;
+        testKeys.forEach(k => {
+          // Look for k_sub e.g. FMT01_Physics
+          const subKey = Object.keys(testDoc).find(tk => tk.startsWith(k) && tk.toLowerCase().includes(sub.toLowerCase()));
+          if (subKey) {
+             const m = numericScore(testDoc[subKey]);
+             if (m !== null) { subSum += m; subCount++; }
+          }
+        });
+        if (subCount > 0) {
+           injectedRawScores[sub] = Math.round(subSum / subCount);
+        }
+      });
+    }
+
     if (mark === null) {
       absent.push({
         roll:     p.ROLL_KEY,
@@ -99,7 +120,7 @@ export function rankStudentsByTest(profiles, tests, testKey) {
         stream:   p.stream     || (testDoc ? testDoc.stream : 'JEE'),
         photo:    p['STUDENT PHOTO URL'] || null,
         rank:     '-',
-        rawScores: testDoc || {}
+        rawScores: injectedRawScores
       });
     } else {
       scored.push({
@@ -112,7 +133,7 @@ export function rankStudentsByTest(profiles, tests, testKey) {
         gender:   p.GENDER || '',
         stream:   p.stream     || (testDoc ? testDoc.stream : 'JEE'),
         photo:    p['STUDENT PHOTO URL'] || null,
-        rawScores: testDoc || {}
+        rawScores: injectedRawScores
       });
     }
   });
@@ -380,6 +401,7 @@ function round2(n) {
  * Qualification uses configurable % of max total / max per-subject marks (not attempt counts).
  */
 export function computeTestInsights(profiles, tests, testKey, testColumns, options = {}) {
+  const displayTestKey = options.isAllFMT ? "All FMT Average" : testKey;
   const jeeOverallQualifyRatio = options.jeeOverallQualifyRatio ?? (100 / 300);
   const jeeSubjectQualifyRatio = options.jeeSubjectQualifyRatio ?? 0.25;
   const neetOverallMin = options.neetOverallMin ?? 550;
