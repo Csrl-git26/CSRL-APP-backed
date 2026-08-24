@@ -94,6 +94,8 @@ export function rankStudentsByTest(profiles, tests, testKey) {
         marks:    'Absent',
         center:   p.centerCode || '',
         category: p.CATEGORY   || '',
+        sponsor:  p.SPONSOR || (p.centerCode === 'KNP' || p.centerCode === 'GAIL' ? 'GAIL' : (p.centerCode === 'JDH' || p.centerCode === 'OIL_INDIA' ? 'OIL_INDIA' : '—')),
+        gender:   p.GENDER || '',
         stream:   p.stream     || (testDoc ? testDoc.stream : 'JEE'),
         photo:    p['STUDENT PHOTO URL'] || null,
         rank:     '-'
@@ -105,6 +107,8 @@ export function rankStudentsByTest(profiles, tests, testKey) {
         marks:    mark,
         center:   p.centerCode || '',
         category: p.CATEGORY   || '',
+        sponsor:  p.SPONSOR || (p.centerCode === 'KNP' || p.centerCode === 'GAIL' ? 'GAIL' : (p.centerCode === 'JDH' || p.centerCode === 'OIL_INDIA' ? 'OIL_INDIA' : '—')),
+        gender:   p.GENDER || '',
         stream:   p.stream     || (testDoc ? testDoc.stream : 'JEE'),
         photo:    p['STUDENT PHOTO URL'] || null,
       });
