@@ -507,7 +507,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
 
       subjectCols.forEach((col) => {
         const subj = parseTestColumn(col).subject;
-        subjectMins[subj] = 20; // 20 marks per subject for all categories
+        subjectMins[subj] = 30; // 30 marks per subject for all categories
       });
     } else {
       overallMin = neetOverallMin;
