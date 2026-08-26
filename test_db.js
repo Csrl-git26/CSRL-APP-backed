@@ -1,13 +1,13 @@
 import mongoose from 'mongoose';
-import { isMongoReady, initMongo } from './services/mongoInit.js';
-import StudentWeakTopics from './models/StudentWeakTopics.js';
+import { Profile } from './models/DataModels.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
 async function run() {
-  await initMongo();
-  const docs = await StudentWeakTopics.find({ testId: { $in: ['FMT04', 'FMT 04', 'fmt04'] } }).limit(5);
-  console.log(JSON.stringify(docs, null, 2));
-  mongoose.disconnect();
+  await mongoose.connect(process.env.MONGODB_URI);
+  const total = await Profile.countDocuments();
+  const centre = await Profile.countDocuments({ centerCode: /^centre$/i });
+  console.log(`Total: ${total}, Centre: ${centre}`);
+  process.exit(0);
 }
 run();

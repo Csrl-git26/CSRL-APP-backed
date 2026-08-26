@@ -54,6 +54,17 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+
+app.get('/api/debug/student/:roll', async (req, res) => {
+  const { roll } = req.params;
+  const { Profile, TestScore } = require('./services/dbService.js');
+  // wait, dbService doesn't export models, let me just read all global data
+  const global = await loadApplicationData();
+  const p = global.profiles.find(x => String(x.ROLL_KEY) === String(roll));
+  const t = global.tests.find(x => String(x.ROLL_KEY) === String(roll));
+  res.json({ profile: p, test: t, profileCenterCode: p?.centerCode, testCenter: t?.Center });
+});
+
 app.get('/api/health', async (_req, res) => {
   const global = await loadApplicationData();
   res.json({
@@ -249,10 +260,19 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  const { testKey, centerCode, limit = '30', order = 'desc' } = req.query;
+  const { testKey, limit = '30', order = 'desc' } = req.query;
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
-  const source = centerCode ? await loadCenterApplicationData(centerCode) : await loadApplicationData();
+  let resolvedCenterCode = req.query.centerCode;
+  if (!resolvedCenterCode || resolvedCenterCode === 'undefined' || resolvedCenterCode === 'null') {
+    if (req.user.role === 'centre') {
+      resolvedCenterCode = req.user.id;
+    } else {
+      resolvedCenterCode = '';
+    }
+  }
+
+  const source = resolvedCenterCode ? await loadCenterApplicationData(resolvedCenterCode) : await loadApplicationData();
   
   let resolvedTestKey = testKey;
   if (testKey === 'ALL_FMT') {

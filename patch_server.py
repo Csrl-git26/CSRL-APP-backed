@@ -1,32 +1,43 @@
-import re
+import sys
 
-with open('server.js', 'r') as f:
+filepath = '/Users/surya/Desktop/CSRL-APP-backed/server.js'
+with open(filepath, 'r') as f:
     content = f.read()
 
-target = """    const finalChartData = enrichedChartData.map((row) => {
-      const normRowName = (row.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      const wt = weakMap[normRowName];"""
+old_global_insights = """  const { testKey } = req.query;
+  const baseTestKeys = testKey.split(',').map(k => k.split('_')[0]).join(',');
+  const insights = computeTestInsights(global.profiles, global.tests, baseTestKeys, global.testColumns);"""
 
-replacement = """    const finalChartData = enrichedChartData.map((row) => {
-      const normRowName = (row.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      
-      // Calculate global rankings for this test
-      ['Total', 'Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
-        const outSub = sub === 'Mathematics' ? 'Math' : sub;
-        const testKey = `${row.name}-${sub}`;
-        const rankedList = rankStudentsByTest(global.profiles, global.tests, testKey);
-        const studentRankObj = rankedList.find(s => s.roll === rollKey);
-        if (studentRankObj && studentRankObj.rank !== '-') {
-          row[`${outSub}_Rank`] = studentRankObj.rank;
-        }
-      });
+new_global_insights = """  const { testKey } = req.query;
+  let baseTestKeys = testKey.split(',').map(k => k.split('_')[0]).join(',');
+  if (testKey === 'ALL_FMT') {
+    const fmtKeys = Array.from(new Set(Object.keys(global.testColumns).filter(k => k.startsWith('FMT')).map(k => k.split('_')[0])));
+    baseTestKeys = fmtKeys.join(',');
+  }
+  const insights = computeTestInsights(global.profiles, global.tests, baseTestKeys, global.testColumns, { isAllFMT: testKey === 'ALL_FMT' });"""
 
-      const wt = weakMap[normRowName];"""
+if old_global_insights in content:
+    content = content.replace(old_global_insights, new_global_insights)
 
-if target in content:
-    content = content.replace(target, replacement)
-    with open('server.js', 'w') as f:
-        f.write(content)
-    print("Patched server.js")
-else:
-    print("Target not found")
+old_test_insights = """  const global = await loadApplicationData();
+  const result = computeTestInsights(global.profiles, global.tests, testKey, global.testColumns, {
+    rollKey: rollKey || undefined,
+  });"""
+
+new_test_insights = """  const global = await loadApplicationData();
+  let resolvedTestKey = testKey;
+  if (testKey === 'ALL_FMT') {
+    const fmtKeys = Array.from(new Set(Object.keys(global.testColumns).filter(k => k.startsWith('FMT')).map(k => k.split('_')[0])));
+    resolvedTestKey = fmtKeys.join(',');
+  }
+  const result = computeTestInsights(global.profiles, global.tests, resolvedTestKey, global.testColumns, {
+    rollKey: rollKey || undefined,
+    isAllFMT: testKey === 'ALL_FMT'
+  });"""
+
+if old_test_insights in content:
+    content = content.replace(old_test_insights, new_test_insights)
+
+with open(filepath, 'w') as f:
+    f.write(content)
+print("Patched server.js")

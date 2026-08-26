@@ -296,15 +296,61 @@ async function fetchGlobalDataFromDbOnce() {
 async function fetchCenterDataFromDbOnce(centerCode) {
   await initMongo();
   const normCenter = normalizeCenterCode(centerCode);
+  const regex = new RegExp(`^${normCenter}$`, 'i');
   
-  const profilesDocs = await Profile.find({ centerCode: new RegExp(`^${normCenter}$`, 'i') }).lean();
+  // 1. Find tests that match this center in any subject/total
+  // We can just find TestScores that have the centerCode or where any test has the centerCode
+  // But wait, tests is a nested object. It's easier to find profiles first, and tests by those profiles,
+  // PLUS tests that explicitly mention this centerCode.
   
-  // Get all ROLL_KEYs for this centre to fetch their tests
-  const rollKeys = profilesDocs.map(p => p.ROLL_KEY);
+  // Actually, TestScore flat format has `centerCode`, nested has `tests.FMT04.centerCode`.
+  // To be safe and broad, we'll just fetch ALL TestScores and filter them in memory, 
+  // since the DB is relatively small.
+  const allTests = await TestScore.find({}).lean();
   
-  const tDocs = await TestScore.find({ ROLL_KEY: { $in: rollKeys } }).lean();
+  const relevantRollKeys = new Set();
+  const tDocs = allTests.filter(d => {
+    const raw = { ...d };
+    const nested = ensureNested(raw);
+    let belongsToCenter = false;
+    
+    // Check if the student's default centerCode matches
+    if (nested.centerCode && String(nested.centerCode).trim().toLowerCase() === normCenter.toLowerCase()) {
+      belongsToCenter = true;
+    }
+    
+    // Check if any test taken matches
+    for (const t of Object.values(nested.tests || {})) {
+      if (t.centerCode && String(t.centerCode).trim().toLowerCase() === normCenter.toLowerCase()) {
+        belongsToCenter = true;
+        break;
+      }
+    }
+    
+    if (belongsToCenter && nested.ROLL_KEY) {
+      relevantRollKeys.add(String(nested.ROLL_KEY));
+      return true;
+    }
+    return false;
+  });
 
-  return processDbDocuments(profilesDocs, tDocs);
+  // Now find profiles that match the centerCode OR match the RollKeys found above
+  const profilesDocs = await Profile.find({
+    $or: [
+      { centerCode: regex },
+      { ROLL_KEY: { $in: Array.from(relevantRollKeys) } }
+    ]
+  }).lean();
+  
+  // Also make sure we include any test docs for profiles we matched directly by centerCode
+  const profileRollKeys = profilesDocs.map(p => String(p.ROLL_KEY));
+  const finalTestDocs = allTests.filter(d => {
+    const raw = { ...d };
+    const nested = ensureNested(raw);
+    return relevantRollKeys.has(String(nested.ROLL_KEY)) || profileRollKeys.includes(String(nested.ROLL_KEY));
+  });
+
+  return processDbDocuments(profilesDocs, finalTestDocs);
 }
 
 export async function loadGlobalDataFromDb() {
