@@ -5,7 +5,7 @@ import Profile from '../models/Profile.js';
 import TestScore from '../models/TestScore.js';
 import { flatToNested, nestedToFlat, extractColumnsFromNestedTests } from '../utils/testColumns.js';
 
-const GLOBAL_DATA_CACHE_KEY = 'globalData';
+const GLOBAL_DATA_CACHE_KEY = 'globalData_v2';
 const pendingGlobalQueries = new Map();
 
 function readCacheTtlMs() {
@@ -410,7 +410,7 @@ export async function loadCenterDataFromDb(centerCode) {
   }
 
   const normCenter = normalizeCenterCode(centerCode);
-  const cacheKey = `centerData_${normCenter}`;
+  const cacheKey = `centerData_v2_${normCenter}`;
   
   if (pendingGlobalQueries.has(cacheKey)) {
     return pendingGlobalQueries.get(cacheKey);
