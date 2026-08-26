@@ -334,11 +334,14 @@ async function fetchCenterDataFromDbOnce(centerCode) {
     return false;
   });
 
-  // Now find profiles that match the centerCode OR match the RollKeys found above
+  const rollKeysArray = Array.from(relevantRollKeys);
+  const numberRollKeys = rollKeysArray.map(k => Number(k)).filter(k => !isNaN(k));
+  
+  // Now find profiles that match the centerCode OR match the RollKeys found above (both string and number formats)
   const profilesDocs = await Profile.find({
     $or: [
       { centerCode: regex },
-      { ROLL_KEY: { $in: Array.from(relevantRollKeys) } }
+      { ROLL_KEY: { $in: [...rollKeysArray, ...numberRollKeys] } }
     ]
   }).lean();
   
