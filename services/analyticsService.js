@@ -315,15 +315,18 @@ export function buildStudentChartData(studentTestFlat, testColumns) {
     const raw = studentTestFlat[col];
     if (hasUsableScore(raw)) {
       const m = parseFloat(raw);
-      if (!isNaN(m)) testsMap[testName][subject] = m;
+      if (!isNaN(m)) {
+        testsMap[testName][subject] = m;
+      } else {
+        testsMap[testName][subject] = 'Absent';
+      }
     } else {
-      testsMap[testName][subject] = null;
+      testsMap[testName][subject] = 'Absent';
     }
 
   });
 
   Object.values(testsMap).forEach((testRow) => {
-    if (testRow.Total !== undefined && testRow.Total !== null) return;
     const vals = Object.entries(testRow)
       .filter(([k, v]) => 
         k !== 'name' && 
@@ -335,7 +338,16 @@ export function buildStudentChartData(studentTestFlat, testColumns) {
         !k.includes('_Correct') &&
         !k.includes('_Wrong')
       );
-    testRow.Total = vals.length ? vals.reduce((s, [, v]) => s + v, 0) : null;
+      
+    // If there are no subject marks at all, but Total is 0 or missing, it's likely a phantom 0 
+    // or an empty test. Set it to 'Absent'.
+    if (vals.length === 0 && (testRow.Total === 0 || testRow.Total === null || testRow.Total === undefined || testRow.Total === 'Absent')) {
+      testRow.Total = 'Absent';
+    }
+
+    if (testRow.Total !== undefined && testRow.Total !== null && testRow.Total !== 'Absent') return;
+    
+    testRow.Total = vals.length ? vals.reduce((s, [, v]) => s + v, 0) : 'Absent';
   });
 
   return Object.values(testsMap).sort((a, b) =>
