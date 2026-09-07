@@ -254,7 +254,7 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
     const code = p.centerCode || 'UNKNOWN';
     const doc  = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
 
-    if (!centreAgg[code]) centreAgg[code] = { sum: 0, count: 0, max: -Infinity, min: Infinity, studentCount: 0 };
+    if (!centreAgg[code]) centreAgg[code] = { sum: 0, count: 0, max: -Infinity, min: Infinity, studentCount: 0, phySum: 0, cheSum: 0, mathSum: 0, phyCount: 0, cheCount: 0, mathCount: 0 };
     centreAgg[code].studentCount++;
 
     if (!doc) return;
@@ -267,6 +267,33 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
       if (mark > centreAgg[code].max) centreAgg[code].max = mark;
       if (mark < centreAgg[code].min) centreAgg[code].min = mark;
     });
+
+    const rKeys = Object.keys(doc);
+    const getScore = (sub) => {
+       let k = null;
+       for (const key of testKeys) {
+          k = rKeys.find(rk => rk === `${key}_${sub}` || rk === `${key}_${sub.toUpperCase()}` || rk === `${key}_${sub.toLowerCase()}`);
+          if (k) break;
+       }
+       if (!k) k = rKeys.find(rk => rk === sub || rk.toLowerCase().endsWith('_' + sub.toLowerCase()));
+       if (k && !isNaN(Number(doc[k]))) {
+           let val = Number(doc[k]);
+           return val > 0 ? val : 0;
+       }
+       return null;
+    };
+    
+    const phy = getScore('Physics');
+    if (phy !== null) { centreAgg[code].phySum += phy; centreAgg[code].phyCount++; }
+    const che = getScore('Chemistry');
+    if (che !== null) { centreAgg[code].cheSum += che; centreAgg[code].cheCount++; }
+    
+    const m1 = getScore('Math'), m2 = getScore('Mathematics');
+    const math = Math.max(m1||0, m2||0);
+    if (m1 !== null || m2 !== null) { 
+         centreAgg[code].mathSum += math; 
+         centreAgg[code].mathCount++; 
+    }
   });
 
   return Object.entries(centreAgg)
@@ -282,7 +309,12 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
       const parsedKeys = testKeys.map(k => parseTestColumn(k).testName).join(',');
       const weakAnalysis = computeWeakSubjectAnalysisForTest(centreTests, testColumns, parsedKeys);
       const weakSubject    = weakAnalysis.length ? weakAnalysis[0].subject : 'N/A';
-      return { code, avg, top, bottom, tested: s.count, studentCount: s.studentCount, weakSubject };
+      return { 
+         code, avg, top, bottom, tested: s.count, studentCount: s.studentCount, weakSubject,
+         Physics: s.phyCount ? Math.round(s.phySum / s.phyCount) : 0,
+         Chemistry: s.cheCount ? Math.round(s.cheSum / s.cheCount) : 0,
+         Math: s.mathCount ? Math.round(s.mathSum / s.mathCount) : 0
+      };
     })
     .sort((a, b) => b.avg - a.avg)
     .map((c, i) => ({ ...c, rank: i + 1 }));
