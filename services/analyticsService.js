@@ -839,21 +839,21 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
   const subjectTopStudents = [
     {
       subject: "PHY",
-      top1Code: topPhyStu[0]?.name?.split(" ")[0] || "", top1Val: Math.round(topPhyStu[0]?.score || 0), top1Roll: topPhyStu[0]?.roll || "", top1Centre: topPhyStu[0]?.centerCode || "",
-      top2Code: topPhyStu[1]?.name?.split(" ")[0] || "", top2Val: Math.round(topPhyStu[1]?.score || 0), top2Roll: topPhyStu[1]?.roll || "", top2Centre: topPhyStu[1]?.centerCode || "",
-      top3Code: topPhyStu[2]?.name?.split(" ")[0] || "", top3Val: Math.round(topPhyStu[2]?.score || 0), top3Roll: topPhyStu[2]?.roll || "", top3Centre: topPhyStu[2]?.centerCode || "",
+      top1Code: topPhyStu[0] ? `${topPhyStu[0].name?.split(" ")[0]}(${topPhyStu[0].centerCode||""})` : "", top1Val: Math.round(topPhyStu[0]?.score || 0), top1Roll: topPhyStu[0]?.roll || "",
+      top2Code: topPhyStu[1] ? `${topPhyStu[1].name?.split(" ")[0]}(${topPhyStu[1].centerCode||""})` : "", top2Val: Math.round(topPhyStu[1]?.score || 0), top2Roll: topPhyStu[1]?.roll || "",
+      top3Code: topPhyStu[2] ? `${topPhyStu[2].name?.split(" ")[0]}(${topPhyStu[2].centerCode||""})` : "", top3Val: Math.round(topPhyStu[2]?.score || 0), top3Roll: topPhyStu[2]?.roll || "",
     },
     {
       subject: "CHEM",
-      top1Code: topCheStu[0]?.name?.split(" ")[0] || "", top1Val: Math.round(topCheStu[0]?.score || 0), top1Roll: topCheStu[0]?.roll || "", top1Centre: topCheStu[0]?.centerCode || "",
-      top2Code: topCheStu[1]?.name?.split(" ")[0] || "", top2Val: Math.round(topCheStu[1]?.score || 0), top2Roll: topCheStu[1]?.roll || "", top2Centre: topCheStu[1]?.centerCode || "",
-      top3Code: topCheStu[2]?.name?.split(" ")[0] || "", top3Val: Math.round(topCheStu[2]?.score || 0), top3Roll: topCheStu[2]?.roll || "", top3Centre: topCheStu[2]?.centerCode || "",
+      top1Code: topCheStu[0] ? `${topCheStu[0].name?.split(" ")[0]}(${topCheStu[0].centerCode||""})` : "", top1Val: Math.round(topCheStu[0]?.score || 0), top1Roll: topCheStu[0]?.roll || "",
+      top2Code: topCheStu[1] ? `${topCheStu[1].name?.split(" ")[0]}(${topCheStu[1].centerCode||""})` : "", top2Val: Math.round(topCheStu[1]?.score || 0), top2Roll: topCheStu[1]?.roll || "",
+      top3Code: topCheStu[2] ? `${topCheStu[2].name?.split(" ")[0]}(${topCheStu[2].centerCode||""})` : "", top3Val: Math.round(topCheStu[2]?.score || 0), top3Roll: topCheStu[2]?.roll || "",
     },
     {
       subject: "MATH",
-      top1Code: topMathStu[0]?.name?.split(" ")[0] || "", top1Val: Math.round(topMathStu[0]?.score || 0), top1Roll: topMathStu[0]?.roll || "", top1Centre: topMathStu[0]?.centerCode || "",
-      top2Code: topMathStu[1]?.name?.split(" ")[0] || "", top2Val: Math.round(topMathStu[1]?.score || 0), top2Roll: topMathStu[1]?.roll || "", top2Centre: topMathStu[1]?.centerCode || "",
-      top3Code: topMathStu[2]?.name?.split(" ")[0] || "", top3Val: Math.round(topMathStu[2]?.score || 0), top3Roll: topMathStu[2]?.roll || "", top3Centre: topMathStu[2]?.centerCode || "",
+      top1Code: topMathStu[0] ? `${topMathStu[0].name?.split(" ")[0]}(${topMathStu[0].centerCode||""})` : "", top1Val: Math.round(topMathStu[0]?.score || 0), top1Roll: topMathStu[0]?.roll || "",
+      top2Code: topMathStu[1] ? `${topMathStu[1].name?.split(" ")[0]}(${topMathStu[1].centerCode||""})` : "", top2Val: Math.round(topMathStu[1]?.score || 0), top2Roll: topMathStu[1]?.roll || "",
+      top3Code: topMathStu[2] ? `${topMathStu[2].name?.split(" ")[0]}(${topMathStu[2].centerCode||""})` : "", top3Val: Math.round(topMathStu[2]?.score || 0), top3Roll: topMathStu[2]?.roll || "",
     }
   ];
 
