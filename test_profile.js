@@ -9,15 +9,16 @@ const TestScore = mongoose.models.TestScore || mongoose.model('TestScore', TestS
 
 mongoose.connect(process.env.MONGODB_URI || "mongodb+srv://admin:YtL8ZtOaJ2sA8E6@csrl-app.2e1i8.mongodb.net/csrl_db?retryWrites=true&w=majority");
 
-async function check() {
-  const p = await Profile.findOne({ ROLL_KEY: '2601095' }).lean();
-  console.log("Profile for 2601095 exists:", !!p);
-  if (p) console.log("Profile CenterCode:", p.centerCode || p.centreCode);
+async function run() {
+  const profile = await Profile.findOne({ ROLL_KEY: { $in: [2618003, '2618003'] } }).lean();
+  console.log("Profile for 2618003:", profile ? "EXISTS" : "MISSING");
+  
+  const test = await TestScore.findOne({ ROLL_KEY: { $in: [2618003, '2618003'] } }).lean();
+  console.log("Test for 2618003:", test ? "EXISTS" : "MISSING");
 
-  const t = await TestScore.findOne({ ROLL_KEY: '2601095' }).lean();
-  console.log("TestScore for 2601095 exists:", !!t);
+  const profile2 = await Profile.findOne({ ROLL_KEY: { $in: [2601035, '2601035'] } }).lean();
+  console.log("Profile for 2601035:", profile2 ? "EXISTS" : "MISSING");
   
   process.exit();
 }
-
-check();
+run();
