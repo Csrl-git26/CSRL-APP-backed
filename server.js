@@ -251,6 +251,16 @@ app.get('/api/analytics/overview', authenticateToken, async (req, res) => {
   res.json(result);
 });
 
+
+// ── Stream filter helper ────────────────────────────────────────────────────
+function filterByStream(profiles, tests, stream) {
+  if (!stream || stream === 'ALL') return { profiles, tests };
+  const filteredProfiles = profiles.filter(p => (p.stream || 'JEE') === stream);
+  const rollKeys = new Set(filteredProfiles.map(p => p.ROLL_KEY));
+  const filteredTests = tests.filter(t => rollKeys.has(t.ROLL_KEY));
+  return { profiles: filteredProfiles, tests: filteredTests };
+}
+
 /**
  * GET /api/analytics/rankings?testKey=&centerCode=&limit=30&order=desc
  * Rank students by a test column.
@@ -260,7 +270,7 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  const { testKey, limit = '30', order = 'desc' } = req.query;
+  const { testKey, limit = '30', order = 'desc', stream } = req.query;
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
   let resolvedCenterCode = req.query.centerCode;
@@ -280,8 +290,9 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
     resolvedTestKey = fmtKeys.join(',');
   }
 
-  let ranked = rankStudentsByTest(source.profiles, source.tests, resolvedTestKey);
-  const absent = absentCount(source.profiles, source.tests, resolvedTestKey);
+  const { profiles: rankProfiles, tests: rankTests } = filterByStream(source.profiles, source.tests, stream);
+  let ranked = rankStudentsByTest(rankProfiles, rankTests, resolvedTestKey);
+  const absent = absentCount(rankProfiles, rankTests, resolvedTestKey);
 
   if (order === 'asc') ranked = ranked.filter(s => s.marks !== 'Absent').reverse();
 
@@ -321,7 +332,7 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  const { testKey } = req.query;
+  const { testKey, stream } = req.query;
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
   const global = await loadApplicationData();
@@ -332,10 +343,11 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
     resolvedTestKey = fmtKeys.join(',');
   }
 
-  let result = rankCentresByTest(global.profiles, global.tests, resolvedTestKey, global.testColumns);
+  const { profiles: lbProfiles, tests: lbTests } = filterByStream(global.profiles, global.tests, stream);
+  let result = rankCentresByTest(lbProfiles, lbTests, resolvedTestKey, global.testColumns);
   
   const baseTestKeys = resolvedTestKey.split(',').map(k => k.split('_')[0]).join(',');
-  const insights = computeTestInsights(global.profiles, global.tests, baseTestKeys, global.testColumns, { isAllFMT: testKey === 'ALL_FMT' });
+  const insights = computeTestInsights(lbProfiles, lbTests, baseTestKeys, global.testColumns, { isAllFMT: testKey === 'ALL_FMT' });
 
   try {
     const weakData = await CenterWeakTopics.find({ testId: testKey }).lean();
@@ -421,7 +433,7 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  const { testKey, rollKey } = req.query;
+  const { testKey, rollKey, stream } = req.query;
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
   const global = await loadApplicationData();
@@ -430,7 +442,8 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
     const fmtKeys = Array.from(new Set(global.testColumns.filter(k => k.startsWith('FMT')).map(k => k.split('_')[0])));
     resolvedTestKey = fmtKeys.join(',');
   }
-  const result = computeTestInsights(global.profiles, global.tests, resolvedTestKey, global.testColumns, {
+  const { profiles: insProfiles, tests: insTests } = filterByStream(global.profiles, global.tests, stream);
+  const result = computeTestInsights(insProfiles, insTests, resolvedTestKey, global.testColumns, {
     rollKey: rollKey || undefined,
     isAllFMT: testKey === 'ALL_FMT'
   });
