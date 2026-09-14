@@ -1259,40 +1259,7 @@ app.post('/api/tests/:rollKey', authenticateToken, requireAdmin, async (req, res
       return res.status(400).json({ message: 'Multiple students share this roll; pass centerCode query' });
     }
     return res.status(404).json({ message: 'Student not found' });
-  }
-
-  const cc = profile.centerCode;
-
-  try {
-    if (isDbEnabled()) {
-      const testRecord = await upsertTestDoc(cc, rollKey, scores);
-      console.log(`[CRUD] Upserted test scores for: ${rollKey}`);
-      return res.json({ success: true, testRecord });
-    }
-
-    // In-memory fallback
-    let testRecord = globalData.tests.find(
-      (t) => t.ROLL_KEY === rollKey && t.centerCode === cc
-    );
-    if (!testRecord) {
-      testRecord = { ROLL_KEY: rollKey, centerCode: cc };
-      globalData.tests.push(testRecord);
-    }
-    Object.assign(testRecord, scores);
-    console.log(`[CRUD] Upserted test scores for: ${rollKey}`);
-    return res.json({ success: true, testRecord });
-  } catch (e) {
-    console.error('[CRUD] Test upsert failed:', e);
-    return res.status(500).json({ message: e.message || 'Save failed' });
-  }
-});
-
-
-/**
- * DELETE /api/admin/tests-all/clear
- * Format (delete) all marks and analytics data for ALL tests.
- */
-app.delete('/api/admin/tests-all/clear', authenticateToken, requireAdmin, async (req, res) => {
+  app.delete('/api/admin/tests-all/clear', authenticateToken, requireAdmin, async (req, res) => {
   try {
     if (!isDbEnabled()) return res.status(500).json({ message: 'DB not enabled' });
     await initMongo();
@@ -1300,12 +1267,16 @@ app.delete('/api/admin/tests-all/clear', authenticateToken, requireAdmin, async 
     const TestScore = (await import('./models/TestScore.js')).default;
     const StudentWeakTopics = (await import('./models/StudentWeakTopics.js')).default;
     const CenterWeakTopics = (await import('./models/CenterWeakTopics.js')).default;
+    const CenterOverallWeakTopics = (await import('./models/CenterOverallWeakTopics.js')).default;
+    const StudentOverallWeakTopics = (await import('./models/StudentOverallWeakTopics.js')).default;
     const TopicMap = (await import('./models/TopicMap.js')).default;
     const StudentRawMarks = (await import('./models/StudentRawMarks.js')).default;
     
     await TestScore.deleteMany({});
     await StudentWeakTopics.deleteMany({});
     await CenterWeakTopics.deleteMany({});
+    await CenterOverallWeakTopics.deleteMany({});
+    await StudentOverallWeakTopics.deleteMany({});
     await TopicMap.deleteMany({});
     await StudentRawMarks.deleteMany({});
     

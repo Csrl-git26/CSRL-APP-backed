@@ -1,23 +1,13 @@
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-dotenv.config();
-
-const ProfileSchema = new mongoose.Schema({}, { strict: false });
-const Profile = mongoose.models.Profile || mongoose.model('Profile', ProfileSchema);
-const TestScoreSchema = new mongoose.Schema({}, { strict: false });
-const TestScore = mongoose.models.TestScore || mongoose.model('TestScore', TestScoreSchema);
-
-mongoose.connect(process.env.MONGODB_URI || "mongodb+srv://admin:YtL8ZtOaJ2sA8E6@csrl-app.2e1i8.mongodb.net/csrl_db?retryWrites=true&w=majority");
+import 'dotenv/config';
+import { initMongo } from './services/dbService.js';
+import TestScore from './models/TestScore.js';
+import Profile from './models/Profile.js';
 
 async function check() {
-  const p = await Profile.findOne({ ROLL_KEY: '2601095' }).lean();
-  console.log("Profile for 2601095 exists:", !!p);
-  if (p) console.log("Profile CenterCode:", p.centerCode || p.centreCode);
-
-  const t = await TestScore.findOne({ ROLL_KEY: '2601095' }).lean();
-  console.log("TestScore for 2601095 exists:", !!t);
-  
-  process.exit();
+  await initMongo();
+  const profileCount = await Profile.countDocuments();
+  const testCount = await TestScore.countDocuments();
+  console.log(`Profiles: ${profileCount}, Tests: ${testCount}`);
+  process.exit(0);
 }
-
 check();

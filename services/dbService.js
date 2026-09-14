@@ -91,9 +91,12 @@ async function setCacheAsync(key, value, ttlSeconds) {
 
 export function invalidateDataCache() {
   globalDataCache.flushAll();
+  // Also clear any in-flight or cached pending queries so next fetch goes to DB
+  pendingGlobalQueries.clear();
   if (redisClient) {
     redisClient.flushdb().catch(err => console.error('[Redis] flushdb error:', err));
   }
+  console.log('[Cache] Data cache fully invalidated (NodeCache + pendingGlobalQueries).');
 }
 
 // Keep the same export name as the old one so server.js doesn't break if anything still imports it
