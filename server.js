@@ -1071,41 +1071,6 @@ app.put('/api/students/:rollKey', authenticateToken, requireAdmin, async (req, r
 });
 
 /**
- * DELETE /api/students/clear-all
- * Clear all students and related data from the database.
- */
-app.delete('/api/students/clear-all', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    if (!isDbEnabled()) return res.status(500).json({ message: 'Database not enabled' });
-    await initMongo();
-    
-    const Profile = (await import('./models/Profile.js')).default;
-    const TestScore = (await import('./models/TestScore.js')).default;
-    const StudentRawMarks = (await import('./models/StudentRawMarks.js')).default;
-    const CenterWeakTopics = (await import('./models/CenterWeakTopics.js')).default;
-    const StudentWeakTopics = (await import('./models/StudentWeakTopics.js')).default;
-    const CenterOverallWeakTopics = (await import('./models/CenterOverallWeakTopics.js')).default;
-    const StudentOverallWeakTopics = (await import('./models/StudentOverallWeakTopics.js')).default;
-
-    await Profile.deleteMany({});
-    await TestScore.deleteMany({});
-    await StudentRawMarks.deleteMany({});
-    await CenterWeakTopics.deleteMany({});
-    await StudentWeakTopics.deleteMany({});
-    await CenterOverallWeakTopics.deleteMany({});
-    await StudentOverallWeakTopics.deleteMany({});
-
-    invalidateDataCache();
-    console.log('[CLEAR ALL] All student and centre data cleared.');
-
-    return res.json({ success: true, message: 'All student and centre data cleared successfully.' });
-  } catch (e) {
-    console.error('[CLEAR ALL] Error:', e);
-    return res.status(500).json({ message: e.message || 'Clear all failed' });
-  }
-});
-
-/**
  * POST /api/students/bulk-delete
  * Fast deletion of multiple students using MongoDB $in operator.
  * Body: { rollKeys: ["roll1", "roll2", ...] }
@@ -1259,7 +1224,39 @@ app.post('/api/tests/:rollKey', authenticateToken, requireAdmin, async (req, res
       return res.status(400).json({ message: 'Multiple students share this roll; pass centerCode query' });
     }
     return res.status(404).json({ message: 'Student not found' });
-  app.delete('/api/admin/tests-all/clear', authenticateToken, requireAdmin, async (req, res) => {
+  }
+
+  const cc = profile.centerCode;
+
+  try {
+    if (isDbEnabled()) {
+      const testRecord = await upsertTestDoc(cc, rollKey, scores);
+      console.log(`[CRUD] Upserted test scores for: ${rollKey}`);
+      return res.json({ success: true, testRecord });
+    }
+
+    // In-memory fallback
+    let testRecord = globalData.tests.find(
+      (t) => t.ROLL_KEY === rollKey && t.centerCode === cc
+    );
+    if (!testRecord) {
+      testRecord = { ROLL_KEY: rollKey, centerCode: cc };
+      globalData.tests.push(testRecord);
+    }
+    Object.assign(testRecord, scores);
+    console.log(`[CRUD] Upserted test scores for: ${rollKey}`);
+    return res.json({ success: true, testRecord });
+  } catch (e) {
+    console.error('[CRUD] Test upsert failed:', e);
+    return res.status(500).json({ message: e.message || 'Save failed' });
+  }
+});
+
+/**
+ * DELETE /api/admin/tests-all/clear
+ * Format (delete) all marks and analytics data for ALL tests.
+ */
+app.delete('/api/admin/tests-all/clear', authenticateToken, requireAdmin, async (req, res) => {
   try {
     if (!isDbEnabled()) return res.status(500).json({ message: 'DB not enabled' });
     await initMongo();
@@ -1281,8 +1278,8 @@ app.post('/api/tests/:rollKey', authenticateToken, requireAdmin, async (req, res
     await StudentRawMarks.deleteMany({});
     
     invalidateDataCache();
-    console.log(`[CRUD] Formatted ALL test data globally`);
-    return res.json({ success: true, message: `Successfully cleared ALL test data globally.` });
+    console.log('[CRUD] Formatted ALL test data globally');
+    return res.json({ success: true, message: 'Successfully cleared ALL test data globally.' });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ success: false, message: e.message || 'Error clearing test data' });
