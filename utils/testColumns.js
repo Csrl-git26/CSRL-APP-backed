@@ -151,7 +151,6 @@ export function extractColumnsFromNestedTests(tests) {
     
     // Completely ignore garbage ghost columns that might be lingering in the database
     if (testName === 'NAME' || testName === 'centreCode' || testName.length <= 1 || testName === 'CAT4') continue;
-
     cols.add(testName); // total column
     for (const subject of Object.keys(testData)) {
       if (subject !== 'total' && subject !== 'Total') cols.add(`${testName}_${subject}`);
