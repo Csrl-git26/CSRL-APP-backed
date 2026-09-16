@@ -445,7 +445,8 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
   const { profiles: insProfiles, tests: insTests } = filterByStream(global.profiles, global.tests, stream);
   const result = computeTestInsights(insProfiles, insTests, resolvedTestKey, global.testColumns, {
     rollKey: rollKey || undefined,
-    isAllFMT: testKey === 'ALL_FMT'
+    isAllFMT: testKey === 'ALL_FMT',
+    stream: stream || 'ALL'
   });
   res.json(result);
 });

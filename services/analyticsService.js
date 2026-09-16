@@ -481,7 +481,13 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     return !p.isTotal && validTestKeys.includes(p.testName);
   });
 
-  const subjects = [...new Set(subjectCols.map((c) => parseTestColumn(c).subject))];
+  let subjects = [...new Set(subjectCols.map((c) => parseTestColumn(c).subject))];
+  if (options.stream === 'NEET') {
+    subjects = subjects.filter(s => !['Math', 'Mathematics'].includes(s));
+  } else if (options.stream === 'JEE') {
+    subjects = subjects.filter(s => !['Biology', 'Botany', 'Zoology'].includes(s));
+  }
+
 
   const ranked = rankStudentsByTest(profiles, tests, testKey);
 
