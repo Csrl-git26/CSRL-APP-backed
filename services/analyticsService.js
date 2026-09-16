@@ -633,14 +633,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     }
 
     let qualified = total !== null && total >= overallMin;
-    if (qualified && stream !== 'JEE') {
-      for (const col of filteredSubjectCols) {
-        const subj = parseTestColumn(col).subject;
-        const m = numericScore(doc[col]);
-        const smin = subjectMins[subj];
-        if (m !== null && smin !== undefined && m < smin) qualified = false;
-      }
-    } else if (!qualified) {
+    if (!qualified) {
       qualified = false;
     }
 
@@ -1451,14 +1444,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     }
 
     let qualified = total !== null && total >= overallMin;
-    if (qualified && stream !== 'JEE') {
-      for (const col of filteredSubjectCols) {
-        const subj = parseTestColumn(col).subject;
-        const m = numericScore(doc[col]);
-        const smin = subjectMins[subj];
-        if (m !== null && smin !== undefined && m < smin) qualified = false;
-      }
-    } else if (!qualified) {
+    if (!qualified) {
       qualified = false;
     }
 

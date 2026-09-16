@@ -347,7 +347,7 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
   let result = rankCentresByTest(lbProfiles, lbTests, resolvedTestKey, global.testColumns);
   
   const baseTestKeys = resolvedTestKey.split(',').map(k => k.split('_')[0]).join(',');
-  const insights = computeTestInsights(lbProfiles, lbTests, baseTestKeys, global.testColumns, { isAllFMT: testKey === 'ALL_FMT' });
+  const insights = computeTestInsights(lbProfiles, lbTests, baseTestKeys, global.testColumns, { isAllFMT: testKey === 'ALL_FMT', stream });
 
   try {
     const weakData = await CenterWeakTopics.find({ testId: testKey }).lean();
@@ -724,7 +724,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
       const testName = row.name;
       
       // Use computeTestInsights to guarantee 100% identical qualification rate as Leaderboard
-      const insights = computeTestInsights(global.profiles, global.tests, testName, global.testColumns, {});
+      const insights = computeTestInsights(global.profiles, global.tests, testName, global.testColumns, { stream });
       
       const centreRow = insights.centreRows.find(r => r.code === centerCode);
       row.qualRate = centreRow && centreRow.appeared > 0 ? centreRow.qualRate : null;
