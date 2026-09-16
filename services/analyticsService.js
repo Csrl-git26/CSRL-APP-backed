@@ -807,12 +807,25 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
 
     const rKeys = Object.keys(doc);
     const getScore = (sub) => {
+       let k = null;
        for (const rk of rKeys) {
          const p = parseTestColumn(rk);
          if (validTestKeys.includes(p.testName) && p.subject === sub) {
-            const val = Number(doc[rk]);
-            if (!isNaN(val)) return val > 0 ? val : 0;
+            k = rk;
+            break;
          }
+       }
+       if (!k) {
+         k = rKeys.find(rk => {
+            const rkUpper = rk.toUpperCase();
+            const subUpper = sub.toUpperCase();
+            if (rkUpper === subUpper || (rkUpper === "PHY" && sub === "Physics") || (rkUpper === "CHEM" && sub === "Chemistry") || (rkUpper === "BIO" && sub === "Biology") || (rkUpper === "BOT" && sub === "Botany") || (rkUpper === "ZOO" && sub === "Zoology")) return true;
+            return rk.toLowerCase().endsWith("_" + sub.toLowerCase()) || (rkUpper.endsWith("_PHY") && sub === "Physics") || (rkUpper.endsWith("_CHEM") && sub === "Chemistry") || (rkUpper.endsWith("_BIO") && sub === "Biology") || (rkUpper.endsWith("_BOT") && sub === "Botany") || (rkUpper.endsWith("_ZOO") && sub === "Zoology");
+         });
+       }
+       if (k && !isNaN(Number(doc[k]))) {
+           let val = Number(doc[k]);
+           return val > 0 ? val : 0;
        }
        return null;
     };
