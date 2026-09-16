@@ -419,7 +419,7 @@ function streamCaps(stream) {
     return {
       stream: 'NEET',
       maxTotal: 720,
-      maxBySubject: { Physics: 180, Chemistry: 180, Biology: 360 },
+      maxBySubject: { Physics: 180, Chemistry: 180, Biology: 360, Botany: 180, Zoology: 180 },
     };
   }
   return {
@@ -807,15 +807,12 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
 
     const rKeys = Object.keys(doc);
     const getScore = (sub) => {
-       let k = null;
-       for (const key of validTestKeys) {
-          k = rKeys.find(rk => rk === `${key}_${sub}` || rk === `${key}_${sub.toUpperCase()}` || rk === `${key}_${sub.toLowerCase()}`);
-          if (k) break;
-       }
-       if (!k) k = rKeys.find(rk => rk === sub || rk.toLowerCase().endsWith("_" + sub.toLowerCase()));
-       if (k && !isNaN(Number(doc[k]))) {
-           let val = Number(doc[k]);
-           return val > 0 ? val : 0;
+       for (const rk of rKeys) {
+         const p = parseTestColumn(rk);
+         if (validTestKeys.includes(p.testName) && p.subject === sub) {
+            const val = Number(doc[rk]);
+            if (!isNaN(val)) return val > 0 ? val : 0;
+         }
        }
        return null;
     };
