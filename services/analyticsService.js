@@ -448,7 +448,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
   const displayTestKey = options.isAllFMT ? "All FMT Average" : testKey;
   const jeeOverallQualifyRatio = options.jeeOverallQualifyRatio ?? (100 / 300);
   const jeeSubjectQualifyRatio = options.jeeSubjectQualifyRatio ?? 0.25;
-  const neetOverallMin = options.neetOverallMin ?? 500;
+  const neetOverallMin = options.neetOverallMin ?? 550;
   const neetSubjectQualifyRatio = options.neetSubjectQualifyRatio ?? 0.35;
   const rollKeyFilter = options.rollKey || null;
 
@@ -487,11 +487,6 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
   } else if (options.stream === 'JEE') {
     subjects = subjects.filter(s => !['Biology', 'Botany', 'Zoology'].includes(s));
   }
-  
-  // Re-filter subjectCols so we don't process Math columns for NEET
-  const filteredSubjectCols = subjectCols.filter((col) => {
-    return subjects.includes(parseTestColumn(col).subject);
-  });
 
 
   const ranked = rankStudentsByTest(profiles, tests, testKey);
@@ -560,14 +555,14 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       else if (cat.includes('EWS')) overallMin = 90;
       else overallMin = 110; // GEN or default
 
-      filteredSubjectCols.forEach((col) => {
+      subjectCols.forEach((col) => {
         const subj = parseTestColumn(col).subject;
         subjectMins[subj] = 30; // 30 marks per subject for all categories
       });
     } else {
       overallMin = neetOverallMin;
       const subRatio = neetSubjectQualifyRatio;
-      filteredSubjectCols.forEach((col) => {
+      subjectCols.forEach((col) => {
         const subj = parseTestColumn(col).subject;
         subjectMins[subj] = maxForSubject(stream, subj) * subRatio;
       });
@@ -575,818 +570,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
 
     const subjectScores = {};
     const subjectCounts = {};
-    filteredSubjectCols.forEach((col) => {
-      const subj = parseTestColumn(col).subject;
-      const m = doc ? numericScore(doc[col]) : null;
-      if (m !== null) {
-        subjectScores[subj] = (subjectScores[subj] || 0) + m;
-        subjectCounts[subj] = (subjectCounts[subj] || 0) + 1;
-      }
-    });
-    
-    subjects.forEach(subj => {
-       if (subjectCounts[subj]) {
-           subjectScores[subj] = subjectScores[subj] / subjectCounts[subj];
-       } else {
-           subjectScores[subj] = null;
-       }
-    });
-
-    if (!doc) {
-      studentStates.push({
-        roll: p.ROLL_KEY,
-        center: p.centerCode || 'UNKNOWN',
-        stream,
-        appeared: false,
-        qualified: false,
-        total: null,
-        subjectScores,
-        overallMin,
-        subjectMins,
-      });
-      return;
-    }
-
-    let sum = 0, count = 0;
-    validTestKeys.forEach(k => {
-      const m = numericScore(doc[k]);
-      if (m !== null) { sum += m; count++; }
-    });
-    const total = count > 0 ? sum / count : null;
-    const appeared =
-      total !== null ||
-      Object.values(subjectScores).some((v) => v !== null && v !== undefined);
-
-    if (!appeared) {
-      studentStates.push({
-        roll: p.ROLL_KEY,
-        center: p.centerCode || 'UNKNOWN',
-        stream,
-        appeared: false,
-        qualified: false,
-        total,
-        subjectScores,
-        overallMin,
-        subjectMins,
-      });
-      return;
-    }
-
-    let qualified = total !== null && total >= overallMin;
-    if (!qualified) {
-      qualified = false;
-    }
-
-    studentStates.push({
-      roll: p.ROLL_KEY,
-      center: p.centerCode || 'UNKNOWN',
-      stream,
-      appeared: true,
-      qualified,
-      total,
-      subjectScores,
-      overallMin,
-      subjectMins,
-    });
-  });
-
-  const notQualifiedOverall = {};
-  const notQualifiedBySubject = {};
-  subjects.forEach((subj) => {
-    notQualifiedBySubject[subj] = {};
-  });
-
-  studentStates.forEach((st) => {
-    if (!st.appeared || st.qualified) return;
-    const c = st.center;
-    notQualifiedOverall[c] = (notQualifiedOverall[c] || 0) + 1;
-  });
-
-  studentStates.forEach((st) => {
-    if (!st.appeared) return;
-    subjects.forEach((subj) => {
-      const m = st.subjectScores[subj];
-      const smin = st.subjectMins[subj];
-      if (m !== null && smin !== undefined && m <= smin) {
-        const c = st.center;
-        notQualifiedBySubject[subj][c] = (notQualifiedBySubject[subj][c] || 0) + 1;
-      }
-    });
-  });
-
-  const byCentre = {};
-  studentStates.forEach((st) => {
-    if (!st.appeared) return;
-    const c = st.center;
-    if (!byCentre[c]) {
-      byCentre[c] = { appeared: 0, qualified: 0, totals: [], subjectMarks: {} };
-    }
-    byCentre[c].appeared += 1;
-    if (st.qualified) byCentre[c].qualified += 1;
-    if (st.total !== null) byCentre[c].totals.push(st.total);
-    subjects.forEach((subj) => {
-      const m = st.subjectScores[subj];
-      if (m !== null) {
-        if (!byCentre[c].subjectMarks[subj]) byCentre[c].subjectMarks[subj] = [];
-        byCentre[c].subjectMarks[subj].push(m);
-      }
-    });
-  });
-
-  const centreRows = Object.entries(byCentre)
-    .map(([code, agg]) => {
-      const totalAvg = agg.totals.length
-        ? agg.totals.reduce((a, b) => a + b, 0) / agg.totals.length
-        : 0;
-      const subjectAvgs = {};
-      subjects.forEach((subj) => {
-        const arr = agg.subjectMarks[subj] || [];
-        subjectAvgs[subj] = arr.length ? round2(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
-      });
-      const qualRate = agg.appeared ? round2((agg.qualified / agg.appeared) * 100) : 0;
-      return {
-        code,
-        appeared: agg.appeared,
-        qualified: agg.qualified,
-        qualRate,
-        totalAvg: round2(totalAvg),
-        subjectAvgs,
-      };
-    })
-    .sort((a, b) => b.totalAvg - a.totalAvg)
-    .map((row, i) => ({ ...row, rank: i + 1 }));
-
-  const bottom5Centres =
-    centreRows.length <= 5 ? [...centreRows].reverse() : centreRows.slice(-5).reverse();
-
-  const globalSubjectStats = subjects.map((subj) => {
-    let sumPct = 0;
-    let sumMarks = 0;
-    let n = 0;
-    studentStates.forEach((st) => {
-      if (!st.appeared) return;
-      const m = st.subjectScores[subj];
-      if (m === null || m === undefined) return;
-      const cap = maxForSubject(st.stream, subj);
-      sumPct += (m / cap) * 100;
-      sumMarks += m;
-      n += 1;
-    });
-    const scorePercentOfMax = n ? round2(sumPct / n) : 0;
-    const avgMarks = n ? round2(sumMarks / n) : 0;
-    return {
-      subject: subj,
-      avgMarks,
-      scorePercentOfMax,
-      studentCount: n,
-    };
-  });
-
-  globalSubjectStats.sort((a, b) => a.scorePercentOfMax - b.scorePercentOfMax);
-  const weakestSubjectByScorePercent = globalSubjectStats.length ? globalSubjectStats[0].subject : null;
-
-  const qualificationRateByCentre = [...centreRows]
-    .sort((a, b) => a.qualRate - b.qualRate)
-    .slice(0, 12);
-
-  const buildCutoffsForStream = (streamName) => {
-    const caps = streamCaps(streamName);
-    const subjectMinBySubject = {};
-    const subRatio = streamName === 'JEE' ? jeeSubjectQualifyRatio : neetSubjectQualifyRatio;
-    Object.keys(caps.maxBySubject).forEach((k) => {
-      subjectMinBySubject[k] = round2(caps.maxBySubject[k] * subRatio);
-    });
-    const overallMin = streamName === 'NEET'
-      ? neetOverallMin
-      : round2(caps.maxTotal * jeeOverallQualifyRatio);
-    return {
-      maxTotal: caps.maxTotal,
-      maxBySubject: caps.maxBySubject,
-      overallMin,
-      subjectMinBySubject,
-    };
-  };
-
-  const cutoffs = {
-    jeeOverallQualifyRatio,
-    jeeSubjectQualifyRatio,
-    neetOverallMin,
-    neetSubjectQualifyRatio,
-    JEE: buildCutoffsForStream('JEE'),
-    NEET: buildCutoffsForStream('NEET'),
-  };
-
-  let studentInsight = null;
-  if (rollKeyFilter) {
-    const idx = ranked.findIndex((r) => r.roll === rollKeyFilter);
-    const st = studentStates.find((s) => s.roll === rollKeyFilter);
-    studentInsight = {
-      roll: rollKeyFilter,
-      rank: idx >= 0 ? idx + 1 : null,
-      total: st?.total ?? null,
-      qualified: !!st?.qualified,
-      appeared: !!st?.appeared,
-      subjectScores: st?.subjectScores ?? {},
-      totalStudentsRanked: ranked.length,
-    };
-  }
-
-  
-  // Subject Top Students computation
-  const subjectMap = {
-    Physics: [],
-    Chemistry: [],
-    Math: [],
-    Biology: [],
-    Botany: [],
-    Zoology: []
-  };
-
-  profiles.forEach((p) => {
-    const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
-    if (!doc) return;
-    
-    let tookTest = false;
-    for (const key of validTestKeys) {
-        if (doc[key] !== undefined && doc[key] !== "Absent") tookTest = true;
-    }
-    if (!tookTest) return;
-
-    const rKeys = Object.keys(doc);
-    const getScore = (sub) => {
-       let k = null;
-       for (const key of validTestKeys) {
-          k = rKeys.find(rk => rk === `${key}_${sub}` || rk === `${key}_${sub.toUpperCase()}` || rk === `${key}_${sub.toLowerCase()}`);
-          if (k) break;
-       }
-       if (!k) k = rKeys.find(rk => rk === sub || rk.toLowerCase().endsWith("_" + sub.toLowerCase()));
-       if (k && !isNaN(Number(doc[k]))) {
-           let val = Number(doc[k]);
-           return val > 0 ? val : 0;
-       }
-       return null;
-    };
-    
-    ['Physics', 'Chemistry', 'Biology', 'Botany', 'Zoology'].forEach(sub => {
-      if (options.stream === 'JEE' && ['Biology', 'Botany', 'Zoology'].includes(sub)) return;
-      const score = getScore(sub);
-      if (score !== null) {
-        subjectMap[sub].push({ roll: p.ROLL_KEY, name: p["STUDENT'S NAME"] || p["STUDENT NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score });
-      }
-    });
-
-    if (options.stream !== 'NEET') {
-      const m1 = getScore("Math"), m2 = getScore("Mathematics");
-      const math = Math.max(m1||0, m2||0);
-      if (m1 !== null || m2 !== null) {
-        subjectMap.Math.push({ roll: p.ROLL_KEY, name: p["STUDENT'S NAME"] || p["STUDENT NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score: math });
-      }
-    }
-  });
-
-  const subjectTopStudents = [];
-  const subjectDisplayNames = {
-    Physics: "PHY",
-    Chemistry: "CHEM",
-    Math: "MATH",
-    Biology: "BIO",
-    Botany: "BOT",
-    Zoology: "ZOO"
-  };
-
-  Object.keys(subjectMap).forEach(sub => {
-    if (subjectMap[sub].length > 0) {
-      subjectMap[sub].sort((a,b) => b.score - a.score);
-      const topStu = subjectMap[sub].slice(0, 3);
-      subjectTopStudents.push({
-        subject: subjectDisplayNames[sub],
-        top1Code: topStu[0]?.name?.split(" ")[0] || "", top1Val: Math.round(topStu[0]?.score || 0), top1Roll: topStu[0]?.roll || "", top1Centre: topStu[0]?.centerCode || "",
-        top2Code: topStu[1]?.name?.split(" ")[0] || "", top2Val: Math.round(topStu[1]?.score || 0), top2Roll: topStu[1]?.roll || "", top2Centre: topStu[1]?.centerCode || "",
-        top3Code: topStu[2]?.name?.split(" ")[0] || "", top3Val: Math.round(topStu[2]?.score || 0), top3Roll: topStu[2]?.roll || "", top3Centre: topStu[2]?.centerCode || "",
-      });
-    }
-  });
-
-  return {
-    totalStudents,
-    activeTestCount,
-    weakSubject,
-    avgPercentile:     count > 0 ? parseFloat((sum / count).toFixed(2)) : null,
-    highestPercentile: count > 0 ? parseFloat(highest.toFixed(2)) : null,
-  };
-}
-
-/**
- * Rank students by a single test column.
- * Returns array sorted descending by score: [{ rank, roll, name, marks, center, category }]
- */
-export function rankStudentsByTest(profiles, tests, testKey) {
-  if (!testKey) return [];
-  const testKeys = testKey.split(',').map(k => k.trim());
-
-  const scored = [];
-  const absent = [];
-  profiles.forEach((p) => {
-    const testDoc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
-    
-    let sum = 0, count = 0;
-    if (testDoc) {
-      testKeys.forEach(k => {
-        const m = numericScore(testDoc[k]);
-        if (m !== null) { sum += m; count++; }
-      });
-    }
-    const mark = count > 0 ? Math.round(sum / count) : null;
-    
-    let injectedRawScores = { ...(testDoc || {}) };
-    if (testDoc && testKeys.length > 1) {
-      // Calculate subject averages across all testKeys
-      const subjects = ["Physics", "Chemistry", "Math", "Mathematics", "Biology", "Botany", "Zoology"];
-      subjects.forEach(sub => {
-        let subSum = 0;
-        let subCount = 0;
-        testKeys.forEach(k => {
-          // Look for k_sub e.g. FMT01_Physics
-          const subKey = Object.keys(testDoc).find(tk => tk.startsWith(k) && tk.toLowerCase().includes(sub.toLowerCase()));
-          if (subKey) {
-             const m = numericScore(testDoc[subKey]);
-             if (m !== null) { subSum += m; subCount++; }
-          }
-        });
-        if (subCount > 0) {
-           injectedRawScores[sub] = Math.round(subSum / subCount);
-        }
-      });
-    }
-
-    if (mark === null) {
-      absent.push({
-        roll:     p.ROLL_KEY,
-        name:     p["STUDENT'S NAME"] || '',
-        marks:    'Absent',
-        center:   p.centerCode || '',
-        category: p.CATEGORY   || '',
-        sponsor:  p.SPONSOR || (p.centerCode === 'KNP' || p.centerCode === 'GAIL' ? 'GAIL' : (p.centerCode === 'JDH' || p.centerCode === 'OIL_INDIA' ? 'OIL_INDIA' : '—')),
-        gender:   p.GENDER || '',
-        stream:   p.stream     || (testDoc ? testDoc.stream : 'JEE'),
-        photo:    p['STUDENT PHOTO URL'] || null,
-        rank:     '-',
-        rawScores: injectedRawScores
-      });
-    } else {
-      scored.push({
-        roll:     p.ROLL_KEY,
-        name:     p["STUDENT'S NAME"] || '',
-        marks:    mark,
-        center:   p.centerCode || '',
-        category: p.CATEGORY   || '',
-        sponsor:  p.SPONSOR || (p.centerCode === 'KNP' || p.centerCode === 'GAIL' ? 'GAIL' : (p.centerCode === 'JDH' || p.centerCode === 'OIL_INDIA' ? 'OIL_INDIA' : '—')),
-        gender:   p.GENDER || '',
-        stream:   p.stream     || (testDoc ? testDoc.stream : 'JEE'),
-        photo:    p['STUDENT PHOTO URL'] || null,
-        rawScores: injectedRawScores
-      });
-    }
-  });
-
-  scored.sort((a, b) =>
-    b.marks !== a.marks ? b.marks - a.marks : a.roll.localeCompare(b.roll)
-  );
-  
-  const rankedScored = scored.map((s, i) => ({ ...s, rank: i + 1 }));
-  absent.sort((a, b) => a.roll.localeCompare(b.roll));
-
-  return [...rankedScored, ...absent];
-}
-
-/**
- * Absent count for a test key across a set of profiles.
- */
-export function absentCount(profiles, tests, testKey) {
-  if (!testKey) return 0;
-  const validTestKeys = testKey.split(',').map(k => k.trim());
-  return profiles.filter((p) => {
-    const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
-    if (!doc) return false;
-    let hasAnyScore = false;
-    validTestKeys.forEach(k => {
-      const v = doc[k];
-      if (v && String(v).toLowerCase() !== 'absent') {
-        hasAnyScore = true;
-      }
-    });
-    return !hasAnyScore;
-  }).length;
-}
-
-/**
- * Per-subject average scores across all tests.
- * Returns [{ subject, avg, count }] sorted descending by avg.
- */
-export function computeWeakSubjectAnalysis(tests, testColumns) {
-  const totals = {};
-  const counts = {};
-
-  tests.forEach((t) => {
-    (testColumns || []).forEach((col) => {
-      const { subject, isTotal } = parseTestColumn(col);
-      if (isTotal || subject === 'Total') return;
-      if (subject.includes('_Accuracy') || subject.includes('_Attempted') || subject.includes('_Rank') || subject.includes('_Correct') || subject.includes('_Wrong')) return;
-      const mark = numericScore(t[col]);
-      if (mark === null) return;
-      totals[subject] = (totals[subject] || 0) + mark;
-      counts[subject] = (counts[subject] || 0) + 1;
-    });
-  });
-
-  return Object.keys(totals)
-    .map((sub) => ({
-      subject: sub,
-      avg:     parseFloat((totals[sub] / counts[sub]).toFixed(1)),
-      count:   counts[sub],
-    }))
-    .sort((a, b) => a.avg - b.avg); // ascending: weakest first
-}
-
-/**
- * Per-subject averages for one test only (columns whose parsed testName matches testKey).
- */
-export function computeWeakSubjectAnalysisForTest(tests, testColumns, testKeyRaw) {
-  if (!testKeyRaw) return [];
-  const validNames = testKeyRaw.split(',').map(k => k.trim());
-  const totals = {};
-  const counts = {};
-  const accTotals = {};
-  const accCounts = {};
-
-  tests.forEach((t) => {
-    (testColumns || []).forEach((col) => {
-      const { subject, isTotal, testName } = parseTestColumn(col);
-      if (isTotal || subject === 'Total') return;
-      if (!validNames.includes(testName)) return;
-      if (subject.includes('_Accuracy') || subject.includes('_Attempted') || subject.includes('_Rank') || subject.includes('_Correct') || subject.includes('_Wrong')) return;
-      
-      const mark = numericScore(t[col]);
-      if (mark !== null) {
-        totals[subject] = (totals[subject] || 0) + mark;
-        counts[subject] = (counts[subject] || 0) + 1;
-      }
-      
-      const accKey = `${col}_Accuracy`;
-      const accRaw = numericScore(t[accKey]);
-      if (accRaw !== null) {
-        accTotals[subject] = (accTotals[subject] || 0) + accRaw;
-        accCounts[subject] = (accCounts[subject] || 0) + 1;
-      }
-    });
-  });
-
-  return Object.keys(totals)
-    .map((sub) => ({
-      subject: sub,
-      avg: parseFloat((totals[sub] / counts[sub]).toFixed(1)),
-      accAvg: accCounts[sub] ? parseFloat((accTotals[sub] / accCounts[sub]).toFixed(1)) : null,
-      count: counts[sub],
-    }))
-    .sort((a, b) => a.avg - b.avg);
-}
-
-/**
- * Rank centres by average score for a single test column.
- * Returns [{ rank, code, avg, top, tested, studentCount, weakSubject }]
- */
-export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
-  if (!testKeyRaw || !profiles.length) return [];
-  const testKeys = testKeyRaw.split(',').map(k => k.trim());
-
-  const centreAgg = {};
-
-  profiles.forEach((p) => {
-    const code = p.centerCode || 'UNKNOWN';
-    const doc  = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
-
-    if (!centreAgg[code]) centreAgg[code] = { sum: 0, count: 0, max: -Infinity, min: Infinity, studentCount: 0, phySum: 0, cheSum: 0, mathSum: 0, phyCount: 0, cheCount: 0, mathCount: 0 };
-    centreAgg[code].studentCount++;
-
-    if (!doc) return;
-    
-    testKeys.forEach(key => {
-      const mark = numericScore(doc[key]);
-      if (mark === null) return;
-      centreAgg[code].sum   += mark;
-      centreAgg[code].count += 1;
-      if (mark > centreAgg[code].max) centreAgg[code].max = mark;
-      if (mark < centreAgg[code].min) centreAgg[code].min = mark;
-    });
-
-    const rKeys = Object.keys(doc);
-    const getScore = (sub) => {
-       let k = null;
-       for (const key of testKeys) {
-          k = rKeys.find(rk => rk === `${key}_${sub}` || rk === `${key}_${sub.toUpperCase()}` || rk === `${key}_${sub.toLowerCase()}`);
-          if (k) break;
-       }
-       if (!k) k = rKeys.find(rk => rk === sub || rk.toLowerCase().endsWith('_' + sub.toLowerCase()));
-       if (k && !isNaN(Number(doc[k]))) {
-           let val = Number(doc[k]);
-           return val > 0 ? val : 0;
-       }
-       return null;
-    };
-    
-    const phy = getScore('Physics');
-    if (phy !== null) { centreAgg[code].phySum += phy; centreAgg[code].phyCount++; }
-    const che = getScore('Chemistry');
-    if (che !== null) { centreAgg[code].cheSum += che; centreAgg[code].cheCount++; }
-    
-    const m1 = getScore('Math'), m2 = getScore('Mathematics');
-    const math = Math.max(m1||0, m2||0);
-    if (m1 !== null || m2 !== null) { 
-         centreAgg[code].mathSum += math; 
-         centreAgg[code].mathCount++; 
-    }
-  });
-
-  return Object.entries(centreAgg)
-    .filter(([, s]) => s.count > 0)
-    .map(([code, s]) => {
-      const avg     = s.count ? Math.round(s.sum / s.count) : 0;
-      const top     = s.max === -Infinity ? 0 : s.max;
-      const bottom  = s.min === Infinity ? 0 : s.min;
-      const rollSet = new Set(
-        profiles.filter((p) => (p.centerCode || 'UNKNOWN') === code).map((p) => p.ROLL_KEY)
-      );
-      const centreTests    = tests.filter((t) => rollSet.has(t.ROLL_KEY));
-      const parsedKeys = testKeys.map(k => parseTestColumn(k).testName).join(',');
-      const weakAnalysis = computeWeakSubjectAnalysisForTest(centreTests, testColumns, parsedKeys);
-      const weakSubject    = weakAnalysis.length ? weakAnalysis[0].subject : 'N/A';
-      return { 
-         code, avg, top, bottom, tested: s.count, studentCount: s.studentCount, weakSubject,
-         Physics: s.phyCount ? Math.round(s.phySum / s.phyCount) : 0,
-         Chemistry: s.cheCount ? Math.round(s.cheSum / s.cheCount) : 0,
-         Math: s.mathCount ? Math.round(s.mathSum / s.mathCount) : 0
-      };
-    })
-    .sort((a, b) => b.avg - a.avg)
-    .map((c, i) => ({ ...c, rank: i + 1 }));
-}
-
-/**
- * Per-subject averages for a set of tests (used for trend/breakdown charts).
- * Returns [{ subject, avg, count }] sorted ascending by avg (weakest subject first).
- */
-export function subjectAverages(tests, testColumns) {
-  return computeWeakSubjectAnalysis(tests, testColumns);
-}
-
-/** Per-subject averages scoped to a single test (total column key). */
-export function subjectAveragesForTest(tests, testColumns, testKey) {
-  return computeWeakSubjectAnalysisForTest(tests, testColumns, testKey);
-}
-
-/**
- * Build chart-ready data for a single student.
- * Returns [{ name: testName, Physics: 45, Chemistry: 52, Math: 48, Total: 145 }] sorted by test name.
- */
-export function buildStudentChartData(studentTestFlat, testColumns) {
-  const testsMap = {};
-
-  (testColumns || []).forEach((col) => {
-    const { subject, testName, isTotal } = parseTestColumn(col);
-    if (!testsMap[testName]) testsMap[testName] = { name: testName };
-
-    const raw = studentTestFlat[col];
-    if (hasUsableScore(raw)) {
-      const m = parseFloat(raw);
-      if (!isNaN(m)) {
-        testsMap[testName][subject] = m;
-      } else {
-        testsMap[testName][subject] = 'Absent';
-      }
-    } else {
-      testsMap[testName][subject] = 'Absent';
-    }
-
-  });
-
-  Object.values(testsMap).forEach((testRow) => {
-    const vals = Object.entries(testRow)
-      .filter(([k, v]) => 
-        k !== 'name' && 
-        k !== 'Total' && 
-        typeof v === 'number' &&
-        !k.includes('_Accuracy') &&
-        !k.includes('_Attempted') &&
-        !k.includes('_Rank') &&
-        !k.includes('_Correct') &&
-        !k.includes('_Wrong')
-      );
-      
-    // If there are no subject marks at all, but Total is 0 or missing, it's likely a phantom 0 
-    // or an empty test. Set it to 'Absent'.
-    if (vals.length === 0 && (testRow.Total === 0 || testRow.Total === null || testRow.Total === undefined || testRow.Total === 'Absent')) {
-      testRow.Total = 'Absent';
-    }
-
-    if (testRow.Total !== undefined && testRow.Total !== null && testRow.Total !== 'Absent') return;
-    
-    testRow.Total = vals.length ? vals.reduce((s, [, v]) => s + v, 0) : 'Absent';
-  });
-
-  return Object.values(testsMap).sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { numeric: true })
-  );
-}
-
-/**
- * Compute weakest subject for a single student from their flat test record.
- * Returns the subject name string, or "N/A".
- */
-export function computeStudentWeakSubject(studentTestFlat, testColumns) {
-  const totals = {};
-  const counts = {};
-
-  (testColumns || []).forEach((col) => {
-    const { subject, isTotal } = parseTestColumn(col);
-    if (isTotal || subject === 'Total') return;
-    if (subject.includes('_Accuracy') || subject.includes('_Attempted') || subject.includes('_Rank') || subject.includes('_Correct') || subject.includes('_Wrong')) return;
-
-    const mark = numericScore(studentTestFlat[col]);
-    if (mark === null) return;
-    totals[subject] = (totals[subject] || 0) + mark;
-    counts[subject] = (counts[subject] || 0) + 1;
-  });
-
-  if (!Object.keys(totals).length) return 'N/A';
-  return Object.entries(totals)
-    .map(([sub, total]) => ({ sub, avg: total / (counts[sub] || 1) }))
-    .sort((a, b) => a.avg - b.avg)[0].sub;
-}
-
-/** JEE: 360 total (120 per subject); NEET: 720 total (180+180+360). */
-function streamCaps(stream) {
-  const s = stream === 'NEET' ? 'NEET' : 'JEE';
-  if (s === 'NEET') {
-    return {
-      stream: 'NEET',
-      maxTotal: 720,
-      maxBySubject: { Physics: 180, Chemistry: 180, Biology: 360 },
-    };
-  }
-  return {
-    stream: 'JEE',
-    maxTotal: 300,
-    maxBySubject: { Physics: 100, Chemistry: 100, Math: 100 },
-  };
-}
-
-function maxForSubject(stream, subject) {
-  const { maxBySubject } = streamCaps(stream);
-  if (subject && maxBySubject[subject] != null) return maxBySubject[subject];
-  const vals = Object.values(maxBySubject);
-  return vals.length ? Math.max(...vals) : 100;
-}
-
-function round2(n) {
-  return Math.round(n * 100) / 100;
-}
-
-/**
- * CAT-style analysis for one test (total column key), from stored marks only.
- * Qualification uses configurable % of max total / max per-subject marks (not attempt counts).
- */
-export function computeTestInsights(profiles, tests, testKey, testColumns, options = {}) {
-  const displayTestKey = options.isAllFMT ? "All FMT Average" : testKey;
-  const jeeOverallQualifyRatio = options.jeeOverallQualifyRatio ?? (100 / 300);
-  const jeeSubjectQualifyRatio = options.jeeSubjectQualifyRatio ?? 0.25;
-  const neetOverallMin = options.neetOverallMin ?? 500;
-  const neetSubjectQualifyRatio = options.neetSubjectQualifyRatio ?? 0.35;
-  const rollKeyFilter = options.rollKey || null;
-
-  if (!testKey) {
-    return {
-      error: 'testKey is required',
-      testKey: null,
-      subjects: [],
-      cutoffs: null,
-      overallTopper: null,
-      bestScorePercentStudent: null,
-      rankedStudents: [],
-      top10: [],
-      top10CentreCounts: {},
-      globalSubjectStats: [],
-      weakestSubjectByScorePercent: null,
-      centreRows: [],
-      bottom5Centres: [],
-      notQualifiedOverall: {},
-      notQualifiedBySubject: {},
-      qualificationRateByCentre: [],
-      studentInsight: null,
-      note: null,
-    };
-  }
-
-  const validTestKeys = testKey.split(',').map(k => k.trim());
-  const subjectCols = (testColumns || []).filter((col) => {
-    const p = parseTestColumn(col);
-    return !p.isTotal && validTestKeys.includes(p.testName);
-  });
-
-  let subjects = [...new Set(subjectCols.map((c) => parseTestColumn(c).subject))];
-  if (options.stream === 'NEET') {
-    subjects = subjects.filter(s => !['Math', 'Mathematics'].includes(s));
-  } else if (options.stream === 'JEE') {
-    subjects = subjects.filter(s => !['Biology', 'Botany', 'Zoology'].includes(s));
-  }
-  
-  // Re-filter subjectCols so we don't process Math columns for NEET
-  const filteredSubjectCols = subjectCols.filter((col) => {
-    return subjects.includes(parseTestColumn(col).subject);
-  });
-
-
-  const ranked = rankStudentsByTest(profiles, tests, testKey);
-
-  const overallTopper = ranked.length
-    ? {
-        roll: ranked[0].roll,
-        name: ranked[0].name,
-        center: ranked[0].center || '—',
-        total: ranked[0].marks,
-        stream: ranked[0].stream || 'JEE',
-      }
-    : null;
-
-  let bestScorePercentStudent = null;
-  let bestPct = -1;
-  profiles.forEach((p) => {
-    const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
-    if (!doc) return;
-    let sum = 0, count = 0;
-    validTestKeys.forEach(k => {
-      const m = numericScore(doc[k]);
-      if (m !== null) { sum += m; count++; }
-    });
-    const t = count > 0 ? sum / count : null;
-    if (t === null) return;
-    const stream = p.stream || doc.stream || 'JEE';
-    const { maxTotal } = streamCaps(stream);
-    const pct = (t / maxTotal) * 100;
-    if (pct > bestPct) {
-      bestPct = pct;
-      bestScorePercentStudent = {
-        roll: p.ROLL_KEY,
-        name: p["STUDENT'S NAME"] || '',
-        center: p.centerCode || '—',
-        total: t,
-        scorePercent: round2(pct),
-        stream,
-        maxTotal,
-      };
-    }
-  });
-
-  const top10 = ranked.slice(0, 10);
-  const top10CentreCounts = {};
-  top10.forEach((s) => {
-    const c = s.center || 'UNKNOWN';
-    top10CentreCounts[c] = (top10CentreCounts[c] || 0) + 1;
-  });
-
-  /** @type {Array<{ roll: string, center: string, stream: string, appeared: boolean, qualified: boolean, total: number|null, subjectScores: Record<string, number|null>, overallMin: number, subjectMins: Record<string, number> }>} */
-  const studentStates = [];
-
-  profiles.forEach((p) => {
-    const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
-    const stream = p.stream || doc?.stream || 'JEE';
-    const caps = streamCaps(stream);
-    let overallMin;
-    const subjectMins = {};
-    if (stream === 'JEE') {
-      const cat = (p.CATEGORY || '').toUpperCase().trim();
-      if (cat.includes('PWD')) overallMin = 30;
-      else if (cat.includes('ST')) overallMin = 60;
-      else if (cat.includes('SC')) overallMin = 65;
-      else if (cat.includes('OBC')) overallMin = 85;
-      else if (cat.includes('EWS')) overallMin = 90;
-      else overallMin = 110; // GEN or default
-
-      filteredSubjectCols.forEach((col) => {
-        const subj = parseTestColumn(col).subject;
-        subjectMins[subj] = 30; // 30 marks per subject for all categories
-      });
-    } else {
-      overallMin = neetOverallMin;
-      const subRatio = neetSubjectQualifyRatio;
-      filteredSubjectCols.forEach((col) => {
-        const subj = parseTestColumn(col).subject;
-        subjectMins[subj] = maxForSubject(stream, subj) * subRatio;
-      });
-    }
-
-    const subjectScores = {};
-    const subjectCounts = {};
-    filteredSubjectCols.forEach((col) => {
+    subjectCols.forEach((col) => {
       const subj = parseTestColumn(col).subject;
       const m = doc ? numericScore(doc[col]) : null;
       if (m !== null) {
@@ -1603,9 +787,14 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
   }
 
     // Subject Top Students computation
-  let phyStudents = [];
-  let cheStudents = [];
-  let mathStudents = [];
+  const subjectMap = {
+    Physics: [],
+    Chemistry: [],
+    Math: [],
+    Biology: [],
+    Botany: [],
+    Zoology: []
+  };
 
   profiles.forEach((p) => {
     const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
@@ -1632,45 +821,45 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
        return null;
     };
     
-    const phy = getScore("Physics");
-    if (phy !== null) phyStudents.push({ roll: p.ROLL_KEY, name: p["STUDENT'S NAME"] || p["STUDENT NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score: phy });
-    
-    const che = getScore("Chemistry");
-    if (che !== null) cheStudents.push({ roll: p.ROLL_KEY, name: p["STUDENT'S NAME"] || p["STUDENT NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score: che });
-    
-    const m1 = getScore("Math"), m2 = getScore("Mathematics");
-    const math = Math.max(m1||0, m2||0);
-    if (m1 !== null || m2 !== null) mathStudents.push({ roll: p.ROLL_KEY, name: p["STUDENT'S NAME"] || p["STUDENT NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score: math });
+    ['Physics', 'Chemistry', 'Biology', 'Botany', 'Zoology'].forEach(sub => {
+      if (options.stream === 'JEE' && ['Biology', 'Botany', 'Zoology'].includes(sub)) return;
+      const score = getScore(sub);
+      if (score !== null) {
+        subjectMap[sub].push({ roll: p.ROLL_KEY, name: p["STUDENT'S NAME"] || p["STUDENT NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score });
+      }
+    });
+
+    if (options.stream !== 'NEET') {
+      const m1 = getScore("Math"), m2 = getScore("Mathematics");
+      const math = Math.max(m1||0, m2||0);
+      if (m1 !== null || m2 !== null) {
+        subjectMap.Math.push({ roll: p.ROLL_KEY, name: p["STUDENT'S NAME"] || p["STUDENT NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score: math });
+      }
+    }
   });
 
-  phyStudents.sort((a,b) => b.score - a.score);
-  cheStudents.sort((a,b) => b.score - a.score);
-  mathStudents.sort((a,b) => b.score - a.score);
+  const subjectTopStudents = [];
+  const subjectDisplayNames = {
+    Physics: "PHY",
+    Chemistry: "CHEM",
+    Math: "MATH",
+    Biology: "BIO",
+    Botany: "BOT",
+    Zoology: "ZOO"
+  };
 
-  const topPhyStu = phyStudents.slice(0, 3);
-  const topCheStu = cheStudents.slice(0, 3);
-  const topMathStu = mathStudents.slice(0, 3);
-
-  const subjectTopStudents = [
-    {
-      subject: "PHY",
-      top1Code: topPhyStu[0]?.name?.split(" ")[0] || "", top1Val: Math.round(topPhyStu[0]?.score || 0), top1Roll: topPhyStu[0]?.roll || "", top1Centre: topPhyStu[0]?.centerCode || "",
-      top2Code: topPhyStu[1]?.name?.split(" ")[0] || "", top2Val: Math.round(topPhyStu[1]?.score || 0), top2Roll: topPhyStu[1]?.roll || "", top2Centre: topPhyStu[1]?.centerCode || "",
-      top3Code: topPhyStu[2]?.name?.split(" ")[0] || "", top3Val: Math.round(topPhyStu[2]?.score || 0), top3Roll: topPhyStu[2]?.roll || "", top3Centre: topPhyStu[2]?.centerCode || "",
-    },
-    {
-      subject: "CHEM",
-      top1Code: topCheStu[0]?.name?.split(" ")[0] || "", top1Val: Math.round(topCheStu[0]?.score || 0), top1Roll: topCheStu[0]?.roll || "", top1Centre: topCheStu[0]?.centerCode || "",
-      top2Code: topCheStu[1]?.name?.split(" ")[0] || "", top2Val: Math.round(topCheStu[1]?.score || 0), top2Roll: topCheStu[1]?.roll || "", top2Centre: topCheStu[1]?.centerCode || "",
-      top3Code: topCheStu[2]?.name?.split(" ")[0] || "", top3Val: Math.round(topCheStu[2]?.score || 0), top3Roll: topCheStu[2]?.roll || "", top3Centre: topCheStu[2]?.centerCode || "",
-    },
-    {
-      subject: "MATH",
-      top1Code: topMathStu[0]?.name?.split(" ")[0] || "", top1Val: Math.round(topMathStu[0]?.score || 0), top1Roll: topMathStu[0]?.roll || "", top1Centre: topMathStu[0]?.centerCode || "",
-      top2Code: topMathStu[1]?.name?.split(" ")[0] || "", top2Val: Math.round(topMathStu[1]?.score || 0), top2Roll: topMathStu[1]?.roll || "", top2Centre: topMathStu[1]?.centerCode || "",
-      top3Code: topMathStu[2]?.name?.split(" ")[0] || "", top3Val: Math.round(topMathStu[2]?.score || 0), top3Roll: topMathStu[2]?.roll || "", top3Centre: topMathStu[2]?.centerCode || "",
+  Object.keys(subjectMap).forEach(sub => {
+    if (subjectMap[sub].length > 0) {
+      subjectMap[sub].sort((a,b) => b.score - a.score);
+      const topStu = subjectMap[sub].slice(0, 3);
+      subjectTopStudents.push({
+        subject: subjectDisplayNames[sub],
+        top1Code: topStu[0]?.name?.split(" ")[0] || "", top1Val: Math.round(topStu[0]?.score || 0), top1Roll: topStu[0]?.roll || "", top1Centre: topStu[0]?.centerCode || "",
+        top2Code: topStu[1]?.name?.split(" ")[0] || "", top2Val: Math.round(topStu[1]?.score || 0), top2Roll: topStu[1]?.roll || "", top2Centre: topStu[1]?.centerCode || "",
+        top3Code: topStu[2]?.name?.split(" ")[0] || "", top3Val: Math.round(topStu[2]?.score || 0), top3Roll: topStu[2]?.roll || "", top3Centre: topStu[2]?.centerCode || "",
+      });
     }
-  ];
+  });
 
   return {
     subjectTopStudents,
