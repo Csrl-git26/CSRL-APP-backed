@@ -82,7 +82,23 @@ export function rankStudentsByTest(profiles, tests, testKey) {
     let sum = 0, count = 0;
     if (testDoc) {
       testKeys.forEach(k => {
-        const m = numericScore(testDoc[k]);
+        let m = numericScore(testDoc[k]);
+        if (m === null) {
+          let subjectSum = 0;
+          let hasSubject = false;
+          const subjects = ["Physics", "Chemistry", "Math", "Mathematics", "Biology", "Botany", "Zoology"];
+          subjects.forEach(sub => {
+            const subKey = Object.keys(testDoc).find(tk => tk.startsWith(k) && tk.toLowerCase().includes(sub.toLowerCase()));
+            if (subKey) {
+              const sm = numericScore(testDoc[subKey]);
+              if (sm !== null) { subjectSum += sm; hasSubject = true; }
+            }
+          });
+          if (hasSubject) {
+            m = subjectSum;
+            testDoc[k] = m;
+          }
+        }
         if (m !== null) { sum += m; count++; }
       });
     }
