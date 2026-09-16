@@ -30,7 +30,7 @@ const SUBJECT_ALIASES = {
   CHE: 'Chemistry', CHEM: 'Chemistry', CHEMISTRY: 'Chemistry', CHEMITRY: 'Chemistry',
   MAT: 'Math', MATH: 'Math', MATHS: 'Math', MATHEMATICS: 'Math',
   BIO: 'Biology', BIOLOGY: 'Biology',
-  BOT: 'Botany', BOTANY: 'Botany',
+  BOT: 'Botany', BOTANY: 'Botany', BOTNAY: 'Botany',
   ZOO: 'Zoology', ZOOLOGY: 'Zoology',
 };
 
