@@ -127,13 +127,30 @@ export function nestedToFlat(nestedRecord) {
 
   for (const [testName, testData] of Object.entries(nestedRecord.tests || {})) {
     if (!testData || typeof testData !== 'object') continue;
+    let hasTotal = false;
+    let subjectSum = 0;
+    let subjectCount = 0;
+
     for (const [key, value] of Object.entries(testData)) {
       if (value === undefined || value === null) continue;
       if (key === 'total' || key === 'Total') {
         flat[testName] = value;
+        hasTotal = true;
       } else {
         flat[`${testName}_${key}`] = value;
+        // Accumulate numeric subject scores for auto-total
+        const numeric = parseFloat(value);
+        if (!isNaN(numeric) && !key.includes('_Accuracy') && !key.includes('_Attempted') &&
+            !key.includes('_Rank') && !key.includes('_Correct') && !key.includes('_Wrong')) {
+          subjectSum += numeric;
+          subjectCount++;
+        }
       }
+    }
+
+    // If no explicit total, auto-calculate from subjects
+    if (!hasTotal && subjectCount > 0) {
+      flat[testName] = subjectSum;
     }
   }
 
