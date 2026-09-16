@@ -741,8 +741,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
   const weakestSubjectByScorePercent = globalSubjectStats.length ? globalSubjectStats[0].subject : null;
 
   const qualificationRateByCentre = [...centreRows]
-    .sort((a, b) => a.qualRate - b.qualRate)
-    .slice(0, 12);
+    .sort((a, b) => a.qualRate - b.qualRate);
 
   const buildCutoffsForStream = (streamName) => {
     const caps = streamCaps(streamName);
