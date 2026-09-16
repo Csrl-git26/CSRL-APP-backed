@@ -891,7 +891,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     }
   });
 
-  let subjects = Object.keys(subjectMap).filter(sub => subjectMap[sub].length > 0);
+  subjects = Object.keys(subjectMap).filter(sub => subjectMap[sub].length > 0);
 
   const subjectTopStudents = [];
   const subjectDisplayNames = {
