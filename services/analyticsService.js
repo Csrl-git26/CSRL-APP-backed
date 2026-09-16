@@ -840,16 +840,12 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
   };
 
   profiles.forEach((p) => {
+
     const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
     if (!doc) return;
-    
-    let tookTest = false;
-    for (const key of validTestKeys) {
-        if (doc[key] !== undefined && doc[key] !== "Absent") tookTest = true;
-    }
-    if (!tookTest) return;
 
     const rKeys = Object.keys(doc);
+
     const getScore = (sub) => {
        let k = null;
        for (const rk of rKeys) {
@@ -878,7 +874,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       if (options.stream === 'JEE' && ['Biology', 'Botany', 'Zoology'].includes(sub)) return;
       const score = getScore(sub);
       if (score !== null) {
-        subjectMap[sub].push({ roll: p.ROLL_KEY, name: p["STUDENT'S NAME"] || p["STUDENT NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score });
+        subjectMap[sub].push({ roll: p.ROLL_KEY, name: p["NAME"] || p["name"] || p["STUDENT NAME"] || p["STUDENT'S NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score });
       }
     });
 
@@ -886,7 +882,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       const m1 = getScore("Math"), m2 = getScore("Mathematics");
       const math = Math.max(m1||0, m2||0);
       if (m1 !== null || m2 !== null) {
-        subjectMap.Math.push({ roll: p.ROLL_KEY, name: p["STUDENT'S NAME"] || p["STUDENT NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score: math });
+        subjectMap.Math.push({ roll: p.ROLL_KEY, name: p["NAME"] || p["name"] || p["STUDENT NAME"] || p["STUDENT'S NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score: math });
       }
     }
   });
