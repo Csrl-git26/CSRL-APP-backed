@@ -605,7 +605,23 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
     // ── Fallback: if Excel has no data for this centre, build chart from StudentRawMarks ──
     if (finalChartData.length === 0) {
       await initMongo();
-      const rawDocs = await StudentRawMarks.find({ centerId: centerCode }).lean();
+      let mongoCenterId = centerCode;
+      if (mongoCenterId === 'KNP') mongoCenterId = 'GAIL';
+      if (mongoCenterId === 'JDH') mongoCenterId = 'OIL_INDIA';
+
+      let rawDocs = await StudentRawMarks.find({ centerId: mongoCenterId }).lean();
+      
+      // If exact match fails, try case-insensitive and base code regex match (e.g. CMT01 -> CMT)
+      if (rawDocs.length === 0) {
+        rawDocs = await StudentRawMarks.find({ centerId: new RegExp(`^${mongoCenterId}$`, 'i') }).lean();
+      }
+      if (rawDocs.length === 0) {
+        const baseCode = mongoCenterId.replace(/[0-9]+$/, '');
+        if (baseCode && baseCode !== mongoCenterId) {
+          rawDocs = await StudentRawMarks.find({ centerId: new RegExp(`^${baseCode}`, 'i') }).lean();
+        }
+      }
+
       if (rawDocs.length > 0) {
         const testIds = Array.from(new Set(rawDocs.map(d => d.testId)));
         const topicMaps = await TopicMap.find({ testId: { $in: testIds } }).lean();
