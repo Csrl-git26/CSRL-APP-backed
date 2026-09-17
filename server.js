@@ -1758,7 +1758,7 @@ app.get('/api/debug-marks', async (req, res) => {
     const centerCode = req.query.centerCode || 'AGR';
     const global = await loadApplicationData();
     const source = sliceCenterFromGlobal(global, centerCode);
-    const finalChartData = buildCentreChartData(source.centerTests, source.testColumns);
+    const finalChartData = buildCentreChartData(source.tests, source.testColumns);
 
     await initMongo();
     const StudentRawMarks = (await import('./models/StudentRawMarks.js')).default;
