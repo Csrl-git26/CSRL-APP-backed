@@ -646,31 +646,73 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
         const testAggMap = {};
         for (const doc of rawDocs) {
           const tid = doc.testId;
-          if (!testAggMap[tid]) testAggMap[tid] = { sumTotal: 0, count: 0, subjectSums: {}, subjectCounts: {} };
+          if (!testAggMap[tid]) {
+            testAggMap[tid] = { 
+              sumTotal: 0, count: 0, 
+              subjectSums: {}, subjectCounts: {},
+              totalAttemptedSum: 0, totalCorrectSum: 0,
+              subjectAttemptedSum: {}, subjectCorrectSum: {}
+            };
+          }
           const agg = testAggMap[tid];
           const marks = doc.marks instanceof Map ? Object.fromEntries(doc.marks) : (doc.marks || {});
           const qSubs = qSubjectPerTest[tid] || {};
 
           let total = 0;
+          let studentTotalAttempted = 0;
+          let studentTotalCorrect = 0;
+
           for (const [q, m] of Object.entries(marks)) {
             const v = parseFloat(m);
             if (isNaN(v)) continue;
             total += v;
+            
             const sub = qSubs[q];
             if (sub) {
               agg.subjectSums[sub] = (agg.subjectSums[sub] || 0) + v;
               agg.subjectCounts[sub] = (agg.subjectCounts[sub] || 0) + 1;
+              
+              if (m !== undefined && m !== null && m !== "" && m !== 0 && m !== "0") {
+                agg.subjectAttemptedSum[sub] = (agg.subjectAttemptedSum[sub] || 0) + 1;
+                studentTotalAttempted++;
+                if (v > 0) {
+                  agg.subjectCorrectSum[sub] = (agg.subjectCorrectSum[sub] || 0) + 1;
+                  studentTotalCorrect++;
+                }
+              }
             }
           }
           agg.sumTotal += total;
+          agg.totalAttemptedSum += studentTotalAttempted;
+          agg.totalCorrectSum += studentTotalCorrect;
           agg.count += 1;
         }
 
         const rawChartData = Object.entries(testAggMap).map(([tid, agg]) => {
           const row = { name: tid };
           row['Total'] = agg.count > 0 ? Math.round(agg.sumTotal / agg.count) : null;
+          
+          if (agg.count > 0) {
+            const avgTotalAttempted = Math.round(agg.totalAttemptedSum / agg.count);
+            row['Total_Attempted'] = avgTotalAttempted;
+            row['Total_Accuracy'] = agg.totalAttemptedSum > 0 ? Math.round((agg.totalCorrectSum / agg.totalAttemptedSum) * 100) : 0;
+          } else {
+            row['Total_Attempted'] = null;
+            row['Total_Accuracy'] = null;
+          }
+
           ['Physics', 'Chemistry', 'Math'].forEach(sub => {
             row[sub] = agg.count > 0 ? Math.round((agg.subjectSums[sub] || 0) / agg.count) : null;
+            if (agg.count > 0) {
+              const avgAttempted = Math.round((agg.subjectAttemptedSum[sub] || 0) / agg.count);
+              row[`${sub}_Attempted`] = avgAttempted;
+              const subAttSum = agg.subjectAttemptedSum[sub] || 0;
+              const subCorSum = agg.subjectCorrectSum[sub] || 0;
+              row[`${sub}_Accuracy`] = subAttSum > 0 ? Math.round((subCorSum / subAttSum) * 100) : 0;
+            } else {
+              row[`${sub}_Attempted`] = null;
+              row[`${sub}_Accuracy`] = null;
+            }
           });
           return row;
         });
