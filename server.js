@@ -1666,12 +1666,47 @@ app.get('/api/center/weak-topics/:centerId', authenticateToken, async (req, res)
  * GET /api/student/overall-weak-topics/:studentId
  * Get overall weak topic analysis for a student across all tests.
  */
+function mapOverallWeakTopicsForFrontend(doc) {
+  if (!doc) return {};
+  
+  const mappedDoc = { ...doc };
+  mappedDoc.overallWeakTopics = {};
+  
+  const totalTests = doc.totalTests || 1;
+  const subjects = ['Physics', 'Chemistry', 'Mathematics'];
+  
+  for (const subject of subjects) {
+    const key = subject.toUpperCase();
+    const subjectData = doc.subjectWise?.[key] || { strong: [], moderate: [], weak: [] };
+    
+    // Map new `weak` to legacy `strongWeak` (renders as "🔴 Weakest")
+    // Map new `moderate` to legacy `mediumWeak` (renders as "🟡 Weak")
+    mappedDoc.overallWeakTopics[subject] = {
+      strongWeak: (subjectData.weak || []).map(topic => ({
+        topic,
+        avgWeakPercentage: 0,
+        strongWeakCount: totalTests,
+        mediumWeakCount: 0,
+        testedCount: totalTests
+      })),
+      mediumWeak: (subjectData.moderate || []).map(topic => ({
+        topic,
+        avgWeakPercentage: 0,
+        strongWeakCount: 0,
+        mediumWeakCount: totalTests,
+        testedCount: totalTests
+      }))
+    };
+  }
+  return mappedDoc;
+}
+
 app.get('/api/student/overall-weak-topics/:studentId', authenticateToken, async (req, res) => {
   try {
     const { studentId } = req.params;
     await initMongo();
     const doc = await StudentOverallWeakTopics.findOne({ studentId }).lean();
-    return res.json({ success: true, data: doc || {} });
+    return res.json({ success: true, data: mapOverallWeakTopicsForFrontend(doc) });
   } catch (e) {
     console.error('[WeakTopics] student overall route error:', e);
     return res.status(500).json({ success: false, message: e.message || 'Failed to fetch student overall weak topics' });
@@ -1690,10 +1725,40 @@ app.get('/api/center/overall-weak-topics/:centerId', authenticateToken, async (r
     if (centerId === 'JDH') centerId = 'OIL_INDIA';
     await initMongo();
     const doc = await CenterOverallWeakTopics.findOne({ centerId }).lean();
-    return res.json({ success: true, data: doc || {} });
+    return res.json({ success: true, data: mapOverallWeakTopicsForFrontend(doc) });
   } catch (e) {
     console.error('[WeakTopics] center overall route error:', e);
     return res.status(500).json({ success: false, message: e.message || 'Failed to fetch center overall weak topics' });
+  }
+});
+
+// ── Admin Overall Analytics Recomputation ──────────────────────────────────
+app.post('/api/admin/recompute-overall', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+  try {
+    const StudentRawMarks = (await import('./models/StudentRawMarks.js')).default;
+    const { computeStudentOverallWeakTopics, computeCenterOverallWeakTopics } = await import('./services/overallWeakTopicService.js');
+    
+    await initMongo();
+    console.log('[Admin] Recomputing overall analytics for all students and centers...');
+    
+    const allDocs = await StudentRawMarks.find({}, { studentId: 1, centerId: 1 }).lean();
+    const studentIds = Array.from(new Set(allDocs.map(d => d.studentId)));
+    const centerIds = Array.from(new Set(allDocs.map(d => d.centerId).filter(Boolean)));
+    
+    // Process in batches
+    for (let i = 0; i < studentIds.length; i += 25) {
+      const chunk = studentIds.slice(i, i + 25);
+      await Promise.all(chunk.map(id => computeStudentOverallWeakTopics(id)));
+    }
+    
+    await Promise.all(centerIds.map(id => computeCenterOverallWeakTopics(id)));
+    
+    console.log(`[Admin] Successfully recomputed overall analytics for ${studentIds.length} students and ${centerIds.length} centers.`);
+    return res.json({ success: true, message: `Recomputed for ${studentIds.length} students, ${centerIds.length} centers.` });
+  } catch (e) {
+    console.error('[Admin] recompute overall error:', e);
+    return res.status(500).json({ success: false, message: e.message });
   }
 });
 
