@@ -1662,71 +1662,12 @@ app.get('/api/center/weak-topics/:centerId', authenticateToken, async (req, res)
   }
 });
 
-/**
- * GET /api/student/overall-weak-topics/:studentId
- * Get overall weak topic analysis for a student across all tests.
- */
-function mapStudentOverallWeakTopicsForFrontend(doc) {
-  if (!doc) return {};
-  
-  const mappedDoc = { ...doc };
-  mappedDoc.overallWeakTopics = {};
-  
-  const subjects = ['Physics', 'Chemistry', 'Mathematics'];
-  
-  for (const subject of subjects) {
-    const key = subject.toUpperCase();
-    const subjectData = doc.subjectWise?.[key] || { strong: [], moderate: [], weak: [] };
-    
-    // Student component expects array of STRINGS
-    mappedDoc.overallWeakTopics[subject] = {
-      strongWeak: subjectData.weak || [],
-      mediumWeak: subjectData.moderate || []
-    };
-  }
-  return mappedDoc;
-}
-
-function mapCenterOverallWeakTopicsForFrontend(doc) {
-  if (!doc) return {};
-  
-  const mappedDoc = { ...doc };
-  mappedDoc.overallWeakTopics = {};
-  
-  const totalTests = doc.totalTests || 1;
-  const subjects = ['Physics', 'Chemistry', 'Mathematics'];
-  
-  for (const subject of subjects) {
-    const key = subject.toUpperCase();
-    const subjectData = doc.subjectWise?.[key] || { strong: [], moderate: [], weak: [] };
-    
-    // Center component expects array of OBJECTS
-    mappedDoc.overallWeakTopics[subject] = {
-      strongWeak: (subjectData.weak || []).map(topic => ({
-        topic,
-        avgWeakPercentage: 0,
-        strongWeakCount: totalTests,
-        mediumWeakCount: 0,
-        testedCount: totalTests
-      })),
-      mediumWeak: (subjectData.moderate || []).map(topic => ({
-        topic,
-        avgWeakPercentage: 0,
-        strongWeakCount: 0,
-        mediumWeakCount: totalTests,
-        testedCount: totalTests
-      }))
-    };
-  }
-  return mappedDoc;
-}
-
 app.get('/api/student/overall-weak-topics/:studentId', authenticateToken, async (req, res) => {
   try {
     const { studentId } = req.params;
     await initMongo();
     const doc = await StudentOverallWeakTopics.findOne({ studentId }).lean();
-    return res.json({ success: true, data: mapStudentOverallWeakTopicsForFrontend(doc) });
+    return res.json({ success: true, data: doc || {} });
   } catch (e) {
     console.error('[WeakTopics] student overall route error:', e);
     return res.status(500).json({ success: false, message: e.message || 'Failed to fetch student overall weak topics' });
