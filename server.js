@@ -438,8 +438,8 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
   if (!stream || stream === 'ALL') {
     if (rollKey) {
       const studentProfile = global.profiles.find(p => p.ROLL_KEY === rollKey || p.ROLL_NO === rollKey);
-      if (studentProfile && studentProfile.STREAM) {
-        effectiveStream = studentProfile.STREAM;
+      if (studentProfile) {
+        effectiveStream = studentProfile.stream || studentProfile.STREAM || studentProfile.Stream || effectiveStream;
       }
     }
   }
