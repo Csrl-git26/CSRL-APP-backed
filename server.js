@@ -1744,6 +1744,15 @@ app.delete('/api/past-year-data', authenticateToken, async (req, res) => {
 });
 
 // ── Errors (async route failures + thrown errors) ─────────────────────────────
+app.get('/api/debug-profiles', async (req, res) => {
+  try {
+    await initMongo();
+    const Profile = (await import('./models/Profile.js')).default;
+    const centers = await Profile.distinct('centerCode');
+    res.json({ centers });
+  } catch(e) { res.json({error: e.message}) }
+});
+
 app.get('/api/debug-marks', async (req, res) => {
   try {
     const centerCode = req.query.centerCode || 'AGR';
@@ -1832,7 +1841,7 @@ app.get('/api/debug-marks', async (req, res) => {
       finalChartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
     }
 
-    res.json({ finalChartData, rawChartData, rawDocsCount: rawDocs.length });
+    res.json({ finalChartData, rawChartData, rawDocsCount: rawDocs.length, profileCenters });
   } catch (e) {
     res.json({ error: e.message, stack: e.stack });
   }
