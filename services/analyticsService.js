@@ -373,7 +373,18 @@ export function subjectAveragesForTest(tests, testColumns, testKey) {
 export function buildStudentChartData(studentTestFlat, testColumns) {
   const testsMap = {};
 
-  (testColumns || []).forEach((col) => {
+  // Determine the student's stream and filter out cross-stream tests.
+  const studentStream = ((studentTestFlat && studentTestFlat.stream) || 'JEE').toUpperCase();
+  const NEET_TEST_PREFIX = /^(MMT|NCT|NMT|NEET)/i;
+
+  const relevantColumns = (testColumns || []).filter((col) => {
+    const { testName } = parseTestColumn(col);
+    const isNeetTest = NEET_TEST_PREFIX.test(testName);
+    if (studentStream === 'NEET') return true; // NEET students see all tests
+    return !isNeetTest; // JEE students: skip NEET-only tests
+  });
+
+  relevantColumns.forEach((col) => {
     const { subject, testName, isTotal } = parseTestColumn(col);
     if (!testsMap[testName]) testsMap[testName] = { name: testName };
 

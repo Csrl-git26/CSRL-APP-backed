@@ -480,8 +480,20 @@ app.get('/api/analytics/student-chart', async (req, res) => {
     source = await loadApplicationData(); // Fallback if no centerCode provided
   }
   const testDoc = source.tests.find((t) => t.ROLL_KEY === rollKey) || {};
-  const chartData = buildStudentChartData(testDoc, source.testColumns);
-  const weakSubj = computeStudentWeakSubject(testDoc, source.testColumns);
+
+  // Filter testColumns to only include tests relevant to the student's stream.
+  // NEET-specific prefixes: MMT, NCT, NMT, NEET  /  JEE-specific prefixes: MT, CMT, FMT, PT, JCT
+  const studentStream = (testDoc.stream || 'JEE').toUpperCase();
+  const NEET_PREFIXES = /^(MMT|NCT|NMT|NEET)/i;
+  const filteredTestColumns = source.testColumns.filter((col) => {
+    const { testName } = parseTestColumn(col);
+    const isNeetTest = NEET_PREFIXES.test(testName);
+    if (studentStream === 'NEET') return isNeetTest || !NEET_PREFIXES.test(testName.replace(/\d+$/, ''));
+    return !isNeetTest; // JEE student: exclude NEET tests
+  });
+
+  const chartData = buildStudentChartData(testDoc, filteredTestColumns);
+  const weakSubj = computeStudentWeakSubject(testDoc, filteredTestColumns);
 
   try {
     const rawMarks = await StudentRawMarks.find({ studentId: rollKey }).lean();
