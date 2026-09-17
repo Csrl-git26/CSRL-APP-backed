@@ -1709,7 +1709,7 @@ app.get('/api/center/overall-weak-topics/:centerId', authenticateToken, async (r
     if (centerId === 'JDH') centerId = 'OIL_INDIA';
     await initMongo();
     const doc = await CenterOverallWeakTopics.findOne({ centerId }).lean();
-    return res.json({ success: true, data: mapOverallWeakTopicsForFrontend(doc) });
+    return res.json({ success: true, data: doc || {} });
   } catch (e) {
     console.error('[WeakTopics] center overall route error:', e);
     return res.status(500).json({ success: false, message: e.message || 'Failed to fetch center overall weak topics' });
