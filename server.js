@@ -602,8 +602,8 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
       return row;
     });
 
-    // ── Fallback: if Excel has no data for this centre, build chart from StudentRawMarks ──
-    if (finalChartData.length === 0) {
+    // ── Merge MongoDB Data from StudentRawMarks ──
+    try {
       await initMongo();
       let mongoCenterId = centerCode;
       if (mongoCenterId === 'KNP') mongoCenterId = 'GAIL';
@@ -673,10 +673,23 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
             row[sub] = agg.count > 0 ? Math.round((agg.subjectSums[sub] || 0) / agg.count) : null;
           });
           return row;
-        }).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
+        });
 
-        return res.json({ chartData: rawChartData, source: 'mongodb' });
+        // Merge rawChartData into finalChartData
+        for (const rawRow of rawChartData) {
+          const existing = finalChartData.find(r => r.name === rawRow.name);
+          if (existing) {
+            Object.assign(existing, rawRow);
+          } else {
+            finalChartData.push(rawRow);
+          }
+        }
+        
+        // Re-sort after merge
+        finalChartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
       }
+    } catch (dbErr) {
+      console.error('[Analytics] Error merging MongoDB data:', dbErr);
     }
 
     res.json({ chartData: finalChartData });
