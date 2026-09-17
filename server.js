@@ -433,16 +433,27 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
   if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
   const global = await loadApplicationData();
+  
+  let effectiveStream = stream;
+  if (!stream || stream === 'ALL') {
+    if (rollKey) {
+      const studentProfile = global.profiles.find(p => p.ROLL_KEY === rollKey || p.ROLL_NO === rollKey);
+      if (studentProfile && studentProfile.STREAM) {
+        effectiveStream = studentProfile.STREAM;
+      }
+    }
+  }
+
   let resolvedTestKey = testKey;
   if (testKey === 'ALL_FMT') {
     const fmtKeys = Array.from(new Set(global.testColumns.filter(k => k.startsWith('FMT')).map(k => k.split('_')[0])));
     resolvedTestKey = fmtKeys.join(',');
   }
-  const { profiles: insProfiles, tests: insTests } = filterByStream(global.profiles, global.tests, stream);
+  const { profiles: insProfiles, tests: insTests } = filterByStream(global.profiles, global.tests, effectiveStream);
   const result = computeTestInsights(insProfiles, insTests, resolvedTestKey, global.testColumns, {
     rollKey: rollKey || undefined,
     isAllFMT: testKey === 'ALL_FMT',
-    stream: stream || 'ALL'
+    stream: effectiveStream || 'ALL'
   });
   res.json(result);
 });
