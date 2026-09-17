@@ -1746,67 +1746,93 @@ app.delete('/api/past-year-data', authenticateToken, async (req, res) => {
 // ── Errors (async route failures + thrown errors) ─────────────────────────────
 app.get('/api/debug-marks', async (req, res) => {
   try {
+    const centerCode = req.query.centerCode || 'AGR';
+    const global = await loadApplicationData();
+    const source = sliceCenterFromGlobal(global, centerCode);
+    const finalChartData = buildCentreChartData(source.centerTests, source.testColumns);
+
     await initMongo();
     const StudentRawMarks = (await import('./models/StudentRawMarks.js')).default;
     const TopicMap = (await import('./models/TopicMap.js')).default;
     
-    let mongoCenterId = 'AGR'; // test with AGR
+    let mongoCenterId = centerCode;
+    if (mongoCenterId === 'KNP') mongoCenterId = 'GAIL';
+    if (mongoCenterId === 'JDH') mongoCenterId = 'OIL_INDIA';
+
     let rawDocs = await StudentRawMarks.find({ centerId: mongoCenterId }).lean();
-    
     if (rawDocs.length === 0) {
-      return res.json({ error: 'No rawDocs found for AGR' });
+      rawDocs = await StudentRawMarks.find({ centerId: new RegExp(`^${mongoCenterId}$`, 'i') }).lean();
     }
-
-    const testIds = Array.from(new Set(rawDocs.map(d => d.testId)));
-    const topicMaps = await TopicMap.find({ testId: { $in: testIds } }).lean();
-
-    const qSubjectPerTest = {};
-    for (const tm of topicMaps) {
-      const qs = {};
-      for (const entry of (tm.topics || [])) {
-        const rawSub = (entry.subject || '').toUpperCase();
-        const displaySub = rawSub === 'PHYSICS' ? 'Physics'
-          : rawSub === 'CHEMISTRY' ? 'Chemistry'
-          : rawSub === 'MATHEMATICS' ? 'Math' : null;
-        for (const q of (entry.questions || [])) {
-          qs[q] = displaySub;
-        }
+    if (rawDocs.length === 0) {
+      const baseCode = mongoCenterId.replace(/[0-9]+$/, '');
+      if (baseCode && baseCode !== mongoCenterId) {
+        rawDocs = await StudentRawMarks.find({ centerId: new RegExp(`^${baseCode}`, 'i') }).lean();
       }
-      qSubjectPerTest[tm.testId] = qs;
     }
+    
+    let rawChartData = [];
+    if (rawDocs.length > 0) {
+      const testIds = Array.from(new Set(rawDocs.map(d => d.testId)));
+      const topicMaps = await TopicMap.find({ testId: { $in: testIds } }).lean();
 
-    const testAggMap = {};
-    for (const doc of rawDocs) {
-      const tid = doc.testId;
-      if (!testAggMap[tid]) testAggMap[tid] = { sumTotal: 0, count: 0, subjectSums: {}, subjectCounts: {} };
-
-      const qs = qSubjectPerTest[tid] || {};
-      let total = 0;
-      const marks = doc.marks instanceof Map ? Object.fromEntries(doc.marks) : (doc.marks || {});
-      for (const [q, m] of Object.entries(marks)) {
-        const v = parseFloat(m);
-        if (isNaN(v)) continue;
-        total += v;
-        const sub = qs[q];
-        if (sub) {
-          testAggMap[tid].subjectSums[sub] = (testAggMap[tid].subjectSums[sub] || 0) + v;
-          testAggMap[tid].subjectCounts[sub] = (testAggMap[tid].subjectCounts[sub] || 0) + 1;
+      const qSubjectPerTest = {};
+      for (const tm of topicMaps) {
+        const qs = {};
+        for (const entry of (tm.topics || [])) {
+          const rawSub = (entry.subject || '').toUpperCase();
+          const displaySub = rawSub === 'PHYSICS' ? 'Physics'
+            : rawSub === 'CHEMISTRY' ? 'Chemistry'
+            : rawSub === 'MATHEMATICS' ? 'Math' : null;
+          for (const q of (entry.questions || [])) {
+            qs[q] = displaySub;
+          }
         }
+        qSubjectPerTest[tm.testId] = qs;
       }
-      testAggMap[tid].sumTotal += total;
-      testAggMap[tid].count += 1;
-    }
 
-    const rawChartData = Object.entries(testAggMap).map(([tid, agg]) => {
-      const row = { name: tid };
-      row['Total'] = agg.count > 0 ? Math.round(agg.sumTotal / agg.count) : null;
-      ['Physics', 'Chemistry', 'Math'].forEach(sub => {
-        row[sub] = agg.count > 0 ? Math.round((agg.subjectSums[sub] || 0) / agg.count) : null;
+      const testAggMap = {};
+      for (const doc of rawDocs) {
+        const tid = doc.testId;
+        if (!testAggMap[tid]) testAggMap[tid] = { sumTotal: 0, count: 0, subjectSums: {}, subjectCounts: {} };
+
+        const qs = qSubjectPerTest[tid] || {};
+        let total = 0;
+        const marks = doc.marks instanceof Map ? Object.fromEntries(doc.marks) : (doc.marks || {});
+        for (const [q, m] of Object.entries(marks)) {
+          const v = parseFloat(m);
+          if (isNaN(v)) continue;
+          total += v;
+          const sub = qs[q];
+          if (sub) {
+            testAggMap[tid].subjectSums[sub] = (testAggMap[tid].subjectSums[sub] || 0) + v;
+            testAggMap[tid].subjectCounts[sub] = (testAggMap[tid].subjectCounts[sub] || 0) + 1;
+          }
+        }
+        testAggMap[tid].sumTotal += total;
+        testAggMap[tid].count += 1;
+      }
+
+      rawChartData = Object.entries(testAggMap).map(([tid, agg]) => {
+        const row = { name: tid };
+        row['Total'] = agg.count > 0 ? Math.round(agg.sumTotal / agg.count) : null;
+        ['Physics', 'Chemistry', 'Math'].forEach(sub => {
+          row[sub] = agg.count > 0 ? Math.round((agg.subjectSums[sub] || 0) / agg.count) : null;
+        });
+        return row;
       });
-      return row;
-    });
 
-    res.json({ rawChartData, rawDocsCount: rawDocs.length, topicMapsCount: topicMaps.length, qSubjectPerTest });
+      for (const rawRow of rawChartData) {
+        const existing = finalChartData.find(r => r.name === rawRow.name);
+        if (existing) {
+          Object.assign(existing, rawRow);
+        } else {
+          finalChartData.push(rawRow);
+        }
+      }
+      finalChartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
+    }
+
+    res.json({ finalChartData, rawChartData, rawDocsCount: rawDocs.length });
   } catch (e) {
     res.json({ error: e.message, stack: e.stack });
   }
