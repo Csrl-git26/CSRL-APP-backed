@@ -1,49 +1,28 @@
 import mongoose from 'mongoose';
 
-// Reused for both topic lists and subject lists in the overall rollup
-const OverallSubjectWeakSchema = new mongoose.Schema({
-  strongWeak: { type: [String], default: [] }, // topic/subject names flagged in >= 50% of tests
-  mediumWeak: { type: [String], default: [] }, // topic/subject names flagged in >= 50% of tests (either tier)
-}, { _id: false });
-
-const SubjectMetricsSchema = new mongoose.Schema({
-  attempted: { type: Number, default: 0 },
-  correct:   { type: Number, default: 0 },
-  wrong:     { type: Number, default: 0 },
-  totalQuestions: { type: Number, default: 0 },
+const SubjectWiseSchema = new mongoose.Schema({
+  strong:   { type: [String], default: [] },
+  moderate: { type: [String], default: [] },
+  weak:     { type: [String], default: [] },
 }, { _id: false });
 
 const StudentOverallWeakTopicsSchema = new mongoose.Schema({
   studentId:     { type: String, required: true },
+  studentName:   { type: String, default: '' },
   centerId:      { type: String, required: true },
-  testsIncluded: { type: [String], default: [] }, // only tests student actually attempted
+  testsIncluded: { type: [String], default: [] }, // tests student attempted
   totalTests:    { type: Number, default: 0 },
 
-  // Overall question performance metrics aggregated across all included tests
-  totalAttempted: { type: Number, default: 0 },
-  totalCorrect:   { type: Number, default: 0 },
-  totalWrong:     { type: Number, default: 0 },
-  totalQuestions: { type: Number, default: 0 },
+  totalScore:    { type: Number, default: 0 },
 
-  // Multi-test aggregate: subject-level metrics
-  overallSubjectMetrics: {
-    Physics:     { type: SubjectMetricsSchema, default: () => ({ attempted: 0, correct: 0, wrong: 0, totalQuestions: 0 }) },
-    Chemistry:   { type: SubjectMetricsSchema, default: () => ({ attempted: 0, correct: 0, wrong: 0, totalQuestions: 0 }) },
-    Mathematics: { type: SubjectMetricsSchema, default: () => ({ attempted: 0, correct: 0, wrong: 0, totalQuestions: 0 }) },
-  },
+  strongTopics:   { type: [String], default: [] },
+  moderateTopics: { type: [String], default: [] },
+  weakTopics:     { type: [String], default: [] },
 
-  // Multi-test aggregate: topic-level (existing)
-  overallWeakTopics: {
-    Physics:     { type: OverallSubjectWeakSchema, default: () => ({ strongWeak: [], mediumWeak: [] }) },
-    Chemistry:   { type: OverallSubjectWeakSchema, default: () => ({ strongWeak: [], mediumWeak: [] }) },
-    Mathematics: { type: OverallSubjectWeakSchema, default: () => ({ strongWeak: [], mediumWeak: [] }) },
-  },
-
-  // Multi-test aggregate: subject-level (new — question-accuracy based)
-  overallWeakSubjects: {
-    Physics:     { type: OverallSubjectWeakSchema, default: () => ({ strongWeak: [], mediumWeak: [] }) },
-    Chemistry:   { type: OverallSubjectWeakSchema, default: () => ({ strongWeak: [], mediumWeak: [] }) },
-    Mathematics: { type: OverallSubjectWeakSchema, default: () => ({ strongWeak: [], mediumWeak: [] }) },
+  subjectWise: {
+    PHYSICS:     { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
+    CHEMISTRY:   { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
+    MATHEMATICS: { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
   },
 
   computedAt: { type: Date, default: Date.now },
@@ -51,5 +30,6 @@ const StudentOverallWeakTopicsSchema = new mongoose.Schema({
 
 // Unique index per student
 StudentOverallWeakTopicsSchema.index({ studentId: 1 }, { unique: true });
+StudentOverallWeakTopicsSchema.index({ centerId: 1 });
 
 export default mongoose.models.StudentOverallWeakTopics || mongoose.model('StudentOverallWeakTopics', StudentOverallWeakTopicsSchema);

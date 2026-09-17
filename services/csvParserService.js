@@ -388,3 +388,280 @@ export function parseTestSheet(buffer) {
     students,
   };
 }
+
+// ─── Two-file workflow: Topic Mapping Parser ──────────────────────────────────
+
+/**
+ * parseTopicMapSheet — parse a standalone topic-mapping CSV.
+ *
+ * Supported formats:
+ *
+ * Format A — Tall (one row per question, recommended):
+ *   Question,Topic,Subject
+ *   Q1,Kinematics,Physics
+ *   Q2,Kinematics,Physics
+ *   Q3,Laws of Motion,Physics
+ *
+ * Format B — Wide (question headers + one topic row):
+ *   Q1,Q2,Q3,...
+ *   Kinematics,Kinematics,Laws of Motion,...
+ *
+ * Returns:
+ *   topicsWithQuestions: { 'Kinematics': { questions: ['Q1','Q2'], subject: 'Physics' }, ... }
+ *   questionTopicMap:    { Q1: 'Kinematics', Q2: 'Kinematics', ... }
+ *   questionSubjectMap:  { Q1: 'Physics', ... }
+ *   unknownSubjectQuestions: string[]
+ *
+ * @param {Buffer} buffer
+ * @returns {{ topicsWithQuestions, questionTopicMap, questionSubjectMap, unknownSubjectQuestions }}
+ * @throws {Error} with .validationErrors
+ */
+export function parseTopicMapSheet(buffer) {
+  const allRows = parse(buffer, {
+    skip_empty_lines: true,
+    trim: true,
+    relax_column_count: true,
+  });
+
+  const validationErrors = [];
+
+  if (!allRows || allRows.length < 2) {
+    const err = new Error('Topic map sheet must have at least 2 rows (header + data).');
+    err.validationErrors = [err.message];
+    throw err;
+  }
+
+  const questionTopicMap    = {};
+  const questionSubjectMap  = {};
+  const unknownSubjectQuestions = [];
+
+  // ── Detect format ───────────────────────────────────────────────────────────
+  const firstRowNorm = allRows[0].map(c => String(c || '').trim().toUpperCase());
+
+  // Format A: first column header is 'QUESTION' or 'Q NO' or 'Q_NO'
+  const isFormatA = (
+    firstRowNorm[0] === 'QUESTION' ||
+    firstRowNorm[0] === 'Q NO' ||
+    firstRowNorm[0] === 'Q_NO' ||
+    firstRowNorm[0] === 'Q NO.' ||
+    firstRowNorm[0] === 'S NO' ||
+    firstRowNorm[0] === 'S.NO'
+  );
+
+  // Format B: first row contains Q1, Q2, ... style headers
+  const isFormatB = firstRowNorm.some(h => /^Q\d+$/.test(h));
+
+  if (isFormatA) {
+    // ── Format A: tall (one question per row) ─────────────────────────────────
+    // Find column indices for Question, Topic, Subject
+    const qIdx  = firstRowNorm.findIndex(h => h === 'QUESTION' || h === 'Q NO' || h === 'Q_NO' || h === 'Q NO.' || h === 'S NO' || h === 'S.NO');
+    const tIdx  = firstRowNorm.findIndex(h => h === 'TOPIC' || h === 'CHAPTER' || h === 'TOPICS');
+    const sIdx  = firstRowNorm.findIndex(h => h === 'SUBJECT' || h === 'SUB');
+
+    if (tIdx === -1) validationErrors.push('Missing column: TOPIC (or CHAPTER/TOPICS)');
+    if (validationErrors.length > 0) {
+      const err = new Error('Topic map validation failed.');
+      err.validationErrors = validationErrors;
+      throw err;
+    }
+
+    for (let r = 1; r < allRows.length; r++) {
+      const row = allRows[r];
+      if (!row || row.every(c => !c || String(c).trim() === '')) continue;
+
+      let qName = String(row[qIdx] || '').trim().toUpperCase();
+      // Accept bare numbers: "1" → "Q1"
+      if (/^\d+$/.test(qName)) qName = `Q${qName}`;
+      // Accept "Q 1" → "Q1"
+      qName = qName.replace(/^Q\s+(\d+)$/, 'Q$1');
+
+      if (!/^Q\d+$/.test(qName)) {
+        validationErrors.push(`Row ${r + 1}: invalid question identifier "${row[qIdx]}" (expected Q1, Q2, ... or bare number).`);
+        continue;
+      }
+
+      const rawTopic = String(row[tIdx] || '').trim();
+      if (!rawTopic) {
+        validationErrors.push(`Row ${r + 1} (${qName}): topic is blank.`);
+        continue;
+      }
+
+      // Subject: from column if present, otherwise infer
+      let subject = sIdx !== -1 ? String(row[sIdx] || '').trim() : null;
+      if (!subject || !KNOWN_SUBJECTS.has(subject)) {
+        const inferred = inferSubject(rawTopic);
+        subject = inferred.subject;
+      }
+
+      questionTopicMap[qName] = rawTopic;
+      if (subject && KNOWN_SUBJECTS.has(subject)) {
+        questionSubjectMap[qName] = subject;
+      } else {
+        unknownSubjectQuestions.push(qName);
+        validationErrors.push(
+          `${qName}: topic "${rawTopic}" does not map to a known subject (Physics/Chemistry/Mathematics). ` +
+          `Add a SUBJECT column or prefix the topic as "Physics: ${rawTopic}".`
+        );
+      }
+    }
+  } else if (isFormatB) {
+    // ── Format B: wide (question headers + topic row) ─────────────────────────
+    const headerRow = allRows[0];
+    const topicRow  = allRows[1];
+
+    for (let i = 0; i < headerRow.length; i++) {
+      const qName = String(headerRow[i] || '').trim().toUpperCase();
+      if (!/^Q\d+$/.test(qName)) continue;
+
+      const rawTopic = String(topicRow[i] || '').trim();
+      if (!rawTopic) {
+        validationErrors.push(`${qName}: topic is blank in topic row.`);
+        continue;
+      }
+
+      const { subject, topic } = inferSubject(rawTopic);
+      questionTopicMap[qName] = topic;
+
+      if (subject && KNOWN_SUBJECTS.has(subject)) {
+        questionSubjectMap[qName] = subject;
+      } else {
+        unknownSubjectQuestions.push(qName);
+        validationErrors.push(
+          `${qName}: topic "${topic}" does not map to a known subject. ` +
+          `Prefix it as "Physics: ${topic}" or add a subject row.`
+        );
+      }
+    }
+  } else {
+    const err = new Error(
+      'Could not detect topic map format. ' +
+      'Use Format A (tall: Question,Topic,Subject columns) or ' +
+      'Format B (wide: Q1,Q2,... header row followed by a topic row).'
+    );
+    err.validationErrors = [err.message];
+    throw err;
+  }
+
+  if (validationErrors.length > 0) {
+    const err = new Error('Topic map validation failed — see validationErrors.');
+    err.validationErrors = validationErrors;
+    throw err;
+  }
+
+  // Build topicsWithQuestions
+  const topicsWithQuestions = {};
+  for (const [qName, topic] of Object.entries(questionTopicMap)) {
+    const subject = questionSubjectMap[qName];
+    if (!subject) continue;
+    if (!topicsWithQuestions[topic]) topicsWithQuestions[topic] = { questions: [], subject };
+    if (!topicsWithQuestions[topic].questions.includes(qName)) {
+      topicsWithQuestions[topic].questions.push(qName);
+    }
+  }
+
+  return { topicsWithQuestions, questionTopicMap, questionSubjectMap, unknownSubjectQuestions };
+}
+
+// ─── Two-file workflow: Marks-Only Sheet Parser ───────────────────────────────
+
+/**
+ * parseMarksOnlySheet — parse a marks-only student sheet (no embedded topic/answer rows).
+ *
+ * Expected format:
+ *   Row 1 (header): LOCATION | ROLL NO. | NAME | Q1 | Q2 | ... | Qn
+ *   Row 2+:         student data rows
+ *
+ * Mark interpretation:
+ *   blank/empty → null  (excluded; question not applicable or data missing)
+ *   0           → not attempted (counted in denominator, not in correct/attempted numerator)
+ *   negative    → incorrect (attempted; wrong answer; penalty applied)
+ *   positive    → correct  (attempted; right answer)
+ *
+ * @param {Buffer} buffer
+ * @returns {{
+ *   students: Array<{ studentId, name, centerId, marks }>,
+ *   questionCols: string[]
+ * }}
+ * @throws {Error} with .validationErrors
+ */
+export function parseMarksOnlySheet(buffer) {
+  const allRows = parse(buffer, {
+    skip_empty_lines: false,
+    trim: true,
+    relax_column_count: true,
+  });
+
+  const validationErrors = [];
+
+  if (!allRows || allRows.length < 2) {
+    const err = new Error('Marks sheet must have at least 2 rows (header + at least one student row).');
+    err.validationErrors = [err.message];
+    throw err;
+  }
+
+  // ── Parse header row ───────────────────────────────────────────────────────
+  const headerRow = allRows[0].map(normalizeColumnHeader);
+
+  const locationIdx = headerRow.indexOf('__location__');
+  const rollIdx     = headerRow.indexOf('__roll__');
+  const nameIdx     = headerRow.indexOf('__name__');
+
+  if (locationIdx === -1) validationErrors.push('Missing required column: LOCATION (or CENTRE / CENTER / CENTRECODE)');
+  if (rollIdx     === -1) validationErrors.push('Missing required column: ROLL NO. (or ROLL_KEY / ROLL_NO)');
+  if (nameIdx     === -1) validationErrors.push('Missing required column: NAME (or STUDENT\'S NAME)');
+
+  // Identify question columns
+  const qColIndices = [];
+  const questionCols = [];
+  for (let i = 0; i < headerRow.length; i++) {
+    if (/^Q\d+$/i.test(headerRow[i])) {
+      qColIndices.push(i);
+      questionCols.push(headerRow[i].toUpperCase());
+    }
+  }
+
+  if (questionCols.length === 0) validationErrors.push('No question columns found (expected Q1, Q2, ... Qn in header row).');
+
+  if (validationErrors.length > 0) {
+    const err = new Error('Marks sheet validation failed.');
+    err.validationErrors = validationErrors;
+    throw err;
+  }
+
+  // ── Parse student rows (all rows after header) ────────────────────────────
+  const students   = [];
+  const seenStudents = new Set();
+
+  for (let rowIdx = 1; rowIdx < allRows.length; rowIdx++) {
+    const row = allRows[rowIdx];
+
+    // Skip fully blank rows
+    if (!row || row.every(cell => !cell || String(cell).trim() === '')) continue;
+
+    const studentId = String(row[rollIdx]     || '').trim();
+    const name      = String(row[nameIdx]     || '').trim();
+    let centerId    = String(row[locationIdx] || '').trim();
+
+    // Apply the same centre-code normalisations as the unified sheet parser
+    if (centerId.toUpperCase() === 'KNP') centerId = 'GAIL';
+    if (centerId.toUpperCase() === 'JDH') centerId = 'OIL_INDIA';
+
+    if (!studentId || !centerId) continue;
+
+    if (seenStudents.has(studentId)) {
+      console.warn(`[MarksSheet] Skipping duplicate student row for Roll No: ${studentId}`);
+      continue;
+    }
+    seenStudents.add(studentId);
+
+    const marks = {};
+    for (let i = 0; i < qColIndices.length; i++) {
+      const qName = questionCols[i];
+      marks[qName] = parseMark(row[qColIndices[i]]);
+    }
+
+    students.push({ studentId, name, centerId, marks });
+  }
+
+  return { students, questionCols };
+}

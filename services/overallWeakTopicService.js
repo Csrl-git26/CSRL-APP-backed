@@ -1,384 +1,267 @@
 /**
  * services/overallWeakTopicService.js
  *
- * Aggregates per-test weak-topic and weak-subject results into a multi-test "overall" rollup
+ * Aggregates per-test weak-topic results into a multi-test "overall" rollup
  * for both students and centers.
- *
- * Single-paper architecture: no paper1/paper2 field reads anywhere in this file.
- *
- * Overall classification thresholds (same for topics and subjects):
- *   strongWeakRatio = (tests where topic/subject was "Weakest") / testedCount
- *   totalWeakRatio  = (tests where topic/subject was "Weakest" OR "Weak") / testedCount
- *
- *   strongWeakRatio >= 0.50  → overall strongWeak ("Weakest")
- *   totalWeakRatio  >= 0.50  → overall mediumWeak ("Weak")
- *   otherwise                → not flagged
- *
- * Edge case #6: a student absent for one test simply has no StudentWeakTopics record for
- * that test — the absent test is automatically excluded from testsIncluded and testedCount.
+ * Implements the 70/30 Composite Scoring Model by summing raw attempts and correct counts
+ * across all tests, then computing a single global CS.
  */
 
 import { initMongo } from './mongoInit.js';
-import StudentWeakTopics from '../models/StudentWeakTopics.js';
-import CenterWeakTopics from '../models/CenterWeakTopics.js';
+import StudentRawMarks from '../models/StudentRawMarks.js';
 import TopicMap from '../models/TopicMap.js';
 import StudentOverallWeakTopics from '../models/StudentOverallWeakTopics.js';
 import CenterOverallWeakTopics from '../models/CenterOverallWeakTopics.js';
+import { matchCanonicalTopic, getMark, isStudentAbsent } from '../utils/topicUtils.js';
 
-const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics'];
+const SUBJECTS = ['PHYSICS', 'CHEMISTRY', 'MATHEMATICS'];
 
-/** Build an empty grouped structure for topics or subjects */
-function buildEmptyGrouped() {
+function marksToPlainObject(marksField) {
   const out = {};
-  for (const s of SUBJECTS) out[s] = { strongWeak: [], mediumWeak: [] };
+  if (marksField instanceof Map) {
+    for (const [k, v] of marksField) out[k] = v;
+  } else if (marksField && typeof marksField === 'object') {
+    Object.assign(out, marksField);
+  }
   return out;
 }
 
-// ─── Student overall ──────────────────────────────────────────────────────────
+function buildEmptyTopicClassification() {
+  return {
+    strongTopics: [],
+    moderateTopics: [],
+    weakTopics: [],
+    subjectWise: {
+      PHYSICS: { strong: [], moderate: [], weak: [] },
+      CHEMISTRY: { strong: [], moderate: [], weak: [] },
+      MATHEMATICS: { strong: [], moderate: [], weak: [] },
+    }
+  };
+}
 
-/**
- * computeStudentOverallWeakTopics — recompute the multi-test rollup for one student.
- *
- * @param {string} studentId
- */
 export async function computeStudentOverallWeakTopics(studentId) {
   await initMongo();
 
-  // 1. Get all per-test results for this student (absent tests produce no record → auto-excluded)
-  const allTestResults = await StudentWeakTopics.find({ studentId }).sort({ testId: 1 }).lean();
-  if (allTestResults.length === 0) return;
+  const allMarksDocs = await StudentRawMarks.find({ studentId }).lean();
+  if (allMarksDocs.length === 0) return;
 
-  const testsIncluded = allTestResults.map(r => r.testId);
-  const centerId = allTestResults[0].centerId;
+  const centerId = allMarksDocs[0].centerId;
+  const studentName = allMarksDocs[0].studentName || '';
 
-  // 2. Build trackers: topic → { strongWeakCount, mediumWeakCount, testedCount, subject }
-  const topicTracker   = {};
-  // subject → { strongWeakCount, mediumWeakCount, testedCount }
-  const subjectTracker = {};
-  for (const s of SUBJECTS) subjectTracker[s] = { strongWeakCount: 0, mediumWeakCount: 0, testedCount: 0 };
+  const testIds = allMarksDocs.map(d => d.testId);
+  const topicMaps = await TopicMap.find({ testId: { $in: testIds } }).lean();
+  
+  const testTopicMaps = {};
+  for (const tm of topicMaps) {
+    const qMap = {};
+    const sMap = {};
+    const allQs = new Set();
+    
+    for (const entry of tm.topics) {
+      for (const q of entry.questions) allQs.add(q);
+      const canonical = matchCanonicalTopic(entry.topic);
+      if (!qMap[canonical.name]) {
+        qMap[canonical.name] = [];
+        sMap[canonical.name] = canonical.subject;
+      }
+      for (const q of entry.questions) {
+        if (!qMap[canonical.name].includes(q)) qMap[canonical.name].push(q);
+      }
+    }
+    testTopicMaps[tm.testId] = { qMap, sMap, allQs: Array.from(allQs) };
+  }
 
-  // Overall question metrics accumulator
-  let totalAttempted = 0;
-  let totalCorrect = 0;
-  let totalWrong = 0;
-  let totalQuestions = 0;
+  // Aggregate metrics per topic across all tests
+  const topicMetrics = {}; // { 'Kinematics': { att: 0, corr: 0, totalQ: 0, subject: 'PHYSICS' } }
+  let totalScore = 0;
+  const testsIncluded = [];
 
-  const overallSubjectMetrics = {
-    Physics:     { attempted: 0, correct: 0, wrong: 0, totalQuestions: 0 },
-    Chemistry:   { attempted: 0, correct: 0, wrong: 0, totalQuestions: 0 },
-    Mathematics: { attempted: 0, correct: 0, wrong: 0, totalQuestions: 0 },
-  };
+  for (const doc of allMarksDocs) {
+    const tm = testTopicMaps[doc.testId];
+    if (!tm) continue;
 
-  // 3. Loop through each test the student attempted
-  for (const testResult of allTestResults) {
-    const testId = testResult.testId;
-    if (!testId || testId.length <= 1 || testId === 'CAT4') continue;
+    const marks = marksToPlainObject(doc.marks);
+    if (isStudentAbsent(marks, tm.allQs)) continue;
+    
+    testsIncluded.push(doc.testId);
 
-    // Accumulate question metrics
-    totalAttempted += (testResult.attempted || 0);
-    totalCorrect += (testResult.correct || 0);
-    totalWrong += (testResult.wrong || 0);
-    totalQuestions += (testResult.totalQuestions || 0);
-
-    if (testResult.subjectMetrics) {
-      for (const subj of SUBJECTS) {
-        if (testResult.subjectMetrics[subj]) {
-          overallSubjectMetrics[subj].attempted += (testResult.subjectMetrics[subj].attempted || 0);
-          overallSubjectMetrics[subj].correct   += (testResult.subjectMetrics[subj].correct || 0);
-          overallSubjectMetrics[subj].wrong     += (testResult.subjectMetrics[subj].wrong || 0);
-          overallSubjectMetrics[subj].totalQuestions += (testResult.subjectMetrics[subj].totalQuestions || 0);
+    for (const [topicName, questions] of Object.entries(tm.qMap)) {
+      if (!topicMetrics[topicName]) {
+        topicMetrics[topicName] = { att: 0, corr: 0, totalQ: 0, subject: tm.sMap[topicName] };
+      }
+      topicMetrics[topicName].totalQ += questions.length;
+      
+      for (const q of questions) {
+        const m = getMark(marks, q);
+        if (m !== null) {
+          totalScore += m;
+          if (m !== 0) topicMetrics[topicName].att++;
+          if (m > 0) topicMetrics[topicName].corr++;
         }
       }
     }
+  }
 
-    // Load topic map for this test to know which topics were covered
-    const topicMaps = await TopicMap.find({ testId }).lean();
-    const testedTopicsInThisTest = new Set();
-    const topicSubjectMap = {};
+  const classification = buildEmptyTopicClassification();
 
-    for (const tm of topicMaps) {
-      for (const t of (tm.topics || [])) {
-        testedTopicsInThisTest.add(t.topic);
-        topicSubjectMap[t.topic] = t.subject;
-      }
-    }
+  for (const [topicName, metrics] of Object.entries(topicMetrics)) {
+    if (metrics.totalQ === 0) continue;
+    
+    const AR = (metrics.att / metrics.totalQ);
+    const Acc = metrics.att > 0 ? (metrics.corr / metrics.att) : 0;
+    const CS = (0.70 * Acc) + (0.30 * AR);
+    
+    const subject = metrics.subject;
 
-    // ── Topic-level tracking ───────────────────────────────────────────────
-    for (const topic of testedTopicsInThisTest) {
-      if (!topicTracker[topic]) {
-        topicTracker[topic] = {
-          strongWeakCount: 0,
-          mediumWeakCount: 0,
-          testedCount:     0,
-          subject:         topicSubjectMap[topic],
-        };
-      }
-
-      topicTracker[topic].testedCount++;
-
-      const subj     = topicSubjectMap[topic];
-      const subjData = testResult.weakTopics?.[subj];
-
-      if (subjData?.strongWeak?.includes(topic)) {
-        topicTracker[topic].strongWeakCount++;
-      } else if (subjData?.mediumWeak?.includes(topic)) {
-        topicTracker[topic].mediumWeakCount++;
-      }
-    }
-
-    // ── Subject-level tracking ─────────────────────────────────────────────
-    // Only count this test for a subject if topics from that subject were present
-    const subjectsTestedThisTest = new Set(Object.values(topicSubjectMap).filter(Boolean));
-    for (const subject of SUBJECTS) {
-      if (!subjectsTestedThisTest.has(subject)) continue;
-
-      subjectTracker[subject].testedCount++;
-
-      const subjData = testResult.weakSubjects?.[subject];
-      if (subjData?.strongWeak?.includes(subject)) {
-        subjectTracker[subject].strongWeakCount++;
-      } else if (subjData?.mediumWeak?.includes(subject)) {
-        subjectTracker[subject].mediumWeakCount++;
-      }
+    if (CS >= 0.80 && AR >= 0.70) {
+      classification.strongTopics.push(topicName);
+      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].strong.push(topicName);
+    } else if (CS >= 0.60 && AR >= 0.50) {
+      classification.moderateTopics.push(topicName);
+      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].moderate.push(topicName);
+    } else {
+      classification.weakTopics.push(topicName);
+      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].weak.push(topicName);
     }
   }
 
-  // 4. Classify topics
-  const groupedTopics = buildEmptyGrouped();
-
-  for (const [topic, data] of Object.entries(topicTracker)) {
-    if (!data.subject || !SUBJECTS.includes(data.subject)) continue;
-    if (data.testedCount === 0) continue;
-
-    const strongWeakRatio = data.strongWeakCount / data.testedCount;
-    const totalWeakRatio  = (data.strongWeakCount + data.mediumWeakCount) / data.testedCount;
-
-    if (strongWeakRatio >= 0.50) {
-      groupedTopics[data.subject].strongWeak.push(topic);
-    } else if (totalWeakRatio >= 0.50) {
-      groupedTopics[data.subject].mediumWeak.push(topic);
-    }
-  }
-
-  // Sort alphabetically
-  for (const subj of SUBJECTS) {
-    groupedTopics[subj].strongWeak.sort();
-    groupedTopics[subj].mediumWeak.sort();
-  }
-
-  // 5. Classify subjects
-  const groupedSubjects = buildEmptyGrouped();
-
-  for (const subject of SUBJECTS) {
-    const data = subjectTracker[subject];
-    if (data.testedCount === 0) continue;
-
-    const strongWeakRatio = data.strongWeakCount / data.testedCount;
-    const totalWeakRatio  = (data.strongWeakCount + data.mediumWeakCount) / data.testedCount;
-
-    if (strongWeakRatio >= 0.50) {
-      groupedSubjects[subject].strongWeak.push(subject);
-    } else if (totalWeakRatio >= 0.50) {
-      groupedSubjects[subject].mediumWeak.push(subject);
-    }
-  }
-
-  // 6. Upsert
   const finalTestsIncluded = testsIncluded.filter(t => t && t.length > 1 && t !== 'CAT4');
+
   await StudentOverallWeakTopics.updateOne(
     { studentId },
     {
       $set: {
         studentId,
+        studentName,
         centerId,
-        testsIncluded:       finalTestsIncluded,
-        totalTests:          finalTestsIncluded.length,
-        totalAttempted,
-        totalCorrect,
-        totalWrong,
-        totalQuestions,
-        overallSubjectMetrics,
-        overallWeakTopics:   groupedTopics,
-        overallWeakSubjects: groupedSubjects,
-        computedAt:          new Date(),
+        testsIncluded: finalTestsIncluded,
+        totalTests: finalTestsIncluded.length,
+        totalScore,
+        strongTopics: classification.strongTopics,
+        moderateTopics: classification.moderateTopics,
+        weakTopics: classification.weakTopics,
+        subjectWise: classification.subjectWise,
+        computedAt: new Date(),
       },
     },
     { upsert: true }
   );
 }
 
-// ─── Center overall ───────────────────────────────────────────────────────────
-
-/**
- * computeCenterOverallWeakTopics — recompute the multi-test rollup for one center.
- *
- * @param {string} centerId
- */
 export async function computeCenterOverallWeakTopics(centerId) {
   await initMongo();
 
-  // 1. Get all per-test results for this center
-  const allTestResults = await CenterWeakTopics.find({ centerId }).sort({ testId: 1 }).lean();
-  if (allTestResults.length === 0) return;
+  const allMarksDocs = await StudentRawMarks.find({ centerId }).lean();
+  if (allMarksDocs.length === 0) return;
 
-  const testsIncluded = allTestResults.map(r => r.testId);
-
-  // 2. Topic tracker
-  const topicTracker = {};
-  // subject tracker: subject → { strongWeakCount, mediumWeakCount, testedCount, percentageSum, percentageCount }
-  const subjectTracker = {};
-  for (const s of SUBJECTS) {
-    subjectTracker[s] = { strongWeakCount: 0, mediumWeakCount: 0, testedCount: 0, percentageSum: 0, percentageCount: 0 };
+  const testIds = Array.from(new Set(allMarksDocs.map(d => d.testId)));
+  const topicMaps = await TopicMap.find({ testId: { $in: testIds } }).lean();
+  
+  const testTopicMaps = {};
+  for (const tm of topicMaps) {
+    const qMap = {};
+    const sMap = {};
+    const allQs = new Set();
+    
+    for (const entry of tm.topics) {
+      for (const q of entry.questions) allQs.add(q);
+      const canonical = matchCanonicalTopic(entry.topic);
+      if (!qMap[canonical.name]) {
+        qMap[canonical.name] = [];
+        sMap[canonical.name] = canonical.subject;
+      }
+      for (const q of entry.questions) {
+        if (!qMap[canonical.name].includes(q)) qMap[canonical.name].push(q);
+      }
+    }
+    testTopicMaps[tm.testId] = { qMap, sMap, allQs: Array.from(allQs) };
   }
 
-  // 3. Loop through each test
-  for (const testResult of allTestResults) {
-    const testId = testResult.testId;
-    if (!testId || testId.length <= 1 || testId === 'CAT4') continue;
+  // Aggregate metrics per topic across all tests
+  const topicMetrics = {}; // { 'Kinematics': { att: 0, corr: 0, totalPossible: 0, subject: 'PHYSICS' } }
+  let totalScore = 0;
+  const testsIncluded = new Set();
+  
+  // Group by testId
+  const testGroups = {};
+  for (const doc of allMarksDocs) {
+    if (!testGroups[doc.testId]) testGroups[doc.testId] = [];
+    testGroups[doc.testId].push(marksToPlainObject(doc.marks));
+  }
+  
+  let maxStudentCount = 0;
 
-    // Load topic map for this test
-    const topicMaps = await TopicMap.find({ testId }).lean();
-    const testedTopicsInThisTest = new Set();
-    const topicSubjectMap = {};
+  for (const [testId, marksList] of Object.entries(testGroups)) {
+    const tm = testTopicMaps[testId];
+    if (!tm) continue;
 
-    for (const tm of topicMaps) {
-      for (const t of (tm.topics || [])) {
-        testedTopicsInThisTest.add(t.topic);
-        topicSubjectMap[t.topic] = t.subject;
+    // Filter absent
+    const validMarks = marksList.filter(marks => !isStudentAbsent(marks, tm.allQs));
+    if (validMarks.length === 0) continue;
+    
+    testsIncluded.add(testId);
+    if (validMarks.length > maxStudentCount) maxStudentCount = validMarks.length;
+
+    for (const [topicName, questions] of Object.entries(tm.qMap)) {
+      if (!topicMetrics[topicName]) {
+        topicMetrics[topicName] = { att: 0, corr: 0, totalPossible: 0, subject: tm.sMap[topicName] };
       }
-    }
-
-    // ── Topic-level tracking ───────────────────────────────────────────────
-    for (const topic of testedTopicsInThisTest) {
-      if (!topicTracker[topic]) {
-        topicTracker[topic] = {
-          strongWeakCount:  0,
-          mediumWeakCount:  0,
-          testedCount:      0,
-          subject:          topicSubjectMap[topic],
-          percentageSum:    0,
-          percentageCount:  0,
-        };
-      }
-
-      topicTracker[topic].testedCount++;
-
-      const subj     = topicSubjectMap[topic];
-      const subjData = testResult.weakTopics?.[subj];
-
-      const inStrong = subjData?.strongWeak?.find(e => e.topic === topic);
-      const inMedium = subjData?.mediumWeak?.find(e => e.topic === topic);
-
-      if (inStrong) {
-        topicTracker[topic].strongWeakCount++;
-        topicTracker[topic].percentageSum += inStrong.percentage;
-        topicTracker[topic].percentageCount++;
-      } else if (inMedium) {
-        topicTracker[topic].mediumWeakCount++;
-        topicTracker[topic].percentageSum += inMedium.percentage;
-        topicTracker[topic].percentageCount++;
-      }
-    }
-
-    // ── Subject-level tracking ─────────────────────────────────────────────
-    const subjectsTestedThisTest = new Set(Object.values(topicSubjectMap).filter(Boolean));
-    for (const subject of SUBJECTS) {
-      if (!subjectsTestedThisTest.has(subject)) continue;
-
-      subjectTracker[subject].testedCount++;
-
-      const subData = testResult.weakSubjects?.[subject];
-
-      // weakSubjects entries are { subject, count, percentage }
-      const inStrong = subData?.strongWeak?.find(e => e.subject === subject);
-      const inMedium = subData?.mediumWeak?.find(e => e.subject === subject);
-
-      if (inStrong) {
-        subjectTracker[subject].strongWeakCount++;
-        subjectTracker[subject].percentageSum += inStrong.percentage;
-        subjectTracker[subject].percentageCount++;
-      } else if (inMedium) {
-        subjectTracker[subject].mediumWeakCount++;
-        subjectTracker[subject].percentageSum += inMedium.percentage;
-        subjectTracker[subject].percentageCount++;
+      
+      const totalQ = questions.length;
+      topicMetrics[topicName].totalPossible += (totalQ * validMarks.length);
+      
+      for (const marks of validMarks) {
+        for (const q of questions) {
+          const m = getMark(marks, q);
+          if (m !== null) {
+            totalScore += m;
+            if (m !== 0) topicMetrics[topicName].att++;
+            if (m > 0) topicMetrics[topicName].corr++;
+          }
+        }
       }
     }
   }
 
-  // 4. Classify topics
-  const groupedTopics = buildEmptyGrouped();
+  const classification = buildEmptyTopicClassification();
 
-  for (const [topic, data] of Object.entries(topicTracker)) {
-    if (!data.subject || !SUBJECTS.includes(data.subject)) continue;
-    if (data.testedCount === 0) continue;
+  for (const [topicName, metrics] of Object.entries(topicMetrics)) {
+    if (metrics.totalPossible === 0) continue;
+    
+    const AR = (metrics.att / metrics.totalPossible);
+    const Acc = metrics.att > 0 ? (metrics.corr / metrics.att) : 0;
+    const CS = (0.70 * Acc) + (0.30 * AR);
+    
+    const subject = metrics.subject;
 
-    const strongWeakRatio = data.strongWeakCount / data.testedCount;
-    const totalWeakRatio  = (data.strongWeakCount + data.mediumWeakCount) / data.testedCount;
-    const avgWeakPercentage = data.percentageCount > 0
-      ? +(data.percentageSum / data.percentageCount).toFixed(1)
-      : 0;
-
-    const entry = {
-      topic,
-      avgWeakPercentage,
-      strongWeakCount: data.strongWeakCount,
-      mediumWeakCount: data.mediumWeakCount,
-      testedCount:     data.testedCount,
-    };
-
-    if (strongWeakRatio >= 0.50) {
-      groupedTopics[data.subject].strongWeak.push(entry);
-    } else if (totalWeakRatio >= 0.50) {
-      groupedTopics[data.subject].mediumWeak.push(entry);
+    if (CS >= 0.80 && AR >= 0.70) {
+      classification.strongTopics.push(topicName);
+      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].strong.push(topicName);
+    } else if (CS >= 0.60 && AR >= 0.50) {
+      classification.moderateTopics.push(topicName);
+      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].moderate.push(topicName);
+    } else {
+      classification.weakTopics.push(topicName);
+      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].weak.push(topicName);
     }
   }
+  
+  const finalTestsIncluded = Array.from(testsIncluded).filter(t => t && t.length > 1 && t !== 'CAT4');
 
-  // Sort by avgWeakPercentage descending
-  for (const subj of SUBJECTS) {
-    groupedTopics[subj].strongWeak.sort((a, b) => b.avgWeakPercentage - a.avgWeakPercentage);
-    groupedTopics[subj].mediumWeak.sort((a, b) => b.avgWeakPercentage - a.avgWeakPercentage);
-  }
-
-  // 5. Classify subjects
-  const groupedSubjects = buildEmptyGrouped();
-
-  for (const subject of SUBJECTS) {
-    const data = subjectTracker[subject];
-    if (data.testedCount === 0) continue;
-
-    const strongWeakRatio = data.strongWeakCount / data.testedCount;
-    const totalWeakRatio  = (data.strongWeakCount + data.mediumWeakCount) / data.testedCount;
-    const avgWeakPercentage = data.percentageCount > 0
-      ? +(data.percentageSum / data.percentageCount).toFixed(1)
-      : 0;
-
-    const entry = {
-      subject,
-      avgWeakPercentage,
-      strongWeakCount: data.strongWeakCount,
-      mediumWeakCount: data.mediumWeakCount,
-      testedCount:     data.testedCount,
-    };
-
-    if (strongWeakRatio >= 0.50) {
-      groupedSubjects[subject].strongWeak.push(entry);
-    } else if (totalWeakRatio >= 0.50) {
-      groupedSubjects[subject].mediumWeak.push(entry);
-    }
-  }
-
-  // 6. Upsert
-  const finalTestsIncluded = testsIncluded.filter(t => t && t.length > 1 && t !== 'CAT4');
   await CenterOverallWeakTopics.updateOne(
     { centerId },
     {
       $set: {
         centerId,
-        testsIncluded:       finalTestsIncluded,
-        totalTests:          finalTestsIncluded.length,
-        overallWeakTopics:   groupedTopics,
-        overallWeakSubjects: groupedSubjects,
-        computedAt:          new Date(),
+        testsIncluded: finalTestsIncluded,
+        totalTests: finalTestsIncluded.length,
+        studentCount: maxStudentCount,
+        averageScore: maxStudentCount > 0 ? (totalScore / maxStudentCount) : 0,
+        strongTopics: classification.strongTopics,
+        moderateTopics: classification.moderateTopics,
+        weakTopics: classification.weakTopics,
+        subjectWise: classification.subjectWise,
+        computedAt: new Date(),
       },
     },
     { upsert: true }

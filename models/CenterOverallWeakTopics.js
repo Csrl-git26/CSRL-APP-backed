@@ -1,31 +1,9 @@
 import mongoose from 'mongoose';
 
-// Per-topic stat in the center overall rollup
-const CenterOverallTopicStatSchema = new mongoose.Schema({
-  topic:             { type: String, required: true },
-  avgWeakPercentage: { type: Number, required: true }, // avg center-weak% across tests where flagged
-  strongWeakCount:   { type: Number, required: true }, // # tests where >= 50% of students were weak
-  mediumWeakCount:   { type: Number, required: true }, // # tests where > 39% & < 50% were weak
-  testedCount:       { type: Number, required: true }, // # tests where topic was present
-}, { _id: false });
-
-// Per-subject stat in the center overall rollup
-const CenterOverallSubjectStatSchema = new mongoose.Schema({
-  subject:           { type: String, required: true },
-  avgWeakPercentage: { type: Number, required: true },
-  strongWeakCount:   { type: Number, required: true },
-  mediumWeakCount:   { type: Number, required: true },
-  testedCount:       { type: Number, required: true },
-}, { _id: false });
-
-const CenterOverallSubjectWeakTopicSchema = new mongoose.Schema({
-  strongWeak: { type: [CenterOverallTopicStatSchema],   default: [] },
-  mediumWeak: { type: [CenterOverallTopicStatSchema],   default: [] },
-}, { _id: false });
-
-const CenterOverallSubjectWeakSubjectSchema = new mongoose.Schema({
-  strongWeak: { type: [CenterOverallSubjectStatSchema], default: [] },
-  mediumWeak: { type: [CenterOverallSubjectStatSchema], default: [] },
+const SubjectWiseSchema = new mongoose.Schema({
+  strong:   { type: [String], default: [] },
+  moderate: { type: [String], default: [] },
+  weak:     { type: [String], default: [] },
 }, { _id: false });
 
 const CenterOverallWeakTopicsSchema = new mongoose.Schema({
@@ -33,18 +11,17 @@ const CenterOverallWeakTopicsSchema = new mongoose.Schema({
   testsIncluded: { type: [String], default: [] },
   totalTests:    { type: Number, default: 0 },
 
-  // Multi-test aggregate: topic-level (existing)
-  overallWeakTopics: {
-    Physics:     { type: CenterOverallSubjectWeakTopicSchema,   default: () => ({ strongWeak: [], mediumWeak: [] }) },
-    Chemistry:   { type: CenterOverallSubjectWeakTopicSchema,   default: () => ({ strongWeak: [], mediumWeak: [] }) },
-    Mathematics: { type: CenterOverallSubjectWeakTopicSchema,   default: () => ({ strongWeak: [], mediumWeak: [] }) },
-  },
+  studentCount:  { type: Number, default: 0 }, // Average student count across tests or max student count
+  averageScore:  { type: Number, default: 0 }, // Average score across tests
 
-  // Multi-test aggregate: subject-level (new — question-accuracy based)
-  overallWeakSubjects: {
-    Physics:     { type: CenterOverallSubjectWeakSubjectSchema, default: () => ({ strongWeak: [], mediumWeak: [] }) },
-    Chemistry:   { type: CenterOverallSubjectWeakSubjectSchema, default: () => ({ strongWeak: [], mediumWeak: [] }) },
-    Mathematics: { type: CenterOverallSubjectWeakSubjectSchema, default: () => ({ strongWeak: [], mediumWeak: [] }) },
+  strongTopics:   { type: [String], default: [] },
+  moderateTopics: { type: [String], default: [] },
+  weakTopics:     { type: [String], default: [] },
+
+  subjectWise: {
+    PHYSICS:     { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
+    CHEMISTRY:   { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
+    MATHEMATICS: { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
   },
 
   computedAt: { type: Date, default: Date.now },

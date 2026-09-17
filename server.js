@@ -15,7 +15,7 @@ import SyllabusTopics from './models/SyllabusTopics.js';
 import TestScore from './models/TestScore.js';
 import PastYearData from './models/PastYearData.js';
 import { seedTopics } from './seedTopics.js';
-import { parseTestSheet, buildTopicSubjectLookup } from './services/csvParserService.js';
+import { parseTestSheet, parseTopicMapSheet, parseMarksOnlySheet, buildTopicSubjectLookup } from './services/csvParserService.js';
 import { computeWeakTopics } from './services/weakTopicService.js';
 import {
   isDbEnabled,
@@ -356,33 +356,29 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
       const centerAccData = weakData.find(d => d.centerId === centre.code);
       let accuracyWeakSubject = 'None';
       
-      if (centerAccData && centerAccData.weakSubjects) {
-        let highestPercent = 0;
+      if (centerAccData && centerAccData.subjectWise) {
+        // Find the subject with the most weak topics (new 70/30 schema)
+        let maxWeak = 0;
         let weakestSub = null;
-        let isMedium = false;
+        let isModerate = false;
         
-        Object.keys(centerAccData.weakSubjects).forEach(sub => {
-          const strong = centerAccData.weakSubjects[sub]?.strongWeak;
-          if (strong && strong.length > 0 && strong[0].percentage > highestPercent) {
-            highestPercent = strong[0].percentage;
+        ['PHYSICS', 'CHEMISTRY', 'MATHEMATICS'].forEach(sub => {
+          const sw = centerAccData.subjectWise[sub];
+          if (!sw) return;
+          if ((sw.weak?.length || 0) > maxWeak) {
+            maxWeak = sw.weak.length;
             weakestSub = sub;
-            isMedium = false;
+            isModerate = false;
+          } else if ((sw.moderate?.length || 0) > maxWeak) {
+            maxWeak = sw.moderate.length;
+            weakestSub = sub;
+            isModerate = true;
           }
         });
         
-        if (!weakestSub) {
-          Object.keys(centerAccData.weakSubjects).forEach(sub => {
-            const medium = centerAccData.weakSubjects[sub]?.mediumWeak;
-            if (medium && medium.length > 0 && medium[0].percentage > highestPercent) {
-              highestPercent = medium[0].percentage;
-              weakestSub = sub;
-              isMedium = true;
-            }
-          });
-        }
-        
         if (weakestSub) {
-          accuracyWeakSubject = isMedium ? `${weakestSub} (Medium)` : weakestSub;
+          const displayName = weakestSub.charAt(0) + weakestSub.slice(1).toLowerCase();
+          accuracyWeakSubject = isModerate ? `${displayName} (Moderate)` : displayName;
         }
       }
       
@@ -541,62 +537,13 @@ app.get('/api/analytics/student-chart', async (req, res) => {
       });
     }
 
-    const weakTopics = await StudentWeakTopics.find({ studentId: rollKey }).lean();
-    const weakMap = {};
-    for (const wt of weakTopics) {
-      const normKey = (wt.testId || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      if (!weakMap[normKey]) {
-        weakMap[normKey] = {
-          attempted: 0,
-          correct: 0,
-          wrong: 0,
-          totalQuestions: 0,
-          subjectMetrics: {
-            Physics: { attempted: 0, correct: 0, wrong: 0 },
-            Chemistry: { attempted: 0, correct: 0, wrong: 0 },
-            Mathematics: { attempted: 0, correct: 0, wrong: 0 },
-            Biology: { attempted: 0, correct: 0, wrong: 0 },
-          }
-        };
-      }
-      
-      const target = weakMap[normKey];
-      target.attempted += (wt.attempted || 0);
-      target.correct += (wt.correct || 0);
-      target.wrong += (wt.wrong || 0);
-      
-      if (wt.subjectMetrics) {
-        ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach(sub => {
-          if (wt.subjectMetrics[sub]) {
-            target.subjectMetrics[sub].attempted += (wt.subjectMetrics[sub].attempted || 0);
-            target.subjectMetrics[sub].correct += (wt.subjectMetrics[sub].correct || 0);
-            target.subjectMetrics[sub].wrong += (wt.subjectMetrics[sub].wrong || 0);
-          }
-        });
-      }
-    }
-
+    // Enrich chart data with rankings (raw marks accuracy already computed above from StudentRawMarks)
     let enrichedChartData = [...chartData];
-
-    // Add any tests from weakTopics that are NOT in chartData (e.g. if they only uploaded Weak Topics and not Flat Marks)
-    for (const wt of weakTopics) {
-      const normKey = (wt.testId || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      if (!enrichedChartData.some(r => (r.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === normKey)) {
-        enrichedChartData.push({
-          name: wt.testId,
-          Physics: null, Chemistry: null, Math: null, Biology: null, Total: null
-        });
-      }
-    }
-
-    // Sort again just in case we appended tests
     enrichedChartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
 
     const finalChartData = enrichedChartData.map((row) => {
-      const normRowName = (row.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      
       // Calculate global rankings for this test
-      ['Total', 'Physics', 'Chemistry', 'Math', 'Biology'].forEach((sub) => {
+      ['Total', 'Physics', 'Chemistry', 'Math'].forEach((sub) => {
         const testKey = sub === 'Total' ? row.name : `${row.name}_${sub}`;
         const rankedList = rankStudentsByTest(source.profiles, source.tests, testKey);
         const studentRankObj = rankedList.find(s => s.roll === rollKey);
@@ -604,24 +551,6 @@ app.get('/api/analytics/student-chart', async (req, res) => {
           row[`${sub}_Rank`] = studentRankObj.rank;
         }
       });
-
-      const wt = weakMap[normRowName];
-      if (wt) {
-        ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
-          const outSub = sub === 'Mathematics' ? 'Math' : sub;
-          const metrics = wt.subjectMetrics?.[sub];
-          if (metrics && metrics.attempted > 0) {
-            row[`${outSub}_Attempted`] = metrics.attempted;
-            row[`${outSub}_Correct`] = metrics.correct;
-            row[`${outSub}_Accuracy`] = Math.round((metrics.correct / metrics.attempted) * 100);
-          }
-        });
-        if (wt.attempted > 0) {
-          row['Total_Attempted'] = wt.attempted;
-          row['Total_Correct'] = wt.correct;
-          row['Total_Accuracy'] = Math.round((wt.correct / wt.attempted) * 100);
-        }
-      }
       return row;
     });
 
@@ -629,7 +558,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
   } catch (e) {
     console.error('Error fetching student chart details', e);
     // fallback with error info for debugging
-    chartData.push({ name: 'ERROR: ' + e.message, Physics: 0, Chemistry: 0, Math: 0, Biology: 0, Total: 0 });
+    chartData.push({ name: 'ERROR: ' + e.message, Physics: 0, Chemistry: 0, Math: 0, Total: 0 });
     res.json({ chartData, weakSubject: weakSubj });
   }
 });
@@ -654,73 +583,10 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
 
     const chartData = buildCentreChartData(centerTests, source.testColumns);
 
-    const weakTopics = await StudentWeakTopics.find({ studentId: { $in: rollKeys } }).lean();
-    const weakMap = {};
-    
-    for (const wt of weakTopics) {
-      const normKey = (wt.testId || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      if (!weakMap[normKey]) {
-        weakMap[normKey] = {
-          studentCountTotal: 0, totalAttempted: 0, totalCorrect: 0,
-          subjectMetrics: {
-            Physics: { attempted: 0, correct: 0, students: 0 },
-            Chemistry: { attempted: 0, correct: 0, students: 0 },
-            Mathematics: { attempted: 0, correct: 0, students: 0 },
-            Biology: { attempted: 0, correct: 0, students: 0 },
-          }
-        };
-      }
-      
-      const target = weakMap[normKey];
-      if (wt.attempted > 0) {
-         target.studentCountTotal++;
-         target.totalAttempted += wt.attempted;
-         target.totalCorrect += wt.correct;
-      }
-      
-      if (wt.subjectMetrics) {
-        ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach(sub => {
-          if (wt.subjectMetrics[sub] && wt.subjectMetrics[sub].attempted > 0) {
-            target.subjectMetrics[sub].students++;
-            target.subjectMetrics[sub].attempted += wt.subjectMetrics[sub].attempted;
-            target.subjectMetrics[sub].correct += wt.subjectMetrics[sub].correct;
-          }
-        });
-      }
-    }
-
-    for (const normKey of Object.keys(weakMap)) {
-      if (!chartData.some(r => (r.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === normKey)) {
-        const wtDoc = weakTopics.find(wt => (wt.testId || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === normKey);
-        chartData.push({
-          name: wtDoc ? wtDoc.testId : normKey,
-          Physics: null, Chemistry: null, Math: null, Biology: null, Total: null
-        });
-      }
-    }
-
+    // Note: accuracy metrics for centre chart are computed directly from raw marks (primary path).
     chartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
 
     const finalChartData = chartData.map((row) => {
-      const normRowName = (row.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      const wt = weakMap[normRowName];
-      if (wt) {
-        ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
-          const outSub = sub === 'Mathematics' ? 'Math' : sub;
-          const metrics = wt.subjectMetrics?.[sub];
-          if (metrics && metrics.students > 0) {
-            row[`${outSub}_Attempted`] = Math.round(metrics.attempted / metrics.students);
-            row[`${outSub}_Correct`] = Math.round(metrics.correct / metrics.students);
-            row[`${outSub}_Accuracy`] = Math.round((metrics.correct / metrics.attempted) * 100);
-          }
-        });
-        if (wt.studentCountTotal > 0) {
-          row['Total_Attempted'] = Math.round(wt.totalAttempted / wt.studentCountTotal);
-          row['Total_Correct'] = Math.round(wt.totalCorrect / wt.studentCountTotal);
-          row['Total_Accuracy'] = Math.round((wt.totalCorrect / wt.totalAttempted) * 100);
-        }
-      }
-
       const testName = row.name;
       
       // Use computeTestInsights to guarantee 100% identical qualification rate as Leaderboard
@@ -734,7 +600,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
         row['Total_Rank'] = insights.centreRows.findIndex(r => r.code === centerCode) + 1;
         
         // Subject Ranks
-        ['Physics', 'Chemistry', 'Math', 'Biology'].forEach(sub => {
+        ['Physics', 'Chemistry', 'Math'].forEach(sub => {
           
           // Filter centres that have a score for this subject
           const validCentres = insights.centreRows.filter(r => r.subjectAvgs[sub] !== null && r.subjectAvgs[sub] !== undefined);
@@ -778,7 +644,7 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
       const normRowName = (row.name || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       
       // Calculate global rankings for this test
-      ['Total', 'Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
+      ['Total', 'Physics', 'Chemistry', 'Mathematics'].forEach((sub) => {
         const outSub = sub === 'Mathematics' ? 'Math' : sub;
         const testKey = `${row.name}-${sub}`;
         const rankedList = rankStudentsByTest(global.profiles, global.tests, testKey);
@@ -788,23 +654,6 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
         }
       });
 
-      const wt = weakMap[normRowName];
-      if (wt) {
-        ['Physics', 'Chemistry', 'Mathematics', 'Biology'].forEach((sub) => {
-          const outSub = sub === 'Mathematics' ? 'Math' : sub;
-          const metrics = wt.subjectMetrics?.[sub];
-          if (metrics && metrics.attempted > 0) {
-            row[`${outSub}_Attempted`] = metrics.attempted;
-            row[`${outSub}_Correct`] = metrics.correct;
-            row[`${outSub}_Accuracy`] = Math.round((metrics.correct / metrics.attempted) * 100);
-          }
-        });
-        if (wt.attempted > 0) {
-          row['Total_Attempted'] = wt.attempted;
-          row['Total_Correct'] = wt.correct;
-          row['Total_Accuracy'] = Math.round((wt.correct / wt.attempted) * 100);
-        }
-      }
       return row;
     });
 
@@ -1454,6 +1303,182 @@ app.post('/api/admin/weak-topics/upload-test-sheet', authenticateToken, requireA
   } catch (e) {
     console.error('[WeakTopics] upload-test-sheet error:', e);
     return res.status(500).json({ success: false, message: e.message || 'Failed to process test sheet' });
+  }
+});
+
+/**
+ * POST /api/admin/weak-topics/upload-topic-map
+ * Upload a standalone topic-mapping CSV for a testId.
+ *
+ * Supported CSV formats:
+ *
+ * Format A — Tall (one question per row, recommended):
+ *   Question,Topic,Subject
+ *   Q1,Kinematics,Physics
+ *   Q2,Kinematics,Physics
+ *
+ * Format B — Wide (question headers + topic row):
+ *   Q1,Q2,Q3,...
+ *   Kinematics,Kinematics,Laws of Motion,...
+ *
+ * Body fields: testId (string)
+ * File field:  file (.csv)
+ */
+app.post('/api/admin/weak-topics/upload-topic-map', authenticateToken, requireAdmin, upload.single('file'), async (req, res) => {
+  try {
+    const { testId } = req.body;
+    if (!testId)   return res.status(400).json({ success: false, message: 'testId is required' });
+    if (!req.file) return res.status(400).json({ success: false, message: 'CSV file is required' });
+
+    await initMongo();
+
+    // Seed subject lookup from DB syllabus (best-effort)
+    try {
+      const syllabusEntries = await SyllabusTopics.find({}).lean();
+      if (syllabusEntries.length > 0) buildTopicSubjectLookup(syllabusEntries);
+    } catch (e) {
+      console.warn('[TopicMap] Could not load SyllabusTopics:', e.message);
+    }
+
+    // Parse the topic-map sheet
+    let parsed;
+    try {
+      parsed = parseTopicMapSheet(req.file.buffer);
+    } catch (parseErr) {
+      const errors = parseErr.validationErrors || [parseErr.message];
+      return res.status(422).json({
+        success:          false,
+        message:          'Topic map validation failed. Fix the errors below and re-upload.',
+        validationErrors: errors,
+      });
+    }
+
+    const { topicsWithQuestions, unknownSubjectQuestions } = parsed;
+
+    // Upsert TopicMap (single doc per testId)
+    const topicEntries = Object.entries(topicsWithQuestions).map(([topic, { questions, subject }]) => ({
+      topic,
+      subject,
+      questions,
+      questionCount: questions.length,
+    }));
+
+    await TopicMap.findOneAndUpdate(
+      { testId },
+      { $set: { topics: topicEntries } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    const totalQuestions = topicEntries.reduce((sum, t) => sum + t.questionCount, 0);
+    console.log(`[TopicMap] Upserted topic map for testId="${testId}": ${topicEntries.length} topics, ${totalQuestions} questions.`);
+
+    return res.json({
+      success:       true,
+      testId,
+      topicsFound:   topicEntries.length,
+      totalQuestions,
+      topics:        topicEntries.map(t => ({ topic: t.topic, subject: t.subject, questionCount: t.questionCount })),
+      unknownSubjectQuestions: unknownSubjectQuestions || [],
+      message:       `Topic map for "${testId}" uploaded successfully. Now upload the marks sheet.`,
+    });
+  } catch (e) {
+    console.error('[TopicMap] upload-topic-map error:', e);
+    return res.status(500).json({ success: false, message: e.message || 'Failed to process topic map' });
+  }
+});
+
+/**
+ * POST /api/admin/weak-topics/upload-marks-sheet
+ * Upload a marks-only CSV for a testId.
+ *
+ * Requires that a TopicMap already exists for this testId (uploaded via upload-topic-map).
+ *
+ * CSV format:
+ *   Row 1 (header): LOCATION | ROLL NO. | NAME | Q1 | Q2 | ... | Qn
+ *   Row 2+:         student data (no topic row, no answer row embedded)
+ *
+ * Mark values:
+ *   blank/empty → null  (excluded from computation)
+ *   0           → not attempted
+ *   negative    → incorrect (attempted but wrong)
+ *   positive    → correct
+ *
+ * Body fields: testId (string)
+ * File field:  file (.csv)
+ */
+app.post('/api/admin/weak-topics/upload-marks-sheet', authenticateToken, requireAdmin, upload.single('file'), async (req, res) => {
+  try {
+    const { testId } = req.body;
+    if (!testId)   return res.status(400).json({ success: false, message: 'testId is required' });
+    if (!req.file) return res.status(400).json({ success: false, message: 'CSV file is required' });
+
+    await initMongo();
+
+    // Require an existing TopicMap for this testId
+    const topicMapDoc = await TopicMap.findOne({ testId }).lean();
+    if (!topicMapDoc || !topicMapDoc.topics || topicMapDoc.topics.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: `No topic map found for testId="${testId}". Please upload the topic mapping CSV first using POST /api/admin/weak-topics/upload-topic-map.`,
+      });
+    }
+
+    // Parse the marks-only sheet
+    let parsed;
+    try {
+      parsed = parseMarksOnlySheet(req.file.buffer);
+    } catch (parseErr) {
+      const errors = parseErr.validationErrors || [parseErr.message];
+      return res.status(422).json({
+        success:          false,
+        message:          'Marks sheet validation failed. Fix the errors below and re-upload.',
+        validationErrors: errors,
+      });
+    }
+
+    const { students } = parsed;
+
+    // Idempotent: clear existing raw marks for this testId, then re-insert
+    const deleteResult = await StudentRawMarks.deleteMany({ testId });
+    if (deleteResult.deletedCount > 0) {
+      console.log(`[MarksSheet] Cleared ${deleteResult.deletedCount} existing raw mark docs for testId="${testId}" before re-insert.`);
+    }
+
+    // Insert student raw marks
+    if (students.length > 0) {
+      const marksDocs = students.map((s) => ({
+        studentId:   s.studentId,
+        testId,
+        centerId:    s.centerId,
+        studentName: s.name,
+        marks:       s.marks,
+      }));
+      await StudentRawMarks.insertMany(marksDocs, { ordered: false });
+      console.log(`[MarksSheet] Inserted ${marksDocs.length} student raw mark docs for testId="${testId}".`);
+    }
+
+    // Compute weak topics immediately
+    let computeResult = { studentsProcessed: 0, studentsAbsent: 0, topicsFound: 0, smallQuestionTopics: [], centersProcessed: 0 };
+    try {
+      computeResult = await computeWeakTopics(testId);
+    } catch (e) {
+      console.error('[MarksSheet] computeWeakTopics error after upload:', e);
+      // Don't fail the whole request — data is saved; computation can be retried
+    }
+
+    return res.json({
+      success:            true,
+      testId,
+      studentsIngested:   students.length,
+      studentsProcessed:  computeResult.studentsProcessed,
+      studentsAbsent:     computeResult.studentsAbsent,
+      topicsFound:        computeResult.topicsFound,
+      centersProcessed:   computeResult.centersProcessed,
+      message:            `Marks sheet for "${testId}" processed successfully.`,
+    });
+  } catch (e) {
+    console.error('[MarksSheet] upload-marks-sheet error:', e);
+    return res.status(500).json({ success: false, message: e.message || 'Failed to process marks sheet' });
   }
 });
 
