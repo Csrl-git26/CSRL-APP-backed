@@ -1243,8 +1243,11 @@ app.post('/api/admin/weak-topics/upload-test-sheet', authenticateToken, requireA
       questionTopicMap,
     } = parsed;
 
-    // Idempotent: delete existing raw marks for this testId, then re-insert
-    await StudentRawMarks.deleteMany({ testId });
+    // Collect unique centers present in this sheet
+    const centersInSheet = [...new Set(students.map(s => s.centerId))];
+
+    // Idempotent: delete existing raw marks for this testId AND these specific centers, then re-insert
+    await StudentRawMarks.deleteMany({ testId, centerId: { $in: centersInSheet } });
 
     // Upsert TopicMap (single doc per testId)
     const topicEntries = Object.entries(topicsWithQuestions).map(([topic, { questions, subject }]) => ({
@@ -1438,8 +1441,11 @@ app.post('/api/admin/weak-topics/upload-marks-sheet', authenticateToken, require
 
     const { students } = parsed;
 
-    // Idempotent: clear existing raw marks for this testId, then re-insert
-    const deleteResult = await StudentRawMarks.deleteMany({ testId });
+    // Collect unique centers present in this sheet
+    const centersInSheet = [...new Set(students.map(s => s.centerId))];
+
+    // Idempotent: clear existing raw marks for this testId AND these specific centers, then re-insert
+    const deleteResult = await StudentRawMarks.deleteMany({ testId, centerId: { $in: centersInSheet } });
     if (deleteResult.deletedCount > 0) {
       console.log(`[MarksSheet] Cleared ${deleteResult.deletedCount} existing raw mark docs for testId="${testId}" before re-insert.`);
     }
