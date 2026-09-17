@@ -572,7 +572,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
-  const { centerCode } = req.query;
+  const { centerCode, stream = 'JEE' } = req.query;
   if (!centerCode) return res.status(400).json({ message: 'centerCode is required' });
 
   try {
