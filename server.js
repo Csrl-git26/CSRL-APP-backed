@@ -1841,7 +1841,7 @@ app.get('/api/debug-marks', async (req, res) => {
       finalChartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
     }
 
-    res.json({ finalChartData, rawChartData, rawDocsCount: rawDocs.length, profileCenters });
+    res.json({ finalChartData, rawDocsCount: rawDocs ? rawDocs.length : 0 });
   } catch (e) {
     res.json({ error: e.message, stack: e.stack });
   }

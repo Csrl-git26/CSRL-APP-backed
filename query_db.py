@@ -1,10 +1,12 @@
-import urllib.request
-import json
+from pymongo import MongoClient
 
-url = "https://csrl-pragati.vercel.app/api/data/student?roll_no=2622013"
-req = urllib.request.Request(url)
-with urllib.request.urlopen(req) as response:
-    data = json.loads(response.read().decode())
-    tests = data.get('tests', {})
-    fmt04 = tests.get('FMT04')
-    print(json.dumps(fmt04, indent=2))
+client = MongoClient('mongodb://localhost:27017/')
+db = client['csrl']
+
+marks = list(db['studentrawmarks'].find({}).limit(5))
+if not marks:
+    print("No docs in studentrawmarks")
+else:
+    for m in marks:
+        print(f"centerId: {m.get('centerId')}, testId: {m.get('testId')}")
+        

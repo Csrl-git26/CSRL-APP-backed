@@ -1,14 +1,16 @@
+import 'dotenv/config';
 import { initMongo } from './services/mongoInit.js';
-import { loadApplicationData } from './services/dbService.js';
-import { computeTestInsights } from './services/analyticsService.js';
-import mongoose from 'mongoose';
+import StudentRawMarks from './models/StudentRawMarks.js';
 
 async function run() {
   await initMongo();
-  const global = await loadApplicationData();
-  const res = computeTestInsights(global.profiles, global.tests, 'MMT01', global.testColumns, { stream: 'NEET' });
-  console.log(res.subjectTopStudents.map(s => s.subject));
-  console.log(res.globalSubjectStats.map(s => s.subject));
-  mongoose.disconnect();
+  console.log("Connected to MongoDB");
+  let rawDocs = await StudentRawMarks.find({ centerId: 'AGR' }).lean();
+  console.log("rawDocs count for AGR:", rawDocs.length);
+  if (rawDocs.length > 0) {
+    const testIds = Array.from(new Set(rawDocs.map(d => d.testId)));
+    console.log("testIds:", testIds);
+  }
+  process.exit(0);
 }
 run();
