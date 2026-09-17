@@ -579,43 +579,89 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
     const global = await loadApplicationData();
     const source = sliceCenterFromGlobal(global, centerCode);
     const centerTests = source.tests;
-    const rollKeys = centerTests.map(t => t.ROLL_KEY);
 
     const chartData = buildCentreChartData(centerTests, source.testColumns);
 
-    // Note: accuracy metrics for centre chart are computed directly from raw marks (primary path).
     chartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
 
     const finalChartData = chartData.map((row) => {
       const testName = row.name;
-      
-      // Use computeTestInsights to guarantee 100% identical qualification rate as Leaderboard
       const insights = computeTestInsights(global.profiles, global.tests, testName, global.testColumns, { stream });
-      
       const centreRow = insights.centreRows.find(r => r.code === centerCode);
       row.qualRate = centreRow && centreRow.appeared > 0 ? centreRow.qualRate : null;
-      
       if (centreRow) {
-        // Total Rank: centreRows is already sorted by totalAvg descending
         row['Total_Rank'] = insights.centreRows.findIndex(r => r.code === centerCode) + 1;
-        
-        // Subject Ranks
         ['Physics', 'Chemistry', 'Math'].forEach(sub => {
-          
-          // Filter centres that have a score for this subject
           const validCentres = insights.centreRows.filter(r => r.subjectAvgs[sub] !== null && r.subjectAvgs[sub] !== undefined);
-          
           if (validCentres.some(r => r.code === centerCode)) {
-            // Sort descending by subject average
             validCentres.sort((a, b) => b.subjectAvgs[sub] - a.subjectAvgs[sub]);
-            const rank = validCentres.findIndex(r => r.code === centerCode) + 1;
-            row[`${sub}_Rank`] = rank;
+            row[`${sub}_Rank`] = validCentres.findIndex(r => r.code === centerCode) + 1;
           }
         });
       }
-
       return row;
     });
+
+    // ── Fallback: if Excel has no data for this centre, build chart from StudentRawMarks ──
+    if (finalChartData.length === 0) {
+      await initMongo();
+      const rawDocs = await StudentRawMarks.find({ centerId: centerCode }).lean();
+      if (rawDocs.length > 0) {
+        const testIds = Array.from(new Set(rawDocs.map(d => d.testId)));
+        const topicMaps = await TopicMap.find({ testId: { $in: testIds } }).lean();
+
+        // Build question→subject lookup per testId
+        const qSubjectPerTest = {};
+        for (const tm of topicMaps) {
+          const qs = {};
+          for (const entry of (tm.topics || [])) {
+            const rawSub = (entry.subject || '').toUpperCase();
+            const displaySub = rawSub === 'PHYSICS' ? 'Physics'
+              : rawSub === 'CHEMISTRY' ? 'Chemistry'
+              : rawSub === 'MATHEMATICS' ? 'Math' : null;
+            for (const q of (entry.questions || [])) {
+              qs[q] = displaySub;
+            }
+          }
+          qSubjectPerTest[tm.testId] = qs;
+        }
+
+        // Aggregate per testId
+        const testAggMap = {};
+        for (const doc of rawDocs) {
+          const tid = doc.testId;
+          if (!testAggMap[tid]) testAggMap[tid] = { sumTotal: 0, count: 0, subjectSums: {}, subjectCounts: {} };
+          const agg = testAggMap[tid];
+          const marks = doc.marks instanceof Map ? Object.fromEntries(doc.marks) : (doc.marks || {});
+          const qSubs = qSubjectPerTest[tid] || {};
+
+          let total = 0;
+          for (const [q, m] of Object.entries(marks)) {
+            const v = parseFloat(m);
+            if (isNaN(v)) continue;
+            total += v;
+            const sub = qSubs[q];
+            if (sub) {
+              agg.subjectSums[sub] = (agg.subjectSums[sub] || 0) + v;
+              agg.subjectCounts[sub] = (agg.subjectCounts[sub] || 0) + 1;
+            }
+          }
+          agg.sumTotal += total;
+          agg.count += 1;
+        }
+
+        const rawChartData = Object.entries(testAggMap).map(([tid, agg]) => {
+          const row = { name: tid };
+          row['Total'] = agg.count > 0 ? Math.round(agg.sumTotal / agg.count) : null;
+          ['Physics', 'Chemistry', 'Math'].forEach(sub => {
+            row[sub] = agg.count > 0 ? Math.round((agg.subjectSums[sub] || 0) / agg.count) : null;
+          });
+          return row;
+        }).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
+
+        return res.json({ chartData: rawChartData, source: 'mongodb' });
+      }
+    }
 
     res.json({ chartData: finalChartData });
   } catch (e) {
