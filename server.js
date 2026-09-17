@@ -1731,7 +1731,20 @@ app.delete('/api/past-year-data', authenticateToken, async (req, res) => {
 });
 
 // ── Errors (async route failures + thrown errors) ─────────────────────────────
+app.get('/api/debug-marks', async (req, res) => {
+  try {
+    await initMongo();
+    const StudentRawMarks = (await import('./models/StudentRawMarks.js')).default;
+    const docs = await StudentRawMarks.find().select('studentId testId centerId marks').limit(20).lean();
+    const centers = await StudentRawMarks.distinct('centerId');
+    const tests = await StudentRawMarks.distinct('testId');
+    res.json({ docs, distinctCenters: centers, distinctTests: tests });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
 
+// Generic Error Handler
 app.use((err, req, res, next) => {
   void next;
   console.error('[API]', req.method, req.path, err);
