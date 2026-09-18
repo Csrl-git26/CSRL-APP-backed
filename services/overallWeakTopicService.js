@@ -224,6 +224,7 @@ export async function computeCenterOverallWeakTopics(centerId) {
   }
 
   const classification = buildEmptyTopicClassification();
+  const topicRates = [];
 
   for (const [topicName, metrics] of Object.entries(topicMetrics)) {
     if (metrics.totalPossible === 0) continue;
@@ -233,6 +234,15 @@ export async function computeCenterOverallWeakTopics(centerId) {
     const CS = (0.70 * Acc) + (0.30 * AR);
     
     const subject = metrics.subject;
+    topicRates.push({
+      topic: topicName,
+      subject,
+      attempted: metrics.att,
+      correct: metrics.corr,
+      totalPossible: metrics.totalPossible,
+      attemptPercentage: AR * 100,
+      accuracyPercentage: metrics.att > 0 ? Acc * 100 : null,
+    });
 
     if (CS >= 0.80 && AR >= 0.70) {
       classification.strongTopics.push(topicName);
@@ -257,6 +267,8 @@ export async function computeCenterOverallWeakTopics(centerId) {
         totalTests: finalTestsIncluded.length,
         studentCount: maxStudentCount,
         averageScore: maxStudentCount > 0 ? (totalScore / maxStudentCount) : 0,
+        topicRatesVersion: 1,
+        topicRates,
         strongTopics: classification.strongTopics,
         moderateTopics: classification.moderateTopics,
         weakTopics: classification.weakTopics,
@@ -266,4 +278,22 @@ export async function computeCenterOverallWeakTopics(centerId) {
     },
     { upsert: true }
   );
+}
+
+// Backfill legacy rollups on first access; coalesce concurrent requests per centre.
+const rateBackfills = new Map();
+
+export async function getCenterOverallWeakTopicsWithRates(centerId) {
+  await initMongo();
+  let doc = await CenterOverallWeakTopics.findOne({ centerId }).lean();
+  if (doc && doc.topicRatesVersion !== 1) {
+    if (!rateBackfills.has(centerId)) {
+      const pending = computeCenterOverallWeakTopics(centerId)
+        .finally(() => rateBackfills.delete(centerId));
+      rateBackfills.set(centerId, pending);
+    }
+    await rateBackfills.get(centerId);
+    doc = await CenterOverallWeakTopics.findOne({ centerId }).lean();
+  }
+  return doc;
 }

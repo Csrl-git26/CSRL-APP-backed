@@ -18,6 +18,21 @@ const CenterOverallWeakTopicsSchema = new mongoose.Schema({
   moderateTopics: { type: [String], default: [] },
   weakTopics:     { type: [String], default: [] },
 
+  // Separate metrics preserve the existing string-based classification API.
+  topicRatesVersion: { type: Number },
+  topicRates: {
+    type: [new mongoose.Schema({
+      topic: { type: String, required: true },
+      subject: String,
+      attempted: Number,
+      correct: Number,
+      totalPossible: Number,
+      attemptPercentage: Number,
+      accuracyPercentage: { type: Number, default: null },
+    }, { _id: false })],
+    default: undefined,
+  },
+
   subjectWise: {
     PHYSICS:     { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
     CHEMISTRY:   { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
