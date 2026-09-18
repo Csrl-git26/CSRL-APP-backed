@@ -1,9 +1,16 @@
 import mongoose from 'mongoose';
 
+// Items stored as { topic: string, ar: number, acc: number } objects
+const TopicItemSchema = new mongoose.Schema({
+  topic: { type: String },
+  ar:    { type: Number },  // Attempt Rate % (0-100)
+  acc:   { type: Number },  // Accuracy % (0-100)
+}, { _id: false });
+
 const SubjectWiseSchema = new mongoose.Schema({
-  strong:   { type: [String], default: [] },
-  moderate: { type: [String], default: [] },
-  weak:     { type: [String], default: [] },
+  strong:   { type: [TopicItemSchema], default: [] },
+  moderate: { type: [TopicItemSchema], default: [] },
+  weak:     { type: [TopicItemSchema], default: [] },
 }, { _id: false });
 
 const CenterOverallWeakTopicsSchema = new mongoose.Schema({
@@ -14,9 +21,9 @@ const CenterOverallWeakTopicsSchema = new mongoose.Schema({
   studentCount:  { type: Number, default: 0 }, // Average student count across tests or max student count
   averageScore:  { type: Number, default: 0 }, // Average score across tests
 
-  strongTopics:   { type: [String], default: [] },
-  moderateTopics: { type: [String], default: [] },
-  weakTopics:     { type: [String], default: [] },
+  strongTopics:   { type: mongoose.Schema.Types.Mixed, default: [] },
+  moderateTopics: { type: mongoose.Schema.Types.Mixed, default: [] },
+  weakTopics:     { type: mongoose.Schema.Types.Mixed, default: [] },
 
   // Separate metrics preserve the existing string-based classification API.
   topicRatesVersion: { type: Number },

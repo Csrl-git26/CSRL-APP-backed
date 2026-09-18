@@ -110,18 +110,19 @@ export async function computeStudentOverallWeakTopics(studentId) {
     const AR = (metrics.att / metrics.totalQ);
     const Acc = metrics.att > 0 ? (metrics.corr / metrics.att) : 0;
     const CS = (0.70 * Acc) + (0.30 * AR);
+    const topicObj = { topic: topicName, ar: Math.round(AR * 100), acc: Math.round(Acc * 100) };
     
     const subject = metrics.subject;
 
     if (CS >= 0.80 && AR >= 0.70) {
-      classification.strongTopics.push(topicName);
-      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].strong.push(topicName);
+      classification.strongTopics.push(topicObj);
+      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].strong.push(topicObj);
     } else if (CS >= 0.60 && AR >= 0.50) {
-      classification.moderateTopics.push(topicName);
-      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].moderate.push(topicName);
+      classification.moderateTopics.push(topicObj);
+      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].moderate.push(topicObj);
     } else {
-      classification.weakTopics.push(topicName);
-      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].weak.push(topicName);
+      classification.weakTopics.push(topicObj);
+      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].weak.push(topicObj);
     }
   }
 
@@ -232,6 +233,7 @@ export async function computeCenterOverallWeakTopics(centerId) {
     const AR = (metrics.att / metrics.totalPossible);
     const Acc = metrics.att > 0 ? (metrics.corr / metrics.att) : 0;
     const CS = (0.70 * Acc) + (0.30 * AR);
+    const topicObj = { topic: topicName, ar: Math.round(AR * 100), acc: Math.round(Acc * 100) };
     
     const subject = metrics.subject;
     topicRates.push({
@@ -245,14 +247,14 @@ export async function computeCenterOverallWeakTopics(centerId) {
     });
 
     if (CS >= 0.80 && AR >= 0.70) {
-      classification.strongTopics.push(topicName);
-      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].strong.push(topicName);
+      classification.strongTopics.push(topicObj);
+      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].strong.push(topicObj);
     } else if (CS >= 0.60 && AR >= 0.50) {
-      classification.moderateTopics.push(topicName);
-      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].moderate.push(topicName);
+      classification.moderateTopics.push(topicObj);
+      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].moderate.push(topicObj);
     } else {
-      classification.weakTopics.push(topicName);
-      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].weak.push(topicName);
+      classification.weakTopics.push(topicObj);
+      if (subject && classification.subjectWise[subject]) classification.subjectWise[subject].weak.push(topicObj);
     }
   }
   
