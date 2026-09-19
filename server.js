@@ -240,14 +240,15 @@ app.get('/api/analytics/overview', authenticateToken, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  const { centerCode } = req.query;
+  const { centerCode, stream } = req.query;
   let source;
   if (centerCode) {
     source = await loadCenterApplicationData(centerCode);
   } else {
     source = await loadApplicationData();
   }
-  const result = computeOverview(source.profiles, source.tests, source.testColumns);
+  const { profiles: filteredProfiles, tests: filteredTests } = filterByStream(source.profiles, source.tests, stream);
+  const result = computeOverview(filteredProfiles, filteredTests, source.testColumns);
   res.json(result);
 });
 
@@ -255,7 +256,11 @@ app.get('/api/analytics/overview', authenticateToken, async (req, res) => {
 // ── Stream filter helper ────────────────────────────────────────────────────
 function filterByStream(profiles, tests, stream) {
   if (!stream || stream === 'ALL') return { profiles, tests };
-  const filteredProfiles = profiles.filter(p => (p.stream || 'JEE') === stream);
+  const targetStream = stream.toUpperCase();
+  const filteredProfiles = profiles.filter(p => {
+    const rawStream = p.stream || p.STREAM || p.Stream || 'JEE';
+    return String(rawStream).toUpperCase() === targetStream;
+  });
   const rollKeys = new Set(filteredProfiles.map(p => p.ROLL_KEY));
   const filteredTests = tests.filter(t => rollKeys.has(t.ROLL_KEY));
   return { profiles: filteredProfiles, tests: filteredTests };
