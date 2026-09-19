@@ -17,7 +17,7 @@
 import { parse } from 'csv-parse/sync';
 
 // Known subjects — any topic that does NOT map to one of these causes a validation error.
-export const KNOWN_SUBJECTS = new Set(['Physics', 'Chemistry', 'Mathematics']);
+export const KNOWN_SUBJECTS = new Set(['Physics', 'Chemistry', 'Mathematics', 'Botany', 'Zoology']);
 
 // ─── Internal subject-inference map ──────────────────────────────────────────
 // Allows the upload sheet to carry only a topic name per question, while the
@@ -88,6 +88,61 @@ const TOPIC_SUBJECT_MAP = {
   'BASIC MATHS, SETS & RELATION(BASIC TRIGONOMETRY, INEQUALITIES, MODULUS, LOGARITHM, FUNCTIONS & GRAPHS, GREATEST INTEGER FUNCTION, SURDS & INDICES.)': 'Mathematics',
   'QUADRATIC EQUATIONS': 'Mathematics',
   'LIMITS, CONTINUITY & DIFFERENTIABILITY': 'Mathematics',
+
+  // NEET PHYSICS
+  'BASIC MATHEMATICS FOR PHYSICS': 'Physics',
+  'GENERAL PHYSICS AND EXPERIMENTAL SKILLS': 'Physics',
+  'WAVES': 'Physics',
+  'MAGNETISM': 'Physics',
+  'EMI & AC': 'Physics',
+  'EMW': 'Physics',
+
+  // NEET CHEMISTRY
+  'REDOX REACTION': 'Chemistry',
+  'ATOMIC STRUCTURE': 'Chemistry',
+  'CLASSIFICATION OF ELEMENTS & PERIODICITY IN PROPERTIES': 'Chemistry',
+  'SOME BASIC PRINCIPLES OF ORGANIC CHEMISTRY, NOMENCLATURE, FUNDAMENTAL CONCEPTS, REACTION INTERMEDIATES, REACTION MECHANISM': 'Chemistry',
+  'ORGANIC COMPOUNDS CONTAINING HALOGENS - HALOALKANES & HALOARENES': 'Chemistry',
+  'ORGANIC COMPOUNDS CONTAINING OXYGEN - ALCOHOLS, PHENOLS & ETHERS, ALDEHYDES & KETONES, CARBOXYLIC ACIDS': 'Chemistry',
+  'ORGANIC COMPOUNDS CONTAINING NITROGEN - AMINES & DIAZONIUM SALTS': 'Chemistry',
+  'EQUILIBRIUM': 'Chemistry',
+  'PRINCIPLES RELATED TO PRACTICAL CHEMISTRY - INORGANIC & ORGANIC': 'Chemistry',
+  
+  // NEET BOTANY
+  'LIVING WORLD': 'Botany',
+  'BIOLOGICAL CLASSIFICATION': 'Botany',
+  'PLANT KINGDOM': 'Botany',
+  'THE CELL': 'Botany',
+  'CELL CYCLE & CELL DIVISION': 'Botany',
+  'PRINCIPLE OF INHERITANCE': 'Botany',
+  'MOLECULAR BASIS OF INHERITANCE': 'Botany',
+  'PHOTOSYNTHESIS': 'Botany',
+  'RESPIRATION IN PLANTS': 'Botany',
+  'PLANT GROWTH & DEVELOPMENT': 'Botany',
+  'MICROBES IN HUMAN WELFARE': 'Botany',
+  'ANATOMY OF PLANTS': 'Botany',
+  'MORPHOLOGY OF PLANTS': 'Botany',
+  'SEXUAL REPRODUCTION IN FLOWERING PLANTS': 'Botany',
+  'ORGANISMS & POPULATION': 'Botany',
+  'ECOSYSTEM': 'Botany',
+  'BIODIVERSITY & CONSERVATION': 'Botany',
+
+  // NEET ZOOLOGY
+  'ANIMAL KINGDOM': 'Zoology',
+  'STRUCTURAL ORGANISATION': 'Zoology',
+  'BREATHING': 'Zoology',
+  'CIRCULATION': 'Zoology',
+  'EXCRETION': 'Zoology',
+  'LOCOMOTION': 'Zoology',
+  'NEURAL CONTROL & COORDINATION': 'Zoology',
+  'CHEMICAL CONTROL & COORDINATION': 'Zoology',
+  'EVOLUTION': 'Zoology',
+  'HUMAN REPRODUCTION': 'Zoology',
+  'REPRODUCTIVE HEALTH': 'Zoology',
+  'BIOTECHNOLOGY PRINCIPLES': 'Zoology',
+  'BIOTECHNOLOGY APPLICATIONS': 'Zoology',
+  'HUMAN HEALTH & DISEASE': 'Zoology',
+
   'AREA': 'Mathematics',
   'BINOMIAL THEOREM': 'Mathematics',
   'STATISTICS': 'Mathematics',
@@ -296,7 +351,7 @@ export function parseTestSheet(buffer) {
     if (!subject || !KNOWN_SUBJECTS.has(subject)) {
       unknownSubjectQuestions.push(qName);
       validationErrors.push(
-        `Question ${qName}: topic "${topic}" does not map to a known subject (Physics / Chemistry / Mathematics). ` +
+        `Question ${qName}: topic "${topic}" does not map to a known subject (Physics/Chemistry/Mathematics/Botany/Zoology). ` +
         `Either prefix the topic as "Physics: ${topic}" in the topic row, or add it to the syllabus.`
       );
     } else {
@@ -499,7 +554,7 @@ export function parseTopicMapSheet(buffer) {
       } else {
         unknownSubjectQuestions.push(qName);
         validationErrors.push(
-          `${qName}: topic "${rawTopic}" does not map to a known subject (Physics/Chemistry/Mathematics). ` +
+          `${qName}: topic "${rawTopic}" does not map to a known subject (Physics/Chemistry/Mathematics/Botany/Zoology). ` +
           `Add a SUBJECT column or prefix the topic as "Physics: ${rawTopic}".`
         );
       }
