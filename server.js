@@ -1723,74 +1723,79 @@ app.get('/api/center/overall-weak-topics/:centerId', authenticateToken, async (r
 // ── Admin Overall Analytics Recomputation ──────────────────────────────────
 app.post('/api/admin/recompute-overall', authenticateToken, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
-  try {
-    const mongoose = (await import('mongoose')).default;
-    const StudentRawMarks = (await import('./models/StudentRawMarks.js')).default;
-    const StudentOverallWeakTopics = (await import('./models/StudentOverallWeakTopics.js')).default;
-    const CenterOverallWeakTopics = (await import('./models/CenterOverallWeakTopics.js')).default;
-    const { computeStudentOverallWeakTopics, computeCenterOverallWeakTopics } = await import('./services/overallWeakTopicService.js');
-    
-    await initMongo();
-    console.log('[Admin] Recomputing overall analytics for all students and centers...');
 
-    // Drop legacy single-field unique indexes so stream-partitioned documents can be saved
-    await dropLegacyIndexes();
-    const db = mongoose.connection.db;
-    if (db) {
-      try {
-        await db.collection('studentoverallweaktopics').dropIndex('studentId_1');
-        console.log('[Admin] Explicitly dropped legacy index studentId_1');
-      } catch (e) {}
-      try {
-        await db.collection('centeroverallweaktopics').dropIndex('centerId_1');
-        console.log('[Admin] Explicitly dropped legacy index centerId_1');
-      } catch (e) {}
-    }
-
-    // Clear legacy overall cache documents to prevent collisions and remove stale non-partitioned data
-    await StudentOverallWeakTopics.deleteMany({});
-    await CenterOverallWeakTopics.deleteMany({});
-
-    // Ensure new compound { studentId, stream } and { centerId, stream } unique indexes are active
+  // Run the heavy recomputation in the background to prevent request timeout
+  (async () => {
     try {
-      await StudentOverallWeakTopics.syncIndexes();
-      await CenterOverallWeakTopics.syncIndexes();
-    } catch (e) {
-      console.warn('[Admin] syncIndexes warning:', e.message);
-    }
-    
-    const allDocs = await StudentRawMarks.find({}, { studentId: 1, centerId: 1 }).lean();
-    const studentIds = Array.from(new Set(allDocs.map(d => d.studentId)));
-    const centerIds = Array.from(new Set(allDocs.map(d => d.centerId).filter(Boolean)));
-    
-    // Recompute all per-test weak topics so Botany/Zoology are populated in StudentWeakTopics and CenterWeakTopics
-    const { computeWeakTopics } = await import('./services/weakTopicService.js');
-    const TopicMap = (await import('./models/TopicMap.js')).default;
-    const allTopicMaps = await TopicMap.find({}, { testId: 1 }).lean();
-    for (const tm of allTopicMaps) {
-      if (tm.testId) {
+      const mongoose = (await import('mongoose')).default;
+      const StudentRawMarks = (await import('./models/StudentRawMarks.js')).default;
+      const StudentOverallWeakTopics = (await import('./models/StudentOverallWeakTopics.js')).default;
+      const CenterOverallWeakTopics = (await import('./models/CenterOverallWeakTopics.js')).default;
+      const { computeStudentOverallWeakTopics, computeCenterOverallWeakTopics } = await import('./services/overallWeakTopicService.js');
+      
+      await initMongo();
+      console.log('[Admin] Recomputing overall analytics for all students and centers in the background...');
+
+      // Drop legacy single-field unique indexes so stream-partitioned documents can be saved
+      await dropLegacyIndexes();
+      const db = mongoose.connection.db;
+      if (db) {
         try {
-          await computeWeakTopics(tm.testId);
-        } catch (tmErr) {
-          console.warn(`[Admin] computeWeakTopics error for ${tm.testId}:`, tmErr.message);
+          await db.collection('studentoverallweaktopics').dropIndex('studentId_1');
+          console.log('[Admin] Explicitly dropped legacy index studentId_1');
+        } catch (e) {}
+        try {
+          await db.collection('centeroverallweaktopics').dropIndex('centerId_1');
+          console.log('[Admin] Explicitly dropped legacy index centerId_1');
+        } catch (e) {}
+      }
+
+      // Clear legacy overall cache documents to prevent collisions and remove stale non-partitioned data
+      await StudentOverallWeakTopics.deleteMany({});
+      await CenterOverallWeakTopics.deleteMany({});
+
+      // Ensure new compound { studentId, stream } and { centerId, stream } unique indexes are active
+      try {
+        await StudentOverallWeakTopics.syncIndexes();
+        await CenterOverallWeakTopics.syncIndexes();
+      } catch (e) {
+        console.warn('[Admin] syncIndexes warning:', e.message);
+      }
+      
+      const allDocs = await StudentRawMarks.find({}, { studentId: 1, centerId: 1 }).lean();
+      const studentIds = Array.from(new Set(allDocs.map(d => d.studentId)));
+      const centerIds = Array.from(new Set(allDocs.map(d => d.centerId).filter(Boolean)));
+      
+      // Recompute all per-test weak topics so Botany/Zoology are populated in StudentWeakTopics and CenterWeakTopics
+      const { computeWeakTopics } = await import('./services/weakTopicService.js');
+      const TopicMap = (await import('./models/TopicMap.js')).default;
+      const allTopicMaps = await TopicMap.find({}, { testId: 1 }).lean();
+      for (const tm of allTopicMaps) {
+        if (tm.testId) {
+          try {
+            await computeWeakTopics(tm.testId);
+          } catch (tmErr) {
+            console.warn(`[Admin] computeWeakTopics error for ${tm.testId}:`, tmErr.message);
+          }
         }
       }
-    }
 
-    // Process overall in batches
-    for (let i = 0; i < studentIds.length; i += 25) {
-      const chunk = studentIds.slice(i, i + 25);
-      await Promise.all(chunk.map(id => computeStudentOverallWeakTopics(id)));
+      // Process overall in batches
+      for (let i = 0; i < studentIds.length; i += 25) {
+        const chunk = studentIds.slice(i, i + 25);
+        await Promise.all(chunk.map(id => computeStudentOverallWeakTopics(id)));
+      }
+      
+      await Promise.all(centerIds.map(id => computeCenterOverallWeakTopics(id)));
+      
+      console.log(`[Admin] Successfully recomputed overall analytics for ${studentIds.length} students and ${centerIds.length} centers.`);
+    } catch (e) {
+      console.error('[Admin] background recompute overall error:', e);
     }
-    
-    await Promise.all(centerIds.map(id => computeCenterOverallWeakTopics(id)));
-    
-    console.log(`[Admin] Successfully recomputed overall analytics for ${studentIds.length} students and ${centerIds.length} centers.`);
-    return res.json({ success: true, message: `Recomputed for ${studentIds.length} students, ${centerIds.length} centers.` });
-  } catch (e) {
-    console.error('[Admin] recompute overall error:', e);
-    return res.status(500).json({ success: false, message: e.message });
-  }
+  })();
+
+  // Return immediately to avoid 'failed to fetch' timeout on the frontend
+  return res.json({ success: true, message: 'Recomputation started in the background. This may take a few minutes.' });
 });
 
 
