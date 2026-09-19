@@ -481,10 +481,12 @@ app.get('/api/analytics/student-chart', async (req, res) => {
     source = await loadApplicationData(); // Fallback if no centerCode provided
   }
   const testDoc = source.tests.find((t) => t.ROLL_KEY === rollKey) || {};
+  const profileDoc = source.profiles.find((p) => p.ROLL_KEY === rollKey || p['ROLL NO.'] === rollKey) || {};
 
   // Filter testColumns to only include tests relevant to the student's stream.
   // NEET-specific prefixes: MMT, NCT, NMT, NEET  /  JEE-specific prefixes: MT, CMT, FMT, PT, JCT
-  const studentStream = (testDoc.stream || 'JEE').toUpperCase();
+  const rawStream = profileDoc.stream || profileDoc.STREAM || profileDoc.Stream || testDoc.stream || 'JEE';
+  const studentStream = String(rawStream).toUpperCase();
   const NEET_PREFIXES = /^(MMT|NCT|NMT|NEET)/i;
   const filteredTestColumns = source.testColumns.filter((col) => {
     const { testName } = parseTestColumn(col);
