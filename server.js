@@ -1747,6 +1747,31 @@ app.post('/api/admin/recompute-overall', authenticateToken, async (req, res) => 
   }
 });
 
+
+// ── Temporary Migration Endpoint ────────────────────────────────────────────────
+app.post('/api/admin/backfill-test-topics', async (req, res) => {
+  try {
+    const { computeWeakTopics } = await import('./services/weakTopicService.js');
+    const StudentRawMarks = (await import('./models/StudentRawMarks.js')).default;
+
+    await initMongo();
+    
+    // 1. Find all unique testIds that have raw marks
+    const distinctTests = await StudentRawMarks.distinct('testId');
+    console.log(`[Backfill] Found ${distinctTests.length} tests to recompute.`);
+
+    for (const testId of distinctTests) {
+      console.log(`[Backfill] Recomputing testId: ${testId}`);
+      await computeWeakTopics(testId);
+    }
+    
+    return res.json({ success: true, message: 'Backfill complete. Recomputed ' + distinctTests.length + ' tests.' });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 // ── Past Year Data Management (separate from main data) ───────────────────────
 
 // Upload past year data (admin only) — expects JSON array from frontend Excel parse
