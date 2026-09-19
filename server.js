@@ -1772,7 +1772,11 @@ app.post('/api/admin/recompute-overall', authenticateToken, async (req, res) => 
         await Promise.all(chunk.map(id => computeStudentOverallWeakTopics(id)));
       }
       
-      await Promise.all(centerIds.map(id => computeCenterOverallWeakTopics(id)));
+      // Process centers in small batches to prevent OOM
+      for (let i = 0; i < centerIds.length; i += 5) {
+        const chunk = centerIds.slice(i, i + 5);
+        await Promise.all(chunk.map(id => computeCenterOverallWeakTopics(id)));
+      }
       
       console.log(`[Admin] Successfully recomputed overall analytics for ${studentIds.length} students and ${centerIds.length} centers.`);
     } catch (e) {
