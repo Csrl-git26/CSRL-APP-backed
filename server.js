@@ -1689,8 +1689,9 @@ app.get('/api/center/weak-topics/:centerId', authenticateToken, async (req, res)
 app.get('/api/student/overall-weak-topics/:studentId', authenticateToken, async (req, res) => {
   try {
     const { studentId } = req.params;
+    const stream = req.query.stream || 'JEE';
     await initMongo();
-    const doc = await StudentOverallWeakTopics.findOne({ studentId }).lean();
+    const doc = await StudentOverallWeakTopics.findOne({ studentId, stream }).lean();
     return res.json({ success: true, data: doc || {} });
   } catch (e) {
     console.error('[WeakTopics] student overall route error:', e);
@@ -1705,12 +1706,13 @@ app.get('/api/student/overall-weak-topics/:studentId', authenticateToken, async 
 app.get('/api/center/overall-weak-topics/:centerId', authenticateToken, async (req, res) => {
   try {
     let { centerId } = req.params;
+    const stream = req.query.stream || 'JEE';
     // Normalize physical centre codes from frontend to sponsor/alias codes stored in the DB
     if (centerId === 'KNP') centerId = 'GAIL';
     if (centerId === 'JDH') centerId = 'OIL_INDIA';
     await initMongo();
     const { getCenterOverallWeakTopicsWithRates } = await import('./services/overallWeakTopicService.js');
-    const doc = await getCenterOverallWeakTopicsWithRates(centerId);
+    const doc = await getCenterOverallWeakTopicsWithRates(centerId, stream);
     return res.json({ success: true, data: doc || {} });
   } catch (e) {
     console.error('[WeakTopics] center overall route error:', e);

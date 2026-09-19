@@ -15,6 +15,7 @@ const SubjectWiseSchema = new mongoose.Schema({
 
 const StudentOverallWeakTopicsSchema = new mongoose.Schema({
   studentId:     { type: String, required: true },
+  stream:        { type: String, default: 'JEE' },
   studentName:   { type: String, default: '' },
   centerId:      { type: String, required: true },
   testsIncluded: { type: [String], default: [] }, // tests student attempted
@@ -30,13 +31,15 @@ const StudentOverallWeakTopicsSchema = new mongoose.Schema({
     PHYSICS:     { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
     CHEMISTRY:   { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
     MATHEMATICS: { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
+    BOTANY:      { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
+    ZOOLOGY:     { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
   },
 
   computedAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
 // Unique index per student
-StudentOverallWeakTopicsSchema.index({ studentId: 1 }, { unique: true });
+StudentOverallWeakTopicsSchema.index({ studentId: 1, stream: 1 }, { unique: true });
 StudentOverallWeakTopicsSchema.index({ centerId: 1 });
 
 export default mongoose.models.StudentOverallWeakTopics || mongoose.model('StudentOverallWeakTopics', StudentOverallWeakTopicsSchema);
