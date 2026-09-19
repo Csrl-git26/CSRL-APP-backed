@@ -4,7 +4,7 @@ import cors from 'cors';
 import compression from 'compression';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
-import { isMongoReady, initMongo } from './services/mongoInit.js';
+import { isMongoReady, initMongo, dropLegacyIndexes } from './services/mongoInit.js';
 import TopicMap from './models/TopicMap.js';
 import StudentRawMarks from './models/StudentRawMarks.js';
 import StudentWeakTopics from './models/StudentWeakTopics.js';
@@ -1724,11 +1724,40 @@ app.get('/api/center/overall-weak-topics/:centerId', authenticateToken, async (r
 app.post('/api/admin/recompute-overall', authenticateToken, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
   try {
+    const mongoose = (await import('mongoose')).default;
     const StudentRawMarks = (await import('./models/StudentRawMarks.js')).default;
+    const StudentOverallWeakTopics = (await import('./models/StudentOverallWeakTopics.js')).default;
+    const CenterOverallWeakTopics = (await import('./models/CenterOverallWeakTopics.js')).default;
     const { computeStudentOverallWeakTopics, computeCenterOverallWeakTopics } = await import('./services/overallWeakTopicService.js');
     
     await initMongo();
     console.log('[Admin] Recomputing overall analytics for all students and centers...');
+
+    // Drop legacy single-field unique indexes so stream-partitioned documents can be saved
+    await dropLegacyIndexes();
+    const db = mongoose.connection.db;
+    if (db) {
+      try {
+        await db.collection('studentoverallweaktopics').dropIndex('studentId_1');
+        console.log('[Admin] Explicitly dropped legacy index studentId_1');
+      } catch (e) {}
+      try {
+        await db.collection('centeroverallweaktopics').dropIndex('centerId_1');
+        console.log('[Admin] Explicitly dropped legacy index centerId_1');
+      } catch (e) {}
+    }
+
+    // Clear legacy overall cache documents to prevent collisions and remove stale non-partitioned data
+    await StudentOverallWeakTopics.deleteMany({});
+    await CenterOverallWeakTopics.deleteMany({});
+
+    // Ensure new compound { studentId, stream } and { centerId, stream } unique indexes are active
+    try {
+      await StudentOverallWeakTopics.syncIndexes();
+      await CenterOverallWeakTopics.syncIndexes();
+    } catch (e) {
+      console.warn('[Admin] syncIndexes warning:', e.message);
+    }
     
     const allDocs = await StudentRawMarks.find({}, { studentId: 1, centerId: 1 }).lean();
     const studentIds = Array.from(new Set(allDocs.map(d => d.studentId)));
