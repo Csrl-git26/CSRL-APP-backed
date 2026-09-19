@@ -489,7 +489,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
   const filteredTestColumns = source.testColumns.filter((col) => {
     const { testName } = parseTestColumn(col);
     const isNeetTest = NEET_PREFIXES.test(testName);
-    if (studentStream === 'NEET') return isNeetTest || !NEET_PREFIXES.test(testName.replace(/\d+$/, ''));
+    if (studentStream === 'NEET') return isNeetTest;
     return !isNeetTest; // JEE student: exclude NEET tests
   });
 
