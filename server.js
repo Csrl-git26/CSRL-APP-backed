@@ -300,7 +300,8 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
   const sliced = ranked.slice(0, n);
 
   // Compute ranks for all FMT tests to display as extra columns
-  const fmtKeysList = Array.from(new Set(source.testColumns.filter(k => k.startsWith('FMT')).map(k => k.split('_')[0])));
+  // Compute ranks for ALL test keys (not just FMT) to display as extra columns
+  const fmtKeysList = Array.from(new Set(source.testColumns.filter(k => !k.includes('_'))));
   const fmtRanksMap = {};
   
   for (const fk of fmtKeysList) {
