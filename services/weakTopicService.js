@@ -20,7 +20,7 @@ import {
   computeCenterOverallWeakTopics,
 } from './overallWeakTopicService.js';
 
-const SUBJECTS = ['PHYSICS', 'CHEMISTRY', 'MATHEMATICS'];
+const SUBJECTS = ['PHYSICS', 'CHEMISTRY', 'MATHEMATICS', 'BOTANY', 'ZOOLOGY'];
 
 function marksToPlainObject(marksField) {
   const out = {};
@@ -41,6 +41,8 @@ function buildEmptyTopicClassification() {
       PHYSICS: { strong: [], moderate: [], weak: [] },
       CHEMISTRY: { strong: [], moderate: [], weak: [] },
       MATHEMATICS: { strong: [], moderate: [], weak: [] },
+      BOTANY: { strong: [], moderate: [], weak: [] },
+      ZOOLOGY: { strong: [], moderate: [], weak: [] },
     }
   };
 }

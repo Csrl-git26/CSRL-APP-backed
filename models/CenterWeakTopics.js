@@ -28,6 +28,8 @@ const CenterWeakTopicsSchema = new mongoose.Schema({
     PHYSICS:     { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
     CHEMISTRY:   { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
     MATHEMATICS: { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
+    BOTANY:      { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
+    ZOOLOGY:     { type: SubjectWiseSchema, default: () => ({ strong: [], moderate: [], weak: [] }) },
   },
 
   computedAt: { type: Date, default: Date.now },

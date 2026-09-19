@@ -304,7 +304,7 @@ const rateBackfills = new Map();
 export async function getCenterOverallWeakTopicsWithRates(centerId, stream = 'JEE') {
   await initMongo();
   let doc = await CenterOverallWeakTopics.findOne({ centerId, stream }).lean();
-  if (doc && doc.topicRatesVersion !== 1) {
+  if (!doc || doc.topicRatesVersion !== 1) {
     const cacheKey = `${centerId}_${stream}`;
     if (!rateBackfills.has(cacheKey)) {
       const pending = computeCenterOverallWeakTopics(centerId)
