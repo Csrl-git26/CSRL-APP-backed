@@ -1766,23 +1766,9 @@ app.post('/api/admin/recompute-overall', authenticateToken, async (req, res) => 
       const studentIds = Array.from(new Set(allDocs.map(d => d.studentId)));
       const centerIds = Array.from(new Set(allDocs.map(d => d.centerId).filter(Boolean)));
       
-      // Recompute all per-test weak topics so Botany/Zoology are populated in StudentWeakTopics and CenterWeakTopics
-      const { computeWeakTopics } = await import('./services/weakTopicService.js');
-      const TopicMap = (await import('./models/TopicMap.js')).default;
-      const allTopicMaps = await TopicMap.find({}, { testId: 1 }).lean();
-      for (const tm of allTopicMaps) {
-        if (tm.testId) {
-          try {
-            await computeWeakTopics(tm.testId);
-          } catch (tmErr) {
-            console.warn(`[Admin] computeWeakTopics error for ${tm.testId}:`, tmErr.message);
-          }
-        }
-      }
-
       // Process overall in batches
-      for (let i = 0; i < studentIds.length; i += 25) {
-        const chunk = studentIds.slice(i, i + 25);
+      for (let i = 0; i < studentIds.length; i += 50) {
+        const chunk = studentIds.slice(i, i + 50);
         await Promise.all(chunk.map(id => computeStudentOverallWeakTopics(id)));
       }
       
