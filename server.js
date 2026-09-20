@@ -260,12 +260,10 @@ function filterByStream(profiles, tests, stream) {
   const targetStream = stream.toUpperCase();
   const filteredProfiles = profiles.filter(p => {
     let rawStream = p.stream || p.STREAM || p.Stream;
-    if (!rawStream) {
-      if (p.ROLL_KEY && (p.ROLL_KEY.includes('JRS') || p.ROLL_KEY.includes('TEZ') || p.ROLL_KEY.includes('PUN') || p.ROLL_KEY.includes('GVM') || p.ROLL_KEY.includes('JRT'))) {
-        rawStream = 'NEET';
-      } else {
-        rawStream = 'JEE';
-      }
+    if (p.ROLL_KEY && (p.ROLL_KEY.includes('JRS') || p.ROLL_KEY.includes('TEZ') || p.ROLL_KEY.includes('PUN') || p.ROLL_KEY.includes('GVM') || p.ROLL_KEY.includes('JRT'))) {
+      rawStream = 'NEET';
+    } else if (!rawStream) {
+      rawStream = 'JEE';
     }
     return String(rawStream).trim().toUpperCase() === targetStream;
   });
