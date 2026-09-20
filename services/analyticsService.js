@@ -370,17 +370,17 @@ export function subjectAveragesForTest(tests, testColumns, testKey) {
  * Build chart-ready data for a single student.
  * Returns [{ name: testName, Physics: 45, Chemistry: 52, Math: 48, Total: 145 }] sorted by test name.
  */
-export function buildStudentChartData(studentTestFlat, testColumns) {
+export function buildStudentChartData(studentTestFlat, testColumns, stream) {
   const testsMap = {};
 
   // Determine the student's stream and filter out cross-stream tests.
-  const studentStream = ((studentTestFlat && studentTestFlat.stream) || 'JEE').toUpperCase();
+  const studentStream = String(stream || (studentTestFlat && studentTestFlat.stream) || 'JEE').trim().toUpperCase();
   const NEET_TEST_PREFIX = /^(MMT|NCT|NMT|NEET)/i;
 
   const relevantColumns = (testColumns || []).filter((col) => {
     const { testName } = parseTestColumn(col);
     const isNeetTest = NEET_TEST_PREFIX.test(testName);
-    if (studentStream === 'NEET') return true; // NEET students see all tests
+    if (studentStream === 'NEET') return isNeetTest;
     return !isNeetTest; // JEE students: skip NEET-only tests
   });
 

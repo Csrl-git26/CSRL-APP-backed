@@ -22,6 +22,7 @@ const StudentOverallWeakTopicsSchema = new mongoose.Schema({
   totalTests:    { type: Number, default: 0 },
 
   totalScore:    { type: Number, default: 0 },
+  streamAnalysisVersion: Number,
 
   strongTopics:   { type: mongoose.Schema.Types.Mixed, default: [] },
   moderateTopics: { type: mongoose.Schema.Types.Mixed, default: [] },
