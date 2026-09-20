@@ -242,8 +242,8 @@ function parseMark(cell) {
 function normalizeColumnHeader(col) {
   const c   = (col || '').trim();
   const low = c.toLowerCase();
-  if (low === 'location' || low === 'centre' || low === 'center' || low === 'centrecode' || low === 'centercode') return '__location__';
-  if (low === 'roll no.' || low === 'roll no' || low === 'roll_no' || low === 'rollno' || low === 'roll_key' || low === 'roll') return '__roll__';
+  if (low === 'location' || low === 'centre' || low === 'center' || low === 'centrecode' || low === 'centercode' || low === 'centre code' || low === 'center code') return '__location__';
+  if (low === 'roll no.' || low === 'roll no' || low === 'roll_no' || low === 'rollno' || low === 'roll_key' || low === 'roll' || low === 'roll number') return '__roll__';
   if (low === 'name' || low === "student's name" || low === 'student name' || low === 'studentname') return '__name__';
   if (/^q\d+$/i.test(c)) return c.toUpperCase(); // Q1, Q2, …
   return c; // keep as-is for any other column
