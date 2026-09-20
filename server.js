@@ -1105,10 +1105,25 @@ app.post('/api/tests/bulk-upsert', authenticateToken, requireAdmin, async (req, 
 
     const ops = marks.map((mark) => {
       const roll = normalizeRollKey(mark.rollKey);
-      const center = normalizeCenterCode(mark.centerCode);
+      let center = normalizeCenterCode(mark.centerCode);
+
+      // If no centerCode provided, try to derive it from the roll number itself
+      // e.g. rolls containing 'JRS', 'TEZ', 'PUN', 'GVM', 'JRT' etc.
+      if (!center && roll) {
+        const rollUpper = roll.toUpperCase();
+        const knownCentres = ['JKEM', 'JMM', 'JRS', 'JRT', 'JKM', 'GLT', 'GVM', 'TEZ', 'PUN', 'MUM', 'JAM', 'SKM', 'RCH', 'BOT', 'ZOO'];
+        for (const c of knownCentres) {
+          if (rollUpper.includes(c)) { center = c; break; }
+        }
+      }
+
       if (!roll || !center) return null;
 
-      const $setObj = { stream: mark.scores?.stream || 'JEE' };
+      // Auto-detect stream from centre code if not provided
+      const neetCentres = new Set(['JRS', 'TEZ', 'GVM', 'JRT', 'PUN']);
+      const autoStream = neetCentres.has(center) ? 'NEET' : (mark.scores?.stream || 'JEE');
+
+      const $setObj = { stream: autoStream };
       
       let patchNested;
       if (mark.scores && typeof mark.scores.tests === 'object') {
