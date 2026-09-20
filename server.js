@@ -271,6 +271,7 @@ function filterByStream(profiles, tests, stream) {
   });
 
   const filteredProfiles = profiles.filter(p => profileStreams[p.ROLL_KEY] === targetStream);
+  const profileKeys = new Set(filteredProfiles.map(p => p.ROLL_KEY));
 
   const filteredTests = tests.filter(t => {
     if (profileStreams[t.ROLL_KEY]) {
@@ -284,7 +285,22 @@ function filterByStream(profiles, tests, stream) {
     } else if (!rawStream) {
        rawStream = 'JEE';
     }
-    return String(rawStream).trim().toUpperCase() === targetStream;
+    
+    const isTarget = String(rawStream).trim().toUpperCase() === targetStream;
+    
+    if (isTarget) {
+      if (!profileKeys.has(roll)) {
+        filteredProfiles.push({
+          ROLL_KEY: roll,
+          centerCode: center,
+          stream: rawStream,
+          name: t.name || roll
+        });
+        profileKeys.add(roll);
+      }
+      return true;
+    }
+    return false;
   });
 
   return { profiles: filteredProfiles, tests: filteredTests };
