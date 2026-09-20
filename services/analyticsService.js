@@ -716,9 +716,19 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       return;
     }
 
-    let qualified = total !== null && total >= overallMin;
-    if (!qualified) {
-      qualified = false;
+    // For NEET: use MBBS status flag stored in test record if available
+    // The flag is stored as testKey_MBBS = 'MBBS' when uploaded from NEET sheet
+    let qualified = false;
+    if (stream === 'NEET' && doc) {
+      const mbbsFlag = validTestKeys.map(k => doc[`${k}_MBBS`]).find(v => v !== undefined && v !== null);
+      if (mbbsFlag !== undefined) {
+        qualified = mbbsFlag === 'MBBS';
+      } else {
+        // Fallback to score-based threshold if no MBBS flag stored
+        qualified = total !== null && total >= overallMin;
+      }
+    } else {
+      qualified = total !== null && total >= overallMin;
     }
 
     studentStates.push({
