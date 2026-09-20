@@ -1,3 +1,4 @@
+import { enrichStudentChartFromRawMarks } from './services/studentChartRawMarks.js';
 import './bootstrap-env.js';
 import express from 'express';
 import cors from 'cors';
@@ -259,7 +260,7 @@ function filterByStream(profiles, tests, stream) {
   const targetStream = stream.toUpperCase();
   const filteredProfiles = profiles.filter(p => {
     const rawStream = p.stream || p.STREAM || p.Stream || 'JEE';
-    return String(rawStream).toUpperCase() === targetStream;
+    return String(rawStream).trim().toUpperCase() === targetStream;
   });
   const rollKeys = new Set(filteredProfiles.map(p => p.ROLL_KEY));
   const filteredTests = tests.filter(t => rollKeys.has(t.ROLL_KEY));
@@ -485,13 +486,13 @@ app.get('/api/analytics/student-chart', async (req, res) => {
   } else {
     source = await loadApplicationData(); // Fallback if no centerCode provided
   }
-  const testDoc = source.tests.find((t) => t.ROLL_KEY === rollKey) || {};
-  const profileDoc = source.profiles.find((p) => p.ROLL_KEY === rollKey || p['ROLL NO.'] === rollKey) || {};
+  const testDoc = source.tests.find((t) => String(t.ROLL_KEY).trim() === String(rollKey).trim()) || {};
+  const profileDoc = source.profiles.find((p) => String(p.ROLL_KEY).trim() === String(rollKey).trim() || String(p['ROLL NO.']).trim() === String(rollKey).trim()) || {};
 
   // Filter testColumns to only include tests relevant to the student's stream.
   // NEET-specific prefixes: MMT, NCT, NMT, NEET  /  JEE-specific prefixes: MT, CMT, FMT, PT, JCT
-  const rawStream = profileDoc.stream || profileDoc.STREAM || profileDoc.Stream || testDoc.stream || 'JEE';
-  const studentStream = String(rawStream).toUpperCase();
+  const rawStream = profileDoc.stream || profileDoc.STREAM || profileDoc.Stream || req.query.stream || testDoc.stream || 'JEE';
+  const studentStream = String(rawStream).trim().toUpperCase();
   const NEET_PREFIXES = /^(MMT|NCT|NMT|NEET)/i;
   const filteredTestColumns = source.testColumns.filter((col) => {
     const { testName } = parseTestColumn(col);
@@ -500,7 +501,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
     return !isNeetTest; // JEE student: exclude NEET tests
   });
 
-  const chartData = buildStudentChartData(testDoc, filteredTestColumns);
+  const chartData = buildStudentChartData(testDoc, filteredTestColumns, studentStream);
   const weakSubj = computeStudentWeakSubject(testDoc, filteredTestColumns);
 
   try {
@@ -508,64 +509,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
     if (rawMarks && rawMarks.length > 0) {
       const topicMaps = await TopicMap.find({ testId: { $in: rawMarks.map(m => m.testId) } }).lean();
       
-      chartData.forEach(row => {
-        const normRowName = row.name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        const rawMarkDoc = rawMarks.find(m => m.testId && m.testId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === normRowName);
-        
-        if (rawMarkDoc && rawMarkDoc.marks) {
-          const tMap = topicMaps.find(t => t.testId === rawMarkDoc.testId);
-          if (tMap) {
-            const qToSub = {};
-            (tMap.topics || []).forEach(t => {
-              (t.questions || []).forEach(q => {
-                qToSub[q] = t.subject;
-              });
-            });
-            
-            const metrics = {};
-            let totalAttempted = 0;
-            let totalCorrect = 0;
-            
-            let marksEntries = [];
-            if (rawMarkDoc.marks instanceof Map) {
-              marksEntries = Array.from(rawMarkDoc.marks.entries());
-            } else if (typeof rawMarkDoc.marks === 'object' && rawMarkDoc.marks !== null) {
-              marksEntries = Object.entries(rawMarkDoc.marks);
-            }
-            
-            marksEntries.forEach(([q, mark]) => {
-              const sub = qToSub[q];
-              if (!sub) return;
-              if (!metrics[sub]) metrics[sub] = { attempted: 0, correct: 0 };
-              
-              if (mark !== undefined && mark !== null && mark !== 0) {
-                metrics[sub].attempted++;
-                totalAttempted++;
-                if (Number(mark) > 0) {
-                  metrics[sub].correct++;
-                  totalCorrect++;
-                }
-              }
-            });
-            
-            Object.keys(metrics).forEach(sub => {
-              const outSub = sub === 'Mathematics' ? 'Math' : sub;
-              row[`${outSub}_Attempted`] = metrics[sub].attempted;
-              row[`${outSub}_Correct`] = metrics[sub].correct;
-              if (metrics[sub].attempted > 0) {
-                row[`${outSub}_Accuracy`] = Math.round((metrics[sub].correct / metrics[sub].attempted) * 100);
-              } else {
-                row[`${outSub}_Accuracy`] = 0;
-              }
-            });
-            
-            row['Total_Attempted'] = totalAttempted;
-            row['Total_Correct'] = totalCorrect;
-            row['Total_Accuracy'] = totalAttempted > 0 ? Math.round((totalCorrect / totalAttempted) * 100) : 0;
-            row['FALLBACK_DEBUG'] = 'RAN';
-          }
-        }
-      });
+      enrichStudentChartFromRawMarks(chartData, rawMarks, topicMaps, studentStream);
     }
 
     // Enrich chart data with rankings (raw marks accuracy already computed above from StudentRawMarks)
@@ -574,7 +518,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
 
     const finalChartData = enrichedChartData.map((row) => {
       // Calculate global rankings for this test
-      ['Total', 'Physics', 'Chemistry', 'Math'].forEach((sub) => {
+      (studentStream === 'NEET' ? ['Total', 'Physics', 'Chemistry', 'Botany', 'Zoology'] : ['Total', 'Physics', 'Chemistry', 'Math']).forEach((sub) => {
         const testKey = sub === 'Total' ? row.name : `${row.name}_${sub}`;
         const rankedList = rankStudentsByTest(source.profiles, source.tests, testKey);
         const studentRankObj = rankedList.find(s => s.roll === rollKey);
@@ -1698,7 +1642,8 @@ app.get('/api/student/overall-weak-topics/:studentId', authenticateToken, async 
     const { studentId } = req.params;
     const stream = req.query.stream || 'JEE';
     await initMongo();
-    const doc = await StudentOverallWeakTopics.findOne({ studentId, stream }).lean();
+    const { getStudentOverallWeakTopicsForStream } = await import('./services/overallWeakTopicService.js');
+    const doc = await getStudentOverallWeakTopicsForStream(studentId, String(stream).trim().toUpperCase());
     return res.json({ success: true, data: doc || {} });
   } catch (e) {
     console.error('[WeakTopics] student overall route error:', e);

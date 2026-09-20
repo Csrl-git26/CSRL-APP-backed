@@ -41,7 +41,7 @@ function buildEmptyTopicClassification() {
   };
 }
 
-export async function computeStudentOverallWeakTopics(studentId) {
+export async function computeStudentOverallWeakTopics(studentId, { persist = true, stream: requestedStream } = {}) {
   await initMongo();
 
   const allMarksDocs = await StudentRawMarks.find({ studentId }).lean();
@@ -58,11 +58,13 @@ export async function computeStudentOverallWeakTopics(studentId) {
     const qMap = {};
     const sMap = {};
     const allQs = new Set();
-    let isNeet = false;
+    let isNeet = /^(MMT|NCT|NMT|NEET)/i.test(String(tm.testId).trim());
     
     for (const entry of tm.topics) {
       for (const q of entry.questions) allQs.add(q);
-      const canonical = matchCanonicalTopic(entry.topic);
+      const canonical = { ...matchCanonicalTopic(entry.topic) };
+      const explicitSubject = String(entry.subject || '').trim().toUpperCase();
+      if (['PHYSICS', 'CHEMISTRY', 'MATHEMATICS', 'BOTANY', 'ZOOLOGY'].includes(explicitSubject)) canonical.subject = explicitSubject;
       if (canonical.subject === 'BOTANY' || canonical.subject === 'ZOOLOGY' || canonical.name.toUpperCase().includes('BOTANY')) isNeet = true;
       if (!qMap[canonical.name]) {
         qMap[canonical.name] = [];
@@ -107,7 +109,9 @@ export async function computeStudentOverallWeakTopics(studentId) {
     }
   }
 
+  const results = [];
   for (const stream of ['JEE', 'NEET']) {
+    if (requestedStream && stream !== requestedStream) continue;
     const data = streamData[stream];
     if (data.testsIncluded.length === 0) continue;
 
@@ -137,10 +141,7 @@ export async function computeStudentOverallWeakTopics(studentId) {
 
     const finalTestsIncluded = data.testsIncluded.filter(t => t && t.length > 1 && t !== 'CAT4');
 
-    await StudentOverallWeakTopics.updateOne(
-      { studentId, stream },
-      {
-        $set: {
+    const result = {
           studentId,
           stream,
           studentName,
@@ -153,11 +154,21 @@ export async function computeStudentOverallWeakTopics(studentId) {
           weakTopics: classification.weakTopics,
           subjectWise: classification.subjectWise,
           computedAt: new Date(),
-        },
-      },
-      { upsert: true }
-    );
+          streamAnalysisVersion: 1,
+    };
+    results.push(result);
+    if (persist) await StudentOverallWeakTopics.updateOne({ studentId, stream }, { $set: result }, { upsert: true });
   }
+  return results;
+}
+
+export async function getStudentOverallWeakTopicsForStream(studentId, stream) {
+  await initMongo();
+  const saved = await StudentOverallWeakTopics.findOne({ studentId, stream }).lean();
+  if (saved?.streamAnalysisVersion === 1) return saved;
+  // Read-only recovery: do not delete legacy summaries or alter database indexes.
+  const results = await computeStudentOverallWeakTopics(studentId, { persist: false, stream });
+  return results?.find(doc => doc.stream === stream) || saved;
 }
 
 export async function computeCenterOverallWeakTopics(centerId) {
@@ -174,11 +185,13 @@ export async function computeCenterOverallWeakTopics(centerId) {
     const qMap = {};
     const sMap = {};
     const allQs = new Set();
-    let isNeet = false;
+    let isNeet = /^(MMT|NCT|NMT|NEET)/i.test(String(tm.testId).trim());
     
     for (const entry of tm.topics) {
       for (const q of entry.questions) allQs.add(q);
-      const canonical = matchCanonicalTopic(entry.topic);
+      const canonical = { ...matchCanonicalTopic(entry.topic) };
+      const explicitSubject = String(entry.subject || '').trim().toUpperCase();
+      if (['PHYSICS', 'CHEMISTRY', 'MATHEMATICS', 'BOTANY', 'ZOOLOGY'].includes(explicitSubject)) canonical.subject = explicitSubject;
       if (canonical.subject === 'BOTANY' || canonical.subject === 'ZOOLOGY' || canonical.name.toUpperCase().includes('BOTANY')) isNeet = true;
       if (!qMap[canonical.name]) {
         qMap[canonical.name] = [];
