@@ -1,24 +1,43 @@
-import sys
+import os
 
-filepath = '/Users/surya/Desktop/CSRL-APP-frontend/src/components/StudentProfileView.jsx'
+filepath = '/Users/surya/Desktop/CSRL-APP-frontend/src/components/AdminDashboard.jsx'
 with open(filepath, 'r') as f:
     content = f.read()
 
-bad_usememo = """const chartData = useMemo(() => {
-    const actualChart = prefetchedChart || chart;
-  const actualWeakTopics = prefetchedWeakTopics || overallWeakTopicsData;
-    const rawRows = actualChart?.chartData ?? buildStudentChartData(studentTests, testColumns);"""
+bad_block = """  // Sync selectedTestKey to streamTestOptions
+  useEffect(() => {
+    if (streamTestOptions && streamTestOptions.length > 0 && selectedTestKey && !streamTestOptions.includes(selectedTestKey)) {
+      const fallback = streamTestOptions.filter(o => o !== 'ALL_FMT')[0] || streamTestOptions[0];
+      if (fallback) setSelectedTestKey(fallback);
+    }
+  }, [streamTestOptions, selectedTestKey]);
 
-good_usememo = """const actualChart = prefetchedChart || chart;
-  const actualWeakTopics = prefetchedWeakTopics || overallWeakTopicsData;
-  
-  const chartData = useMemo(() => {
-    const rawRows = actualChart?.chartData ?? buildStudentChartData(studentTests, testColumns);"""
+"""
 
-if bad_usememo in content:
-    content = content.replace(bad_usememo, good_usememo)
-    with open(filepath, 'w') as f:
-        f.write(content)
-    print("Fixed variable scope successfully!")
+if bad_block in content:
+    content = content.replace(bad_block, "")
+    print("Removed bad block")
 else:
-    print("Could not find the bad useMemo block")
+    print("Could not find bad block!")
+
+good_block = """
+  // Sync selectedTestKey to streamTestOptions
+  useEffect(() => {
+    if (streamTestOptions && streamTestOptions.length > 0 && selectedTestKey && !streamTestOptions.includes(selectedTestKey)) {
+      const fallback = streamTestOptions.filter(o => o !== 'ALL_FMT')[0] || streamTestOptions[0];
+      if (fallback) setSelectedTestKey(fallback);
+    }
+  }, [streamTestOptions, selectedTestKey]);
+
+  const activeLeaderboardKeys = useMemo(() => {"""
+
+if "const activeLeaderboardKeys = useMemo(() => {" in content:
+    content = content.replace("  const activeLeaderboardKeys = useMemo(() => {", good_block)
+    print("Inserted good block")
+else:
+    print("Could not find insertion point!")
+
+with open(filepath, 'w') as f:
+    f.write(content)
+
+print("Patching done!")

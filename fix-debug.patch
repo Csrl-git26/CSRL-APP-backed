@@ -1,0 +1,14 @@
+--- server.js
++++ server.js
+@@ -1763,2 +1763,3 @@
+-    const finalChartData = buildCentreChartData(source.tests, source.testColumns);
++    const chartData = buildCentreChartData(source.tests, source.testColumns);
++    const finalChartData = chartData.map(r => r);
+ 
+@@ -1769,2 +1770,3 @@
+       let mongoCenterId = centerCode;
+       if (mongoCenterId === 'KNP') mongoCenterId = 'GAIL';
+       if (mongoCenterId === 'JDH') mongoCenterId = 'OIL_INDIA';
+@@ -1838,2 +1840,4 @@
+ 
++    res.json({ finalChartData, rawDocsCount: rawDocs ? rawDocs.length : 0 });

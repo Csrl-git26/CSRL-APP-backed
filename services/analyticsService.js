@@ -277,7 +277,27 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
     if (!doc) return;
     
     testKeys.forEach(key => {
-      const mark = numericScore(doc[key]);
+      let mark = numericScore(doc[key]);
+      
+      if (mark === null) {
+        let subjectSum = 0;
+        let hasSubject = false;
+        const subjects = ["Physics", "Chemistry", "Math", "Mathematics", "Biology", "Botany", "Zoology"];
+        subjects.forEach(sub => {
+          let sm = null;
+          const rKeys = Object.keys(doc);
+          const strictKey = rKeys.find(tk => tk.startsWith(key) && tk.toLowerCase().includes(sub.toLowerCase()));
+          if (strictKey) {
+            sm = numericScore(doc[strictKey]);
+          } else {
+            const fallbackKey = rKeys.find(tk => tk.toLowerCase() === sub.toLowerCase());
+            if (fallbackKey) sm = numericScore(doc[fallbackKey]);
+          }
+          if (sm !== null) { subjectSum += sm; hasSubject = true; }
+        });
+        if (hasSubject) mark = subjectSum;
+      }
+      
       if (mark === null) return;
       centreAgg[code].sum   += mark;
       centreAgg[code].count += 1;
