@@ -98,9 +98,25 @@ export function flatToNested(flatRecord) {
     tests:      {},
   };
 
+  // Special metadata suffixes that must be preserved as-is (not normalised as subject names)
+  const META_SUFFIXES = ['_MBBS', '_STATUS', '_ABSENT', '_GRADE'];
+
   for (const [key, value] of Object.entries(flatRecord)) {
     if (RESERVED_KEYS.has(key)) continue;
     if (value === undefined || value === null || value === '') continue;
+
+    // Check for metadata suffixes BEFORE calling parseTestColumn (which would mangle them)
+    const metaSuffix = META_SUFFIXES.find(s => key.toUpperCase().endsWith(s));
+    if (metaSuffix) {
+      // e.g. 'NCT01_MBBS' → testName='NCT01', stored as tests.NCT01.MBBS = value
+      const testName = key.slice(0, key.length - metaSuffix.length);
+      if (testName) {
+        if (!result.tests[testName]) result.tests[testName] = {};
+        // Store with the exact uppercase meta key (strip leading underscore)
+        result.tests[testName][metaSuffix.slice(1)] = value;
+        continue;
+      }
+    }
 
     const { testName, subject, isTotal } = parseTestColumn(key);
     if (!result.tests[testName]) result.tests[testName] = {};

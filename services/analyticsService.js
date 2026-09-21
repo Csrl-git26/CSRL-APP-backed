@@ -718,15 +718,20 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
 
     // For NEET: ONLY use the MBBS status flag stored from the uploaded Excel sheet.
     // The flag is stored as testKey_MBBS = 'MBBS' (qualified) or '' (not qualified).
-    // Never use score-based calculation for NEET — MBBS is decided by the sheet STATUS column.
+    // NOTE: Due to flatToNested/parseTestColumn, the key may be stored as NCT01_Mbbs (not NCT01_MBBS).
+    // We must check both variants case-insensitively.
     let qualified = false;
     if (stream === 'NEET') {
-      // Check all valid test keys for a _MBBS flag (e.g. MMT01_MBBS, CMT01_MBBS)
-      const mbbsFlag = doc
-        ? validTestKeys.map(k => doc[`${k}_MBBS`]).find(v => v !== undefined && v !== null)
-        : undefined;
-      // A student is MBBS if and only if the stored flag is exactly 'MBBS'
-      qualified = mbbsFlag === 'MBBS';
+      // Check all valid test keys for a _MBBS flag — try exact 'MBBS' and normalized 'Mbbs' variants
+      let mbbsFlag;
+      if (doc) {
+        for (const k of validTestKeys) {
+          const v = doc[`${k}_MBBS`] ?? doc[`${k}_Mbbs`] ?? doc[`${k}_mbbs`];
+          if (v !== undefined && v !== null) { mbbsFlag = v; break; }
+        }
+      }
+      // A student is MBBS if the stored flag equals 'MBBS' (any case)
+      qualified = typeof mbbsFlag === 'string' && mbbsFlag.toUpperCase() === 'MBBS';
     } else {
       qualified = total !== null && total >= overallMin;
     }
