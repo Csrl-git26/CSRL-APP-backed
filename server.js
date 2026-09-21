@@ -259,12 +259,28 @@ function filterByStream(profiles, tests, stream) {
   if (!stream || stream === 'ALL') return { profiles, tests };
   const targetStream = stream.toUpperCase();
   
+  // Create a map from ROLL_KEY -> tests doc for fast lookup
+  const testsByRoll = {};
+  tests.forEach(t => { testsByRoll[t.ROLL_KEY] = t; });
+
   const profileStreams = {};
   profiles.forEach(p => {
     let rawStream = p.stream || p.STREAM || p.Stream;
     if (p.ROLL_KEY && (p.ROLL_KEY.includes('JRS') || p.ROLL_KEY.includes('TEZ') || p.ROLL_KEY.includes('PUN') || p.ROLL_KEY.includes('GVM') || p.ROLL_KEY.includes('JRT'))) {
       rawStream = 'NEET';
-    } else if (!rawStream) {
+    }
+    
+    // Auto-detect NEET by checking if they took any NEET specific tests
+    if (rawStream !== 'NEET' && testsByRoll[p.ROLL_KEY]) {
+      const hasNeetTest = Object.keys(testsByRoll[p.ROLL_KEY]).some(k => 
+        k.startsWith('NCT') || k.startsWith('MMT') || k.startsWith('NMT')
+      );
+      if (hasNeetTest) {
+        rawStream = 'NEET';
+      }
+    }
+
+    if (!rawStream) {
       rawStream = 'JEE';
     }
     profileStreams[p.ROLL_KEY] = String(rawStream).trim().toUpperCase();
@@ -282,7 +298,13 @@ function filterByStream(profiles, tests, stream) {
     const center = t.centerCode || '';
     if (roll.includes('JRS') || roll.includes('TEZ') || roll.includes('PUN') || roll.includes('GVM') || roll.includes('JRT') || center === 'JRS' || center === 'TEZ' || center === 'PUN' || center === 'GVM' || center === 'JRT') {
        rawStream = 'NEET';
-    } else if (!rawStream) {
+    } else {
+       const hasNeetTest = Object.keys(t).some(k => 
+         k !== 'ROLL_KEY' && k !== 'centerCode' && k !== 'stream' && (k.startsWith('NCT') || k.startsWith('MMT') || k.startsWith('NMT'))
+       );
+       if (hasNeetTest) rawStream = 'NEET';
+    }
+    if (!rawStream) {
        rawStream = 'JEE';
     }
     
