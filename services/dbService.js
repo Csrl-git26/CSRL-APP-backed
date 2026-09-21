@@ -220,7 +220,9 @@ export function sliceCenterFromGlobal(globalData, centerCode) {
       colSet.add(k);
     });
   });
-  const testColumns = colSet.size > 0 ? Array.from(colSet) : globalData.testColumns;
+  // Always return all global test columns so the Centre Dashboard can see 
+  // all available tests in the dropdown (like NCT01) even if their students haven't taken them.
+  const testColumns = globalData.testColumns;
   return { profiles, tests, testColumns };
 }
 
@@ -356,7 +358,21 @@ async function fetchCenterDataFromDbOnce(centerCode) {
     return relevantRollKeys.has(String(nested.ROLL_KEY)) || profileRollKeys.includes(String(nested.ROLL_KEY));
   });
 
-  return processDbDocuments(profilesDocs, finalTestDocs);
+  const result = processDbDocuments(profilesDocs, finalTestDocs);
+  
+  // Extract test columns from ALL tests globally, not just this centre's tests.
+  // This ensures the Centre Dashboard can see all available tests in the dropdown (like NCT01),
+  // even if this specific centre hasn't uploaded scores for it yet.
+  const allTestColumnsSet = new Set();
+  allTests.forEach(d => {
+    const raw = { ...d };
+    delete raw._id; delete raw.__v; delete raw.createdAt; delete raw.updatedAt;
+    const nested = ensureNested(raw);
+    extractColumnsFromNestedTests(nested.tests).forEach(c => allTestColumnsSet.add(c));
+  });
+  result.testColumns = Array.from(allTestColumnsSet);
+  
+  return result;
 }
 
 export async function loadGlobalDataFromDb() {
