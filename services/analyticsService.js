@@ -634,7 +634,9 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
 
   profiles.forEach((p) => {
     const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
-    const stream = p.stream || doc?.stream || 'JEE';
+    // Use options.stream if provided (e.g. when viewing NEET dashboard), as profiles are already
+    // pre-filtered. Fallback to profile/test stream field, then default to JEE.
+    const stream = options.stream && options.stream !== 'ALL' ? options.stream : (p.stream || doc?.stream || 'JEE');
     const caps = streamCaps(stream);
     let overallMin;
     const subjectMins = {};
