@@ -728,12 +728,12 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       let mbbsFlag;
       if (doc) {
         for (const k of validTestKeys) {
-          const v = doc[`${k}_MBBS`] ?? doc[`${k}_Mbbs`] ?? doc[`${k}_mbbs`];
-          if (v !== undefined && v !== null) { mbbsFlag = v; break; }
+          const v = doc[`${k}_MBBS`] ?? doc[`${k}_Mbbs`] ?? doc[`${k}_mbbs`] ?? doc[`${k}_STATUS`] ?? doc[`${k}_Status`] ?? doc[`${k}_status`];
+          if (v !== undefined && v !== null && String(v).trim() !== '') { mbbsFlag = v; break; }
         }
       }
       // A student is MBBS if the stored flag equals 'MBBS' (any case)
-      qualified = typeof mbbsFlag === 'string' && mbbsFlag.toUpperCase() === 'MBBS';
+      qualified = typeof mbbsFlag === 'string' && mbbsFlag.trim().toUpperCase() === 'MBBS';
     } else {
       qualified = total !== null && total >= overallMin;
     }

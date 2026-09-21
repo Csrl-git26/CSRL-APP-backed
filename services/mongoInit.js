@@ -36,30 +36,6 @@ export const initMongo = async () => {
     }
     await dropLegacyIndexes();
 
-    try {
-      console.log("RUNNING ONE-TIME CLEANUP FOR MBBS FLAGS...");
-      const TestScore = (await import('../models/TestScore.js')).default;
-      const res = await TestScore.updateMany({}, {
-          $unset: {
-              "tests.NCT01.MBBS": "",
-              "tests.NCT01.Mbbs": "",
-              "tests.NCT01.mbbs": "",
-              "tests.NCT01.STATUS": "",
-              "tests.NCT01.Status": "",
-              "tests.NCT01.status": "",
-              "NCT01_MBBS": "",
-              "NCT01_Mbbs": "",
-              "NCT01_mbbs": "",
-              "NCT01_STATUS": "",
-              "NCT01_Status": "",
-              "NCT01_status": ""
-          }
-      });
-      console.log(`CLEANUP SUCCESSFUL! Modified ${res.modifiedCount} documents.`);
-    } catch (cleanupErr) {
-      console.log("❌ Cleanup Error:", cleanupErr.message);
-    }
-
   } catch (err) {
     console.log("❌ MongoDB Error:", err.message);
   }
