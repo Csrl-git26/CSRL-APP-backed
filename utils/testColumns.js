@@ -183,7 +183,8 @@ export function extractColumnsFromNestedTests(tests) {
     if (!testData || typeof testData !== 'object') continue;
     
     // Completely ignore garbage ghost columns that might be lingering in the database
-    if (testName === 'NAME' || testName === 'centreCode' || testName.length <= 1 || testName === 'CAT4') continue;
+    const GHOST_NAMES = ['NAME', 'centreCode', 'CAT4', 'ALL', 'ALL_FMT', 'stream', 'ROLL_KEY', 'rollKey'];
+    if (GHOST_NAMES.includes(testName) || testName.length <= 1) continue;
     cols.add(testName); // total column
     for (const subject of Object.keys(testData)) {
       if (subject !== 'total' && subject !== 'Total') cols.add(`${testName}_${subject}`);
