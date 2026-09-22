@@ -616,7 +616,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
     const source = sliceCenterFromGlobal(global, centerCode);
     const centerTests = source.tests;
 
-    const chartData = buildCentreChartData(centerTests, source.testColumns);
+    const chartData = buildCentreChartData(centerTests, source.testColumns, stream);
 
     chartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
 
@@ -627,7 +627,10 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
       row.qualRate = centreRow && centreRow.appeared > 0 ? centreRow.qualRate : null;
       if (centreRow) {
         row['Total_Rank'] = insights.centreRows.findIndex(r => r.code === centerCode) + 1;
-        ['Physics', 'Chemistry', 'Math'].forEach(sub => {
+        const subjectsForStream = String(stream).toUpperCase() === 'NEET'
+          ? ['Physics', 'Chemistry', 'Botany', 'Zoology']
+          : ['Physics', 'Chemistry', 'Math'];
+        subjectsForStream.forEach(sub => {
           const validCentres = insights.centreRows.filter(r => r.subjectAvgs[sub] !== null && r.subjectAvgs[sub] !== undefined);
           if (validCentres.some(r => r.code === centerCode)) {
             validCentres.sort((a, b) => b.subjectAvgs[sub] - a.subjectAvgs[sub]);
@@ -1944,7 +1947,7 @@ app.get('/api/debug-marks', async (req, res) => {
     const centerCode = req.query.centerCode || 'AGR';
     const global = await loadApplicationData();
     const source = sliceCenterFromGlobal(global, centerCode);
-    const finalChartData = buildCentreChartData(source.tests, source.testColumns);
+    const finalChartData = buildCentreChartData(source.tests, source.testColumns, req.query.stream);
 
     await initMongo();
     const StudentRawMarks = (await import('./models/StudentRawMarks.js')).default;

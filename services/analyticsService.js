@@ -1000,11 +1000,21 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
 /**
  * Build chart-ready average data for an entire centre.
  */
-export function buildCentreChartData(centerTests, testColumns) {
+export function buildCentreChartData(centerTests, testColumns, stream) {
   const testsMap = {};
 
+  // Filter out tests belonging to the other stream (mirrors buildStudentChartData).
+  const centreStream = String(stream || 'JEE').trim().toUpperCase();
+  const NEET_TEST_PREFIX = /^(MMT|NCT|NMT|NEET)/i;
+  const relevantColumns = (testColumns || []).filter((col) => {
+    const { testName } = parseTestColumn(col);
+    const isNeetTest = NEET_TEST_PREFIX.test(testName);
+    if (centreStream === 'NEET') return isNeetTest;
+    return !isNeetTest; // JEE centres: skip NEET-only tests
+  });
+
   centerTests.forEach((t) => {
-    (testColumns || []).forEach((col) => {
+    (relevantColumns || []).forEach((col) => {
       const { subject, testName, isTotal } = parseTestColumn(col);
       if (!testsMap[testName]) testsMap[testName] = { name: testName, count: 0, sumTotal: 0, subjectSums: {}, subjectCounts: {} };
       
