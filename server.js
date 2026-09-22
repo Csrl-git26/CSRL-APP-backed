@@ -1084,7 +1084,7 @@ app.delete('/api/students/clear-all', authenticateToken, requireAdmin, async (re
     if (!isDbEnabled()) return res.status(500).json({ message: 'DB not enabled' });
     await initMongo();
     
-    const Profile = (await import('./models/StudentProfile.js')).default;
+    const Profile = (await import('./models/Profile.js')).default;
     const TestScore = (await import('./models/TestScore.js')).default;
     const StudentWeakTopics = (await import('./models/StudentWeakTopics.js')).default;
     const CenterWeakTopics = (await import('./models/CenterWeakTopics.js')).default;
