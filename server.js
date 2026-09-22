@@ -1079,6 +1079,39 @@ app.post('/api/students/bulk-delete', authenticateToken, requireAdmin, async (re
   }
 });
 
+app.delete('/api/students/clear-all', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    if (!isDbEnabled()) return res.status(500).json({ message: 'DB not enabled' });
+    await initMongo();
+    
+    const Profile = (await import('./models/StudentProfile.js')).default;
+    const TestScore = (await import('./models/TestScore.js')).default;
+    const StudentWeakTopics = (await import('./models/StudentWeakTopics.js')).default;
+    const CenterWeakTopics = (await import('./models/CenterWeakTopics.js')).default;
+    const CenterOverallWeakTopics = (await import('./models/CenterOverallWeakTopics.js')).default;
+    const StudentOverallWeakTopics = (await import('./models/StudentOverallWeakTopics.js')).default;
+    const TopicMap = (await import('./models/TopicMap.js')).default;
+    const StudentRawMarks = (await import('./models/StudentRawMarks.js')).default;
+    
+    await Profile.deleteMany({});
+    await TestScore.deleteMany({});
+    await StudentWeakTopics.deleteMany({});
+    await CenterWeakTopics.deleteMany({});
+    await CenterOverallWeakTopics.deleteMany({});
+    await StudentOverallWeakTopics.deleteMany({});
+    await TopicMap.deleteMany({});
+    await StudentRawMarks.deleteMany({});
+    
+    invalidateDataCache();
+    console.log('[CRUD] Deleted ALL student data globally');
+    
+    return res.json({ success: true, message: 'All student data cleared' });
+  } catch (e) {
+    console.error('[CRUD] Clear all data failed:', e);
+    return res.status(500).json({ message: e.message || 'Clear all failed' });
+  }
+});
+
 app.delete('/api/students/:rollKey', authenticateToken, requireAdmin, async (req, res) => {
   const { rollKey } = req.params;
   const centerCode = req.query.centerCode;
