@@ -206,16 +206,17 @@ app.get('/api/data/centers', authenticateToken, async (req, res) => {
     const sponsor = p.SPONSOR || '';
     
     if (!centerMap[code]) {
-      centerMap[code] = { code, name: code, sponsor: '' };
+      centerMap[code] = { code, name: code, sponsor: '', streams: [] };
     }
     
     if (sponsor) centerMap[code].sponsor = sponsor;
+    const pStream = p.stream || 'JEE';
+    if (!centerMap[code].streams.includes(pStream)) centerMap[code].streams.push(pStream);
     const currentSponsor = centerMap[code].sponsor;
     const currentCenterCode = p['CENTRE CODE'] || code;
     
     centerMap[code].name = currentSponsor ? `${currentSponsor}-${currentCenterCode}` : currentCenterCode;
   });
-
 
   res.json(Object.values(centerMap));
 });
