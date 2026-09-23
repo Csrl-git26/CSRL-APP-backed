@@ -263,6 +263,17 @@ function processDbDocuments(profilesDocs, tDocs) {
       obj["FATHER'S MOBILE NO."] = obj[fatherMobileNoKey];
     }
 
+    if (obj.centerCode) {
+      let code = String(obj.centerCode).toUpperCase().trim();
+      if (code === 'OIL INDIA' || code === 'OIL_INDIA') obj.centerCode = 'JDH';
+      if (code === 'GAIL') obj.centerCode = 'KNP';
+    }
+    if (obj['CENTRE CODE']) {
+      let cCode = String(obj['CENTRE CODE']).toUpperCase().trim();
+      if (cCode === 'OIL INDIA' || cCode === 'OIL_INDIA') obj['CENTRE CODE'] = 'JDH';
+      if (cCode === 'GAIL') obj['CENTRE CODE'] = 'KNP';
+    }
+
     return obj;
   });
 

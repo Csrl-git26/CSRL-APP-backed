@@ -202,7 +202,10 @@ app.get('/api/data/centers', authenticateToken, async (req, res) => {
   
   global.profiles.forEach((p) => {
     if (!p.centerCode) return;
-    const code = p.centerCode.toUpperCase();
+    let code = p.centerCode.toUpperCase();
+    if (code === 'OIL INDIA' || code === 'OIL_INDIA') code = 'JDH';
+    if (code === 'GAIL') code = 'KNP';
+
     const sponsor = p.SPONSOR || '';
     
     if (!centerMap[code]) {
@@ -674,7 +677,9 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
             const rawSub = (entry.subject || '').toUpperCase();
             const displaySub = rawSub === 'PHYSICS' ? 'Physics'
               : rawSub === 'CHEMISTRY' ? 'Chemistry'
-              : rawSub === 'MATHEMATICS' ? 'Math' : null;
+              : rawSub === 'MATHEMATICS' ? 'Math'
+              : rawSub === 'BOTANY' ? 'Botany'
+              : (rawSub === 'ZOOLOGY' || rawSub === 'BIOLOGY') ? 'Zoology' : null;
             for (const q of (entry.questions || [])) {
               qs[q] = displaySub;
             }
@@ -741,7 +746,11 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
             row['Total_Accuracy'] = null;
           }
 
-          ['Physics', 'Chemistry', 'Math'].forEach(sub => {
+          const subjectsForStream = String(stream).toUpperCase() === 'NEET'
+            ? ['Physics', 'Chemistry', 'Botany', 'Zoology']
+            : ['Physics', 'Chemistry', 'Math'];
+
+          subjectsForStream.forEach(sub => {
             row[sub] = agg.count > 0 ? Math.round((agg.subjectSums[sub] || 0) / agg.count) : null;
             if (agg.count > 0) {
               const avgAttempted = Math.round((agg.subjectAttemptedSum[sub] || 0) / agg.count);
