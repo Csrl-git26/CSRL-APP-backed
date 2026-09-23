@@ -215,7 +215,7 @@ app.get('/api/data/centers', authenticateToken, async (req, res) => {
     const currentSponsor = centerMap[code].sponsor;
     const currentCenterCode = p['CENTRE CODE'] || code;
     
-    centerMap[code].name = currentSponsor ? `${currentSponsor}-${currentCenterCode}` : currentCenterCode;
+    centerMap[code].name = currentCenterCode;
   });
 
   res.json(Object.values(centerMap));
