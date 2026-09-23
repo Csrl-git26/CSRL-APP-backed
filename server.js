@@ -2095,6 +2095,11 @@ app.use((err, req, res, next) => {
 
 // ── Server Start ──────────────────────────────────────────────────────────────
 
+app.get('/api/admin/clear-cache', async (req, res) => {
+  invalidateDataCache();
+  res.json({ success: true, message: 'Cache explicitly cleared' });
+});
+
 app.listen(PORT, async () => {
   console.log(`[Server] Core API Backend running on port ${PORT}`);
 
