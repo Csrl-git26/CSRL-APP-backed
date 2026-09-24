@@ -749,9 +749,9 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     // NOTE: Due to flatToNested/parseTestColumn, the key may be stored as NCT01_Mbbs (not NCT01_MBBS).
     // We must check both variants case-insensitively.
     let qualified = false;
+    let mbbsFlag;
     if (stream === 'NEET') {
       // Check all valid test keys for a _MBBS flag — try exact 'MBBS' and normalized 'Mbbs' variants
-      let mbbsFlag;
       if (doc) {
         for (const k of validTestKeys) {
           const v = doc[`${k}_MBBS`] ?? doc[`${k}_Mbbs`] ?? doc[`${k}_mbbs`] ?? doc[`${k}_STATUS`] ?? doc[`${k}_Status`] ?? doc[`${k}_status`];
