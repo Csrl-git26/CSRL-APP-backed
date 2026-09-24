@@ -1,3 +1,4 @@
+import { currentTestBranch, filterTestDocuments } from './testBranchService.js';
 /**
  * services/overallWeakTopicService.js
  *
@@ -44,7 +45,7 @@ function buildEmptyTopicClassification() {
 export async function computeStudentOverallWeakTopics(studentId, { persist = true, stream: requestedStream } = {}) {
   await initMongo();
 
-  const allMarksDocs = await StudentRawMarks.find({ studentId }).lean();
+  const allMarksDocs = await filterTestDocuments(await StudentRawMarks.find({ studentId }).lean());
   if (allMarksDocs.length === 0) return;
 
   const centerId = allMarksDocs[0].centerId;
@@ -157,13 +158,17 @@ export async function computeStudentOverallWeakTopics(studentId, { persist = tru
           streamAnalysisVersion: 1,
     };
     results.push(result);
-    if (persist) await StudentOverallWeakTopics.updateOne({ studentId, stream }, { $set: result }, { upsert: true });
+    if (persist && !currentTestBranch()) await StudentOverallWeakTopics.updateOne({ studentId, stream }, { $set: result }, { upsert: true });
   }
   return results;
 }
 
 export async function getStudentOverallWeakTopicsForStream(studentId, stream) {
   await initMongo();
+  if (currentTestBranch()) {
+    const results = await computeStudentOverallWeakTopics(studentId, { persist: false, stream });
+    return results?.find(doc => doc.stream === stream);
+  }
   const saved = await StudentOverallWeakTopics.findOne({ studentId, stream }).lean();
   if (saved?.streamAnalysisVersion === 1) return saved;
   // Read-only recovery: do not delete legacy summaries or alter database indexes.
@@ -173,8 +178,9 @@ export async function getStudentOverallWeakTopicsForStream(studentId, stream) {
 
 export async function computeCenterOverallWeakTopics(centerId) {
   await initMongo();
+  const results = [];
 
-  const allMarksDocs = await StudentRawMarks.find({ centerId }).lean();
+  const allMarksDocs = await filterTestDocuments(await StudentRawMarks.find({ centerId }).lean());
   if (allMarksDocs.length === 0) return;
 
   const testIds = Array.from(new Set(allMarksDocs.map(d => d.testId)));
@@ -287,10 +293,7 @@ export async function computeCenterOverallWeakTopics(centerId) {
     
     const finalTestsIncluded = Array.from(data.testsIncluded).filter(t => t && t.length > 1 && t !== 'CAT4');
 
-    await CenterOverallWeakTopics.updateOne(
-      { centerId, stream },
-      {
-        $set: {
+    const result = {
           centerId,
           stream,
           testsIncluded: finalTestsIncluded,
@@ -304,11 +307,11 @@ export async function computeCenterOverallWeakTopics(centerId) {
           weakTopics: classification.weakTopics,
           subjectWise: classification.subjectWise,
           computedAt: new Date(),
-        },
-      },
-      { upsert: true }
-    );
+    };
+    results.push(result);
+    if (!currentTestBranch()) await CenterOverallWeakTopics.updateOne({ centerId, stream }, { $set: result }, { upsert: true });
   }
+  return results;
 }
 
 // Backfill legacy rollups on first access; coalesce concurrent requests per centre.
@@ -316,6 +319,10 @@ const rateBackfills = new Map();
 
 export async function getCenterOverallWeakTopicsWithRates(centerId, stream = 'JEE') {
   await initMongo();
+  if (currentTestBranch()) {
+    const results = await computeCenterOverallWeakTopics(centerId);
+    return results?.find(doc => doc.stream === stream);
+  }
   let doc = await CenterOverallWeakTopics.findOne({ centerId, stream }).lean();
   if (!doc || doc.topicRatesVersion !== 1) {
     const cacheKey = `${centerId}_${stream}`;

@@ -1,3 +1,4 @@
+import { filterApplicationData } from './testBranchService.js';
 import NodeCache from 'node-cache';
 import Redis from 'ioredis';
 import { isMongoReady, initMongo } from './mongoInit.js';
@@ -187,16 +188,16 @@ function getMemoryDevStore() {
 
 export async function loadApplicationData() {
   if (!isDbEnabled()) {
-    return getMemoryDevStore();
+    return filterApplicationData(getMemoryDevStore());
   }
-  return loadGlobalDataFromDb();
+  return filterApplicationData(await loadGlobalDataFromDb());
 }
 
 export async function loadCenterApplicationData(centerCode) {
   if (!isDbEnabled()) {
-    return sliceCenterFromGlobal(getMemoryDevStore(), centerCode);
+    return filterApplicationData(sliceCenterFromGlobal(getMemoryDevStore(), centerCode));
   }
-  return loadCenterDataFromDb(centerCode);
+  return filterApplicationData(await loadCenterDataFromDb(centerCode));
 }
 
 function normalizeCenterCode(v) {
@@ -579,11 +580,11 @@ export async function upsertTestDoc(centerCode, rollKey, scores) {
 export async function loadSingleStudentDataFromDb(centerCode, rollKey) {
   if (!isDbEnabled()) {
     const mem = sliceCenterFromGlobal(getMemoryDevStore(), centerCode);
-    return {
+    return filterApplicationData({
       profiles: mem.profiles.filter(p => p.ROLL_KEY === rollKey),
       tests: mem.tests.filter(t => t.ROLL_KEY === rollKey),
       testColumns: mem.testColumns
-    };
+    });
   }
 
   await initMongo();
@@ -602,9 +603,9 @@ export async function loadSingleStudentDataFromDb(centerCode, rollKey) {
   // We still need the global testColumns so charts render properly
   const centerData = await loadCenterDataFromDb(centerCode);
   
-  return {
+  return filterApplicationData({
     profiles: processed.profiles,
     tests: processed.tests,
     testColumns: centerData.testColumns
-  };
+  });
 }
