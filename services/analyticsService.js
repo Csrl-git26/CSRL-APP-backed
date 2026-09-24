@@ -667,9 +667,8 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       });
     } else {
       overallMin = neetOverallMin;
-      const subRatio = neetSubjectQualifyRatio;
       subjects.forEach((subj) => {
-        subjectMins[subj] = maxForSubject(stream, subj) * subRatio;
+        subjectMins[subj] = 100;
       });
     }
 
