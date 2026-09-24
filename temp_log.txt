@@ -49,3 +49,862 @@ index a9e7cd4..ff049d0 100644
                const subUpper = sub.toUpperCase();
                if (tkUpper.includes(subUpper) || (tkUpper.includes("PHY") && sub === "Physics") || (tkUpper.includes("CHEM") && sub === "Chemistry") || (tkUpper.includes("BIO") && sub === "Biology") || (tkUpper.includes("BOT") && sub === "Botany") || (tkUpper.includes("ZOO") && sub === "Zoology") || (tkUpper.includes("MAT") && sub === "Math") || (tkUpper.includes("MATHS") && sub === "Math")) return true;
                return false;
+
+commit 97920eb86b3d6b2b028e34e1ccbe46d80b619de3
+Author: Your Name <Academics@csrl.in>
+Date:   Thu Sep 24 12:14:48 2026 +0530
+
+    Fix Test Analysis total scores fallback, update NEET stream test filtering, and clean sponsor prefixes from centers
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 3454d55..a9e7cd4 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -408,9 +408,10 @@ export function buildStudentChartData(studentTestFlat, testColumns, stream) {
+ 
+   // Determine the student's stream and filter out cross-stream tests.
+   const studentStream = String(stream || (studentTestFlat && studentTestFlat.stream) || 'JEE').trim().toUpperCase();
+-  const NEET_TEST_PREFIX = /^(MMT|NCT|NMT|NEET)/i;
++  const NEET_TEST_PREFIX = /^\s*(MMT|NCT|NMT|NEET)/i;
+ 
+   const relevantColumns = (testColumns || []).filter((col) => {
++    if (!studentStream || studentStream === 'ALL') return true;
+     const { testName } = parseTestColumn(col);
+     const isNeetTest = NEET_TEST_PREFIX.test(testName);
+     if (studentStream === 'NEET') return isNeetTest;
+@@ -708,10 +709,24 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+ 
+     let sum = 0, count = 0;
+     validTestKeys.forEach(k => {
+-      const m = numericScore(doc[k]);
++      let m = numericScore(doc[k]);
++      if (m === null) {
++        let subjectSum = 0;
++        let hasSubject = false;
++        subjects.forEach(subj => {
++          const mSubj = getScoreForDoc(doc, subj, [k]);
++          if (mSubj !== null) {
++            subjectSum += mSubj;
++            hasSubject = true;
++          }
++        });
++        if (hasSubject) {
++          m = subjectSum;
++        }
++      }
+       if (m !== null) { sum += m; count++; }
+     });
+-    const total = count > 0 ? sum / count : null;
++    let total = count > 0 ? sum / count : null;
+     const appeared =
+       total !== null ||
+       Object.values(subjectScores).some((v) => v !== null && v !== undefined);
+@@ -1018,14 +1033,17 @@ export function buildCentreChartData(centerTests, testColumns, stream) {
+ 
+   // Filter out tests belonging to the other stream (mirrors buildStudentChartData).
+   const centreStream = String(stream || 'JEE').trim().toUpperCase();
+-  const NEET_TEST_PREFIX = /^(MMT|NCT|NMT|NEET)/i;
++  const NEET_TEST_PREFIX = /^\s*(MMT|NCT|NMT|NEET)/i;
+   const relevantColumns = (testColumns || []).filter((col) => {
++    if (!centreStream || centreStream === 'ALL') return true;
+     const { testName } = parseTestColumn(col);
+     const isNeetTest = NEET_TEST_PREFIX.test(testName);
+     if (centreStream === 'NEET') return isNeetTest;
+     return !isNeetTest; // JEE centres: skip NEET-only tests
+   });
+ 
++  const allSubjects = new Set(['Physics', 'Chemistry', 'Math', 'Biology', 'Botany', 'Zoology']);
++
+   centerTests.forEach((t) => {
+     (relevantColumns || []).forEach((col) => {
+       const { subject, testName, isTotal } = parseTestColumn(col);
+@@ -1039,6 +1057,7 @@ export function buildCentreChartData(centerTests, testColumns, stream) {
+             testsMap[testName].sumTotal += m;
+             testsMap[testName].count += 1;
+           } else {
++            allSubjects.add(subject);
+             if (!testsMap[testName].subjectSums[subject]) {
+               testsMap[testName].subjectSums[subject] = 0;
+               testsMap[testName].subjectCounts[subject] = 0;
+@@ -1053,10 +1072,12 @@ export function buildCentreChartData(centerTests, testColumns, stream) {
+ 
+   const res = Object.values(testsMap).map(agg => {
+     const row = { name: agg.name, Total: agg.count > 0 ? Math.round(agg.sumTotal / agg.count) : null };
+-    ['Physics', 'Chemistry', 'Math', 'Biology', 'Botany', 'Zoology'].forEach(sub => {
++    allSubjects.forEach(sub => {
+       const sum = agg.subjectSums[sub];
+       const count = agg.subjectCounts[sub];
+-      row[sub] = (count > 0) ? Math.round(sum / count) : null;
++      if (count > 0) {
++        row[sub] = Math.round(sum / count);
++      }
+     });
+     return row;
+   });
+
+commit df1ef514fd6e387a71264df086ed2afacd791626
+Author: Your Name <Academics@csrl.in>
+Date:   Thu Sep 24 11:42:01 2026 +0530
+
+    Fix NEET stream ranking and center-specific test insights
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 1ce47a6..3454d55 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -89,7 +89,13 @@ export function rankStudentsByTest(profiles, tests, testKey) {
+           let hasSubject = false;
+           const subjects = ["Physics", "Chemistry", "Math", "Mathematics", "Biology", "Botany", "Zoology"];
+           subjects.forEach(sub => {
+-            const subKey = Object.keys(testDoc).find(tk => tk.startsWith(k) && tk.toLowerCase().includes(sub.toLowerCase()));
++            const subKey = Object.keys(testDoc).find(tk => {
++              if (!tk.startsWith(k)) return false;
++              const tkUpper = tk.toUpperCase();
++              const subUpper = sub.toUpperCase();
++              if (tkUpper.includes(subUpper) || (tkUpper.includes("PHY") && sub === "Physics") || (tkUpper.includes("CHEM") && sub === "Chemistry") || (tkUpper.includes("BIO") && sub === "Biology") || (tkUpper.includes("BOT") && sub === "Botany") || (tkUpper.includes("ZOO") && sub === "Zoology") || (tkUpper.includes("MAT") && sub === "Math") || (tkUpper.includes("MATHS") && sub === "Math")) return true;
++              return false;
++            });
+             if (subKey) {
+               const sm = numericScore(testDoc[subKey]);
+               if (sm !== null) { subjectSum += sm; hasSubject = true; }
+@@ -114,7 +120,13 @@ export function rankStudentsByTest(profiles, tests, testKey) {
+         let subCount = 0;
+         testKeys.forEach(k => {
+           // Look for k_sub e.g. FMT01_Physics
+-          const subKey = Object.keys(testDoc).find(tk => tk.startsWith(k) && tk.toLowerCase().includes(sub.toLowerCase()));
++          const subKey = Object.keys(testDoc).find(tk => {
++              if (!tk.startsWith(k)) return false;
++              const tkUpper = tk.toUpperCase();
++              const subUpper = sub.toUpperCase();
++              if (tkUpper.includes(subUpper) || (tkUpper.includes("PHY") && sub === "Physics") || (tkUpper.includes("CHEM") && sub === "Chemistry") || (tkUpper.includes("BIO") && sub === "Biology") || (tkUpper.includes("BOT") && sub === "Botany") || (tkUpper.includes("ZOO") && sub === "Zoology") || (tkUpper.includes("MAT") && sub === "Math") || (tkUpper.includes("MATHS") && sub === "Math")) return true;
++              return false;
++            });
+           if (subKey) {
+              const m = numericScore(testDoc[subKey]);
+              if (m !== null) { subSum += m; subCount++; }
+
+commit b2b4dddd4e3759e488f77a2e605c09a26a351597
+Author: Your Name <Academics@csrl.in>
+Date:   Thu Sep 24 10:55:20 2026 +0530
+
+    Fix test sequence sorting logic to order MT before CMT and FMT
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 44ef859..1ce47a6 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -4,6 +4,7 @@
+  */
+ 
+ import { parseTestColumn } from '../utils/testColumns.js';
++import { compareTestsAsc } from '../utils/testSort.js';
+ import fs from 'fs';
+ 
+ // ── Helpers ───────────────────────────────────────────────────────────────────
+@@ -1077,6 +1078,6 @@ export function sortTestRowsChronologically(rows) {
+     if (idxA !== -1 && idxB !== -1 && idxA !== idxB) {
+       return idxA - idxB;
+     }
+-    return a.name.localeCompare(b.name, undefined, { numeric: true });
++    return compareTestsAsc(a.name, b.name);
+   });
+ }
+
+commit 64b2d4bfc10140a8827a14b4944291695ac1faa2
+Author: Claude <claude@anthropic.com>
+Date:   Tue Sep 22 10:21:32 2026 +0000
+
+    fix(centre-chart): filter tests by stream so NEET centres don't see JEE test columns (CMT01/MT01/MT02) in the performance trend; compute correct subject ranks (Botany/Zoology) for NEET
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 83693ea..44ef859 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -1000,11 +1000,21 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+ /**
+  * Build chart-ready average data for an entire centre.
+  */
+-export function buildCentreChartData(centerTests, testColumns) {
++export function buildCentreChartData(centerTests, testColumns, stream) {
+   const testsMap = {};
+ 
++  // Filter out tests belonging to the other stream (mirrors buildStudentChartData).
++  const centreStream = String(stream || 'JEE').trim().toUpperCase();
++  const NEET_TEST_PREFIX = /^(MMT|NCT|NMT|NEET)/i;
++  const relevantColumns = (testColumns || []).filter((col) => {
++    const { testName } = parseTestColumn(col);
++    const isNeetTest = NEET_TEST_PREFIX.test(testName);
++    if (centreStream === 'NEET') return isNeetTest;
++    return !isNeetTest; // JEE centres: skip NEET-only tests
++  });
++
+   centerTests.forEach((t) => {
+-    (testColumns || []).forEach((col) => {
++    (relevantColumns || []).forEach((col) => {
+       const { subject, testName, isTotal } = parseTestColumn(col);
+       if (!testsMap[testName]) testsMap[testName] = { name: testName, count: 0, sumTotal: 0, subjectSums: {}, subjectCounts: {} };
+       
+
+commit 78bd46a315b21ca83c79db34b63524e60655601f
+Author: Your Name <Academics@csrl.in>
+Date:   Mon Sep 21 12:16:00 2026 +0530
+
+    fix: remove mongo cleanup script and make MBBS flag checking more robust
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 45e9f10..83693ea 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -728,12 +728,12 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+       let mbbsFlag;
+       if (doc) {
+         for (const k of validTestKeys) {
+-          const v = doc[`${k}_MBBS`] ?? doc[`${k}_Mbbs`] ?? doc[`${k}_mbbs`];
+-          if (v !== undefined && v !== null) { mbbsFlag = v; break; }
++          const v = doc[`${k}_MBBS`] ?? doc[`${k}_Mbbs`] ?? doc[`${k}_mbbs`] ?? doc[`${k}_STATUS`] ?? doc[`${k}_Status`] ?? doc[`${k}_status`];
++          if (v !== undefined && v !== null && String(v).trim() !== '') { mbbsFlag = v; break; }
+         }
+       }
+       // A student is MBBS if the stored flag equals 'MBBS' (any case)
+-      qualified = typeof mbbsFlag === 'string' && mbbsFlag.toUpperCase() === 'MBBS';
++      qualified = typeof mbbsFlag === 'string' && mbbsFlag.trim().toUpperCase() === 'MBBS';
+     } else {
+       qualified = total !== null && total >= overallMin;
+     }
+
+commit e3f8195bcc86895d464e5d56932ff71dcc8ef0d7
+Author: Your Name <Academics@csrl.in>
+Date:   Mon Sep 21 12:05:57 2026 +0530
+
+    fix: cleanup old legacy MBBS and STATUS flags
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 96fd637..45e9f10 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -634,7 +634,9 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+ 
+   profiles.forEach((p) => {
+     const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
+-    const stream = p.stream || doc?.stream || 'JEE';
++    // Use options.stream if provided (e.g. when viewing NEET dashboard), as profiles are already
++    // pre-filtered. Fallback to profile/test stream field, then default to JEE.
++    const stream = options.stream && options.stream !== 'ALL' ? options.stream : (p.stream || doc?.stream || 'JEE');
+     const caps = streamCaps(stream);
+     let overallMin;
+     const subjectMins = {};
+
+commit 8f93808c58f95118038e07b8e6633683f455462a
+Author: Your Name <Academics@csrl.in>
+Date:   Mon Sep 21 10:21:04 2026 +0530
+
+    fix(NEET): fix NCT01_MBBS key mangling — preserve MBBS metadata suffix in flatToNested and fix case-insensitive lookup in analytics
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 815055e..96fd637 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -718,15 +718,20 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+ 
+     // For NEET: ONLY use the MBBS status flag stored from the uploaded Excel sheet.
+     // The flag is stored as testKey_MBBS = 'MBBS' (qualified) or '' (not qualified).
+-    // Never use score-based calculation for NEET — MBBS is decided by the sheet STATUS column.
++    // NOTE: Due to flatToNested/parseTestColumn, the key may be stored as NCT01_Mbbs (not NCT01_MBBS).
++    // We must check both variants case-insensitively.
+     let qualified = false;
+     if (stream === 'NEET') {
+-      // Check all valid test keys for a _MBBS flag (e.g. MMT01_MBBS, CMT01_MBBS)
+-      const mbbsFlag = doc
+-        ? validTestKeys.map(k => doc[`${k}_MBBS`]).find(v => v !== undefined && v !== null)
+-        : undefined;
+-      // A student is MBBS if and only if the stored flag is exactly 'MBBS'
+-      qualified = mbbsFlag === 'MBBS';
++      // Check all valid test keys for a _MBBS flag — try exact 'MBBS' and normalized 'Mbbs' variants
++      let mbbsFlag;
++      if (doc) {
++        for (const k of validTestKeys) {
++          const v = doc[`${k}_MBBS`] ?? doc[`${k}_Mbbs`] ?? doc[`${k}_mbbs`];
++          if (v !== undefined && v !== null) { mbbsFlag = v; break; }
++        }
++      }
++      // A student is MBBS if the stored flag equals 'MBBS' (any case)
++      qualified = typeof mbbsFlag === 'string' && mbbsFlag.toUpperCase() === 'MBBS';
+     } else {
+       qualified = total !== null && total >= overallMin;
+     }
+
+commit 7de34a8d0b6ee69f50b75ee1ed1f357c27348f58
+Author: Your Name <Academics@csrl.in>
+Date:   Sun Sep 20 23:03:55 2026 +0530
+
+    fix(NEET): remove 500-mark score fallback — MBBS status is ONLY from Excel sheet MBBS column
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index c0b6224..815055e 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -716,17 +716,17 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+       return;
+     }
+ 
+-    // For NEET: use MBBS status flag stored in test record if available
+-    // The flag is stored as testKey_MBBS = 'MBBS' when uploaded from NEET sheet
++    // For NEET: ONLY use the MBBS status flag stored from the uploaded Excel sheet.
++    // The flag is stored as testKey_MBBS = 'MBBS' (qualified) or '' (not qualified).
++    // Never use score-based calculation for NEET — MBBS is decided by the sheet STATUS column.
+     let qualified = false;
+-    if (stream === 'NEET' && doc) {
+-      const mbbsFlag = validTestKeys.map(k => doc[`${k}_MBBS`]).find(v => v !== undefined && v !== null);
+-      if (mbbsFlag !== undefined) {
+-        qualified = mbbsFlag === 'MBBS';
+-      } else {
+-        // Fallback to score-based threshold if no MBBS flag stored
+-        qualified = total !== null && total >= overallMin;
+-      }
++    if (stream === 'NEET') {
++      // Check all valid test keys for a _MBBS flag (e.g. MMT01_MBBS, CMT01_MBBS)
++      const mbbsFlag = doc
++        ? validTestKeys.map(k => doc[`${k}_MBBS`]).find(v => v !== undefined && v !== null)
++        : undefined;
++      // A student is MBBS if and only if the stored flag is exactly 'MBBS'
++      qualified = mbbsFlag === 'MBBS';
+     } else {
+       qualified = total !== null && total >= overallMin;
+     }
+
+commit 2982766cebf4cf777999b3140f30d7683e8a7f4f
+Author: Your Name <Academics@csrl.in>
+Date:   Sun Sep 20 22:52:15 2026 +0530
+
+    feat(NEET): use MBBS status flag from uploaded sheet instead of 500-mark threshold for qualification
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 34b293a..c0b6224 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -716,9 +716,19 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+       return;
+     }
+ 
+-    let qualified = total !== null && total >= overallMin;
+-    if (!qualified) {
+-      qualified = false;
++    // For NEET: use MBBS status flag stored in test record if available
++    // The flag is stored as testKey_MBBS = 'MBBS' when uploaded from NEET sheet
++    let qualified = false;
++    if (stream === 'NEET' && doc) {
++      const mbbsFlag = validTestKeys.map(k => doc[`${k}_MBBS`]).find(v => v !== undefined && v !== null);
++      if (mbbsFlag !== undefined) {
++        qualified = mbbsFlag === 'MBBS';
++      } else {
++        // Fallback to score-based threshold if no MBBS flag stored
++        qualified = total !== null && total >= overallMin;
++      }
++    } else {
++      qualified = total !== null && total >= overallMin;
+     }
+ 
+     studentStates.push({
+
+commit b18ea09775f66c8e4e898702417800a7b6729828
+Author: Your Name <Academics@csrl.in>
+Date:   Sun Sep 20 19:06:46 2026 +0530
+
+    fix: dynamically sum subject marks when Total is absent and fix trend chart hardcoded subjects
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 41e5b60..34b293a 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -277,7 +277,27 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
+     if (!doc) return;
+     
+     testKeys.forEach(key => {
+-      const mark = numericScore(doc[key]);
++      let mark = numericScore(doc[key]);
++      
++      if (mark === null) {
++        let subjectSum = 0;
++        let hasSubject = false;
++        const subjects = ["Physics", "Chemistry", "Math", "Mathematics", "Biology", "Botany", "Zoology"];
++        subjects.forEach(sub => {
++          let sm = null;
++          const rKeys = Object.keys(doc);
++          const strictKey = rKeys.find(tk => tk.startsWith(key) && tk.toLowerCase().includes(sub.toLowerCase()));
++          if (strictKey) {
++            sm = numericScore(doc[strictKey]);
++          } else {
++            const fallbackKey = rKeys.find(tk => tk.toLowerCase() === sub.toLowerCase());
++            if (fallbackKey) sm = numericScore(doc[fallbackKey]);
++          }
++          if (sm !== null) { subjectSum += sm; hasSubject = true; }
++        });
++        if (hasSubject) mark = subjectSum;
++      }
++      
+       if (mark === null) return;
+       centreAgg[code].sum   += mark;
+       centreAgg[code].count += 1;
+
+commit 6ad82ca01a231c49db35410843043e5c4133b9ac
+Author: Csrl-git26 <Academics@csrl.in>
+Date:   Sun Sep 20 17:40:10 2026 +0530
+
+    fix: restore NEET student test records and topic analysis
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 9401920..41e5b60 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -370,17 +370,17 @@ export function subjectAveragesForTest(tests, testColumns, testKey) {
+  * Build chart-ready data for a single student.
+  * Returns [{ name: testName, Physics: 45, Chemistry: 52, Math: 48, Total: 145 }] sorted by test name.
+  */
+-export function buildStudentChartData(studentTestFlat, testColumns) {
++export function buildStudentChartData(studentTestFlat, testColumns, stream) {
+   const testsMap = {};
+ 
+   // Determine the student's stream and filter out cross-stream tests.
+-  const studentStream = ((studentTestFlat && studentTestFlat.stream) || 'JEE').toUpperCase();
++  const studentStream = String(stream || (studentTestFlat && studentTestFlat.stream) || 'JEE').trim().toUpperCase();
+   const NEET_TEST_PREFIX = /^(MMT|NCT|NMT|NEET)/i;
+ 
+   const relevantColumns = (testColumns || []).filter((col) => {
+     const { testName } = parseTestColumn(col);
+     const isNeetTest = NEET_TEST_PREFIX.test(testName);
+-    if (studentStream === 'NEET') return true; // NEET students see all tests
++    if (studentStream === 'NEET') return isNeetTest;
+     return !isNeetTest; // JEE students: skip NEET-only tests
+   });
+ 
+
+commit f0ad74aeeaf9a485d8c206034ae37c1151ffa504
+Author: Your Name <Academics@csrl.in>
+Date:   Thu Sep 17 16:03:43 2026 +0530
+
+    fix: filter cross-stream tests at API level and inside buildStudentChartData so JEE students never see NEET tests
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 57b8fa8..9401920 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -373,7 +373,18 @@ export function subjectAveragesForTest(tests, testColumns, testKey) {
+ export function buildStudentChartData(studentTestFlat, testColumns) {
+   const testsMap = {};
+ 
+-  (testColumns || []).forEach((col) => {
++  // Determine the student's stream and filter out cross-stream tests.
++  const studentStream = ((studentTestFlat && studentTestFlat.stream) || 'JEE').toUpperCase();
++  const NEET_TEST_PREFIX = /^(MMT|NCT|NMT|NEET)/i;
++
++  const relevantColumns = (testColumns || []).filter((col) => {
++    const { testName } = parseTestColumn(col);
++    const isNeetTest = NEET_TEST_PREFIX.test(testName);
++    if (studentStream === 'NEET') return true; // NEET students see all tests
++    return !isNeetTest; // JEE students: skip NEET-only tests
++  });
++
++  relevantColumns.forEach((col) => {
+     const { subject, testName, isTotal } = parseTestColumn(col);
+     if (!testsMap[testName]) testsMap[testName] = { name: testName };
+ 
+
+commit 406f0c8c025a730eb5e52906784028db8a0eaed4
+Author: Your Name <Academics@csrl.in>
+Date:   Thu Sep 17 15:28:43 2026 +0530
+
+    fix: implement chronological sorting for test sequence in charts so MTs appear before CMTs
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 91ab939..57b8fa8 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -415,9 +415,7 @@ export function buildStudentChartData(studentTestFlat, testColumns) {
+     testRow.Total = vals.length ? vals.reduce((s, [, v]) => s + v, 0) : 'Absent';
+   });
+ 
+-  return Object.values(testsMap).sort((a, b) =>
+-    a.name.localeCompare(b.name, undefined, { numeric: true })
+-  );
++  return sortTestRowsChronologically(Object.values(testsMap));
+ }
+ 
+ /**
+@@ -982,7 +980,7 @@ export function buildCentreChartData(centerTests, testColumns) {
+     });
+   });
+ 
+-  return Object.values(testsMap).map(agg => {
++  const res = Object.values(testsMap).map(agg => {
+     const row = { name: agg.name, Total: agg.count > 0 ? Math.round(agg.sumTotal / agg.count) : null };
+     ['Physics', 'Chemistry', 'Math', 'Biology', 'Botany', 'Zoology'].forEach(sub => {
+       const sum = agg.subjectSums[sub];
+@@ -990,5 +988,37 @@ export function buildCentreChartData(centerTests, testColumns) {
+       row[sub] = (count > 0) ? Math.round(sum / count) : null;
+     });
+     return row;
+-  }).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
++  });
++  return sortTestRowsChronologically(res);
++}
++
++export function sortTestRowsChronologically(rows) {
++  const parseSequence = (name) => {
++    const match = name.match(/^([A-Za-z\-]+)(\d+)(.*)$/);
++    if (!match) return null;
++    return {
++      prefix: match[1].toUpperCase().replace(/[^A-Z]/g, ''),
++      num: parseInt(match[2], 10)
++    };
++  };
++
++  const getLogicalIndex = (seq) => {
++    if (!seq) return -1;
++    if (seq.prefix === 'MT' || seq.prefix === 'PT') return seq.num * 10;
++    if (seq.prefix === 'CMT' || seq.prefix === 'JCT') return seq.num * 20 + 5;
++    if (seq.prefix === 'FMT') return 1000 + seq.num * 10;
++    return -1;
++  };
++
++  return rows.sort((a, b) => {
++    const seqA = parseSequence(a.name);
++    const seqB = parseSequence(b.name);
++    const idxA = getLogicalIndex(seqA);
++    const idxB = getLogicalIndex(seqB);
++
++    if (idxA !== -1 && idxB !== -1 && idxA !== idxB) {
++      return idxA - idxB;
++    }
++    return a.name.localeCompare(b.name, undefined, { numeric: true });
++  });
+ }
+
+commit af16992de5c8f020313b319b1be18063fe6bc518
+Author: Your Name <Academics@csrl.in>
+Date:   Thu Sep 17 03:37:40 2026 +0530
+
+    Fix absent issue by calculating total from subjects when missing
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 278b761..91ab939 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -82,7 +82,23 @@ export function rankStudentsByTest(profiles, tests, testKey) {
+     let sum = 0, count = 0;
+     if (testDoc) {
+       testKeys.forEach(k => {
+-        const m = numericScore(testDoc[k]);
++        let m = numericScore(testDoc[k]);
++        if (m === null) {
++          let subjectSum = 0;
++          let hasSubject = false;
++          const subjects = ["Physics", "Chemistry", "Math", "Mathematics", "Biology", "Botany", "Zoology"];
++          subjects.forEach(sub => {
++            const subKey = Object.keys(testDoc).find(tk => tk.startsWith(k) && tk.toLowerCase().includes(sub.toLowerCase()));
++            if (subKey) {
++              const sm = numericScore(testDoc[subKey]);
++              if (sm !== null) { subjectSum += sm; hasSubject = true; }
++            }
++          });
++          if (hasSubject) {
++            m = subjectSum;
++            testDoc[k] = m;
++          }
++        }
+         if (m !== null) { sum += m; count++; }
+       });
+     }
+
+commit a3efb6f53c0bbe368dd4d1b36e7128a975baf14e
+Author: Your Name <Academics@csrl.in>
+Date:   Thu Sep 17 02:53:57 2026 +0530
+
+    Fix empty Subjectwise Top Students due to strict tookTest check and strict name fields
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 0fca815..278b761 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -840,16 +840,12 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+   };
+ 
+   profiles.forEach((p) => {
++
+     const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
+     if (!doc) return;
+-    
+-    let tookTest = false;
+-    for (const key of validTestKeys) {
+-        if (doc[key] !== undefined && doc[key] !== "Absent") tookTest = true;
+-    }
+-    if (!tookTest) return;
+ 
+     const rKeys = Object.keys(doc);
++
+     const getScore = (sub) => {
+        let k = null;
+        for (const rk of rKeys) {
+@@ -878,7 +874,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+       if (options.stream === 'JEE' && ['Biology', 'Botany', 'Zoology'].includes(sub)) return;
+       const score = getScore(sub);
+       if (score !== null) {
+-        subjectMap[sub].push({ roll: p.ROLL_KEY, name: p["STUDENT'S NAME"] || p["STUDENT NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score });
++        subjectMap[sub].push({ roll: p.ROLL_KEY, name: p["NAME"] || p["name"] || p["STUDENT NAME"] || p["STUDENT'S NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score });
+       }
+     });
+ 
+@@ -886,7 +882,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+       const m1 = getScore("Math"), m2 = getScore("Mathematics");
+       const math = Math.max(m1||0, m2||0);
+       if (m1 !== null || m2 !== null) {
+-        subjectMap.Math.push({ roll: p.ROLL_KEY, name: p["STUDENT'S NAME"] || p["STUDENT NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score: math });
++        subjectMap.Math.push({ roll: p.ROLL_KEY, name: p["NAME"] || p["name"] || p["STUDENT NAME"] || p["STUDENT'S NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score: math });
+       }
+     }
+   });
+
+commit c242f9fc106eeab5a486870373efc2a7d283bac7
+Author: Your Name <Academics@csrl.in>
+Date:   Thu Sep 17 02:49:28 2026 +0530
+
+    Fix duplicate subjects identifier syntax error
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index e077296..0fca815 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -891,7 +891,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+     }
+   });
+ 
+-  let subjects = Object.keys(subjectMap).filter(sub => subjectMap[sub].length > 0);
++  subjects = Object.keys(subjectMap).filter(sub => subjectMap[sub].length > 0);
+ 
+   const subjectTopStudents = [];
+   const subjectDisplayNames = {
+
+commit f12db74f420b3162430d5239663cb92a4d78c39b
+Author: Your Name <Academics@csrl.in>
+Date:   Thu Sep 17 02:42:16 2026 +0530
+
+    Fix Botany/Botnay typo and shorthand keys in getScoreForDoc
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index 3638014..e077296 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -4,6 +4,7 @@
+  */
+ 
+ import { parseTestColumn } from '../utils/testColumns.js';
++import fs from 'fs';
+ 
+ // ── Helpers ───────────────────────────────────────────────────────────────────
+ 
+@@ -254,7 +255,7 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
+     const code = p.centerCode || 'UNKNOWN';
+     const doc  = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
+ 
+-    if (!centreAgg[code]) centreAgg[code] = { sum: 0, count: 0, max: -Infinity, min: Infinity, studentCount: 0, phySum: 0, cheSum: 0, mathSum: 0, phyCount: 0, cheCount: 0, mathCount: 0 };
++    if (!centreAgg[code]) centreAgg[code] = { sum: 0, count: 0, max: -Infinity, min: Infinity, studentCount: 0, phySum: 0, cheSum: 0, mathSum: 0, phyCount: 0, cheCount: 0, mathCount: 0, bioSum: 0, bioCount: 0, botSum: 0, botCount: 0, zooSum: 0, zooCount: 0 };
+     centreAgg[code].studentCount++;
+ 
+     if (!doc) return;
+@@ -275,7 +276,14 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
+           k = rKeys.find(rk => rk === `${key}_${sub}` || rk === `${key}_${sub.toUpperCase()}` || rk === `${key}_${sub.toLowerCase()}`);
+           if (k) break;
+        }
+-       if (!k) k = rKeys.find(rk => rk === sub || rk.toLowerCase().endsWith('_' + sub.toLowerCase()));
++       if (!k) {
++         k = rKeys.find(rk => {
++            const rkUpper = rk.toUpperCase();
++        const subUpper = sub.toUpperCase();
++        if (rkUpper === subUpper || (rkUpper === "PHY" && sub === "Physics") || (rkUpper === "CHEM" && sub === "Chemistry") || (rkUpper === "BIO" && sub === "Biology") || (rkUpper === "BOT" && sub === "Botany") || (rkUpper === "ZOO" && sub === "Zoology") || (rkUpper === "MAT" && sub === "Math") || (rkUpper === "MATHS" && sub === "Math") || (rkUpper === "MATHEMATICS" && sub === "Math") || (rkUpper.includes("BOTNAY") && sub === "Botany")) return true;
++        return rk.toLowerCase().endsWith("_" + sub.toLowerCase()) || (rk.toLowerCase().endsWith("_botnay") && sub === "Botany") || (rkUpper.endsWith("_PHY") && sub === "Physics") || (rkUpper.endsWith("_CHEM") && sub === "Chemistry") || (rkUpper.endsWith("_BIO") && sub === "Biology") || (rkUpper.endsWith("_BOT") && sub === "Botany") || (rkUpper.endsWith("_ZOO") && sub === "Zoology") || (rkUpper.endsWith("_MAT") && sub === "Math") || (rkUpper.endsWith("_MATHS") && sub === "Math");
++         });
++       }
+        if (k && !isNaN(Number(doc[k]))) {
+            let val = Number(doc[k]);
+            return val > 0 ? val : 0;
+@@ -294,6 +302,12 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
+          centreAgg[code].mathSum += math; 
+          centreAgg[code].mathCount++; 
+     }
++    const bio = getScore('Biology');
++    if (bio !== null) { centreAgg[code].bioSum += bio; centreAgg[code].bioCount++; }
++    const bot = getScore('Botany');
++    if (bot !== null) { centreAgg[code].botSum += bot; centreAgg[code].botCount++; }
++    const zoo = getScore('Zoology');
++    if (zoo !== null) { centreAgg[code].zooSum += zoo; centreAgg[code].zooCount++; }
+   });
+ 
+   return Object.entries(centreAgg)
+@@ -313,7 +327,10 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
+          code, avg, top, bottom, tested: s.count, studentCount: s.studentCount, weakSubject,
+          Physics: s.phyCount ? Math.round(s.phySum / s.phyCount) : 0,
+          Chemistry: s.cheCount ? Math.round(s.cheSum / s.cheCount) : 0,
+-         Math: s.mathCount ? Math.round(s.mathSum / s.mathCount) : 0
++         Math: s.mathCount ? Math.round(s.mathSum / s.mathCount) : 0,
++         Biology: s.bioCount ? Math.round(s.bioSum / s.bioCount) : 0,
++         Botany: s.botCount ? Math.round(s.botSum / s.botCount) : 0,
++         Zoology: s.zooCount ? Math.round(s.zooSum / s.zooCount) : 0
+       };
+     })
+     .sort((a, b) => b.avg - a.avg)
+@@ -476,17 +493,47 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+   }
+ 
+   const validTestKeys = testKey.split(',').map(k => k.trim());
+-  const subjectCols = (testColumns || []).filter((col) => {
+-    const p = parseTestColumn(col);
+-    return !p.isTotal && validTestKeys.includes(p.testName);
+-  });
++  const getScoreForDoc = (doc, sub, validTestKeys) => {
++    if (!doc) return null;
++    const rKeys = Object.keys(doc);
++    let k = null;
++    for (const rk of rKeys) {
++        const pcol = parseTestColumn(rk);
++        if (validTestKeys.includes(pcol.testName) && pcol.subject === sub) {
++        k = rk;
++        break;
++        }
++    }
++    if (!k) {
++        k = rKeys.find(rk => {
++        const rkUpper = rk.toUpperCase();
++        const subUpper = sub.toUpperCase();
++        if (rkUpper === subUpper || (rkUpper === "PHY" && sub === "Physics") || (rkUpper === "CHEM" && sub === "Chemistry") || (rkUpper === "BIO" && sub === "Biology") || (rkUpper === "BOT" && sub === "Botany") || (rkUpper === "ZOO" && sub === "Zoology") || (rkUpper === "MAT" && sub === "Math") || (rkUpper === "MATHS" && sub === "Math") || (rkUpper === "MATHEMATICS" && sub === "Math") || (rkUpper.includes("BOTNAY") && sub === "Botany")) return true;
++        return rk.toLowerCase().endsWith("_" + sub.toLowerCase()) || (rk.toLowerCase().endsWith("_botnay") && sub === "Botany") || (rkUpper.endsWith("_PHY") && sub === "Physics") || (rkUpper.endsWith("_CHEM") && sub === "Chemistry") || (rkUpper.endsWith("_BIO") && sub === "Biology") || (rkUpper.endsWith("_BOT") && sub === "Botany") || (rkUpper.endsWith("_ZOO") && sub === "Zoology") || (rkUpper.endsWith("_MAT") && sub === "Math") || (rkUpper.endsWith("_MATHS") && sub === "Math");
++        });
++    }
++    if (k && !isNaN(Number(doc[k]))) {
++        let val = Number(doc[k]);
++        return val > 0 ? val : 0;
++    }
++    return null;
++  };
+ 
+-  let subjects = [...new Set(subjectCols.map((c) => parseTestColumn(c).subject))];
+-  if (options.stream === 'NEET') {
+-    subjects = subjects.filter(s => !['Math', 'Mathematics'].includes(s));
+-  } else if (options.stream === 'JEE') {
+-    subjects = subjects.filter(s => !['Biology', 'Botany', 'Zoology'].includes(s));
++  let subjectsSet = new Set();
++  const allSubjs = ['Physics', 'Chemistry', 'Math', 'Biology', 'Botany', 'Zoology'];
++  for (const sub of allSubjs) {
++     if (options.stream === 'JEE' && ['Biology', 'Botany', 'Zoology'].includes(sub)) continue;
++     if (options.stream === 'NEET' && ['Math', 'Mathematics'].includes(sub)) continue;
++     for (const p of profiles) {
++        const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
++        if (doc && getScoreForDoc(doc, sub, validTestKeys) !== null) {
++            subjectsSet.add(sub);
++            break;
++        }
++     }
+   }
++  fs.writeFileSync("debug.log", JSON.stringify({ actualSubjects: Array.from(subjectsSet), testKey: options.testKey, stream: options.stream, profilesLength: profiles.length, testsLength: tests.length }) + "\n");
++  let subjects = Array.from(subjectsSet);
+ 
+ 
+   const ranked = rankStudentsByTest(profiles, tests, testKey);
+@@ -555,24 +602,21 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+       else if (cat.includes('EWS')) overallMin = 90;
+       else overallMin = 110; // GEN or default
+ 
+-      subjectCols.forEach((col) => {
+-        const subj = parseTestColumn(col).subject;
++      subjects.forEach((subj) => {
+         subjectMins[subj] = 30; // 30 marks per subject for all categories
+       });
+     } else {
+       overallMin = neetOverallMin;
+       const subRatio = neetSubjectQualifyRatio;
+-      subjectCols.forEach((col) => {
+-        const subj = parseTestColumn(col).subject;
++      subjects.forEach((subj) => {
+         subjectMins[subj] = maxForSubject(stream, subj) * subRatio;
+       });
+     }
+ 
+     const subjectScores = {};
+     const subjectCounts = {};
+-    subjectCols.forEach((col) => {
+-      const subj = parseTestColumn(col).subject;
+-      const m = doc ? numericScore(doc[col]) : null;
++    subjects.forEach((subj) => {
++      const m = getScoreForDoc(doc, subj, validTestKeys);
+       if (m !== null) {
+         subjectScores[subj] = (subjectScores[subj] || 0) + m;
+         subjectCounts[subj] = (subjectCounts[subj] || 0) + 1;
+@@ -818,9 +862,9 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+        if (!k) {
+          k = rKeys.find(rk => {
+             const rkUpper = rk.toUpperCase();
+-            const subUpper = sub.toUpperCase();
+-            if (rkUpper === subUpper || (rkUpper === "PHY" && sub === "Physics") || (rkUpper === "CHEM" && sub === "Chemistry") || (rkUpper === "BIO" && sub === "Biology") || (rkUpper === "BOT" && sub === "Botany") || (rkUpper === "ZOO" && sub === "Zoology")) return true;
+-            return rk.toLowerCase().endsWith("_" + sub.toLowerCase()) || (rkUpper.endsWith("_PHY") && sub === "Physics") || (rkUpper.endsWith("_CHEM") && sub === "Chemistry") || (rkUpper.endsWith("_BIO") && sub === "Biology") || (rkUpper.endsWith("_BOT") && sub === "Botany") || (rkUpper.endsWith("_ZOO") && sub === "Zoology");
++        const subUpper = sub.toUpperCase();
++        if (rkUpper === subUpper || (rkUpper === "PHY" && sub === "Physics") || (rkUpper === "CHEM" && sub === "Chemistry") || (rkUpper === "BIO" && sub === "Biology") || (rkUpper === "BOT" && sub === "Botany") || (rkUpper === "ZOO" && sub === "Zoology") || (rkUpper === "MAT" && sub === "Math") || (rkUpper === "MATHS" && sub === "Math") || (rkUpper === "MATHEMATICS" && sub === "Math") || (rkUpper.includes("BOTNAY") && sub === "Botany")) return true;
++        return rk.toLowerCase().endsWith("_" + sub.toLowerCase()) || (rk.toLowerCase().endsWith("_botnay") && sub === "Botany") || (rkUpper.endsWith("_PHY") && sub === "Physics") || (rkUpper.endsWith("_CHEM") && sub === "Chemistry") || (rkUpper.endsWith("_BIO") && sub === "Biology") || (rkUpper.endsWith("_BOT") && sub === "Botany") || (rkUpper.endsWith("_ZOO") && sub === "Zoology") || (rkUpper.endsWith("_MAT") && sub === "Math") || (rkUpper.endsWith("_MATHS") && sub === "Math");
+          });
+        }
+        if (k && !isNaN(Number(doc[k]))) {
+@@ -847,6 +891,8 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+     }
+   });
+ 
++  let subjects = Object.keys(subjectMap).filter(sub => subjectMap[sub].length > 0);
++
+   const subjectTopStudents = [];
+   const subjectDisplayNames = {
+     Physics: "PHY",
+@@ -926,7 +972,7 @@ export function buildCentreChartData(centerTests, testColumns) {
+ 
+   return Object.values(testsMap).map(agg => {
+     const row = { name: agg.name, Total: agg.count > 0 ? Math.round(agg.sumTotal / agg.count) : null };
+-    ['Physics', 'Chemistry', 'Math', 'Biology'].forEach(sub => {
++    ['Physics', 'Chemistry', 'Math', 'Biology', 'Botany', 'Zoology'].forEach(sub => {
+       const sum = agg.subjectSums[sub];
+       const count = agg.subjectCounts[sub];
+       row[sub] = (count > 0) ? Math.round(sum / count) : null;
+
+commit cbe0552c94863d202fdfb5d436088847d74e7d01
+Author: Your Name <Academics@csrl.in>
+Date:   Thu Sep 17 01:28:20 2026 +0530
+
+    Fix botany and zoology for subjectwise insights fallback
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index b6b288d..3638014 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -807,13 +807,26 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+ 
+     const rKeys = Object.keys(doc);
+     const getScore = (sub) => {
++       let k = null;
+        for (const rk of rKeys) {
+          const p = parseTestColumn(rk);
+          if (validTestKeys.includes(p.testName) && p.subject === sub) {
+-            const val = Number(doc[rk]);
+-            if (!isNaN(val)) return val > 0 ? val : 0;
++            k = rk;
++            break;
+          }
+        }
++       if (!k) {
++         k = rKeys.find(rk => {
++            const rkUpper = rk.toUpperCase();
++            const subUpper = sub.toUpperCase();
++            if (rkUpper === subUpper || (rkUpper === "PHY" && sub === "Physics") || (rkUpper === "CHEM" && sub === "Chemistry") || (rkUpper === "BIO" && sub === "Biology") || (rkUpper === "BOT" && sub === "Botany") || (rkUpper === "ZOO" && sub === "Zoology")) return true;
++            return rk.toLowerCase().endsWith("_" + sub.toLowerCase()) || (rkUpper.endsWith("_PHY") && sub === "Physics") || (rkUpper.endsWith("_CHEM") && sub === "Chemistry") || (rkUpper.endsWith("_BIO") && sub === "Biology") || (rkUpper.endsWith("_BOT") && sub === "Botany") || (rkUpper.endsWith("_ZOO") && sub === "Zoology");
++         });
++       }
++       if (k && !isNaN(Number(doc[k]))) {
++           let val = Number(doc[k]);
++           return val > 0 ? val : 0;
++       }
+        return null;
+     };
+     

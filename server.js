@@ -294,7 +294,7 @@ function filterByStream(profiles, tests, stream) {
         const kTrim = k.trim().toUpperCase();
         if (kTrim.startsWith('NCT') || kTrim.startsWith('MMT') || kTrim.startsWith('NMT') || kTrim.startsWith('NEET')) {
           const v = testsByRoll[p.ROLL_KEY][k];
-          return v !== undefined && v !== null && v !== '' && String(v).toLowerCase() !== 'absent';
+          return v !== undefined && v !== null && String(v).trim() !== '' && String(v).toLowerCase() !== 'absent';
         }
         return false;
       });
@@ -370,6 +370,9 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
     } else {
       resolvedCenterCode = '';
     }
+  }
+  if (resolvedCenterCode === 'ALL' || resolvedCenterCode === 'All centres') {
+    resolvedCenterCode = '';
   }
 
   const source = resolvedCenterCode ? await loadCenterApplicationData(resolvedCenterCode) : await loadApplicationData();
@@ -530,6 +533,9 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
     } else {
       resolvedCenterCode = '';
     }
+  }
+  if (resolvedCenterCode === 'ALL' || resolvedCenterCode === 'All centres') {
+    resolvedCenterCode = '';
   }
 
   const global = resolvedCenterCode ? await loadCenterApplicationData(resolvedCenterCode) : await loadApplicationData();
