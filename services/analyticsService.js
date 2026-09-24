@@ -408,9 +408,10 @@ export function buildStudentChartData(studentTestFlat, testColumns, stream) {
 
   // Determine the student's stream and filter out cross-stream tests.
   const studentStream = String(stream || (studentTestFlat && studentTestFlat.stream) || 'JEE').trim().toUpperCase();
-  const NEET_TEST_PREFIX = /^(MMT|NCT|NMT|NEET)/i;
+  const NEET_TEST_PREFIX = /^\s*(MMT|NCT|NMT|NEET)/i;
 
   const relevantColumns = (testColumns || []).filter((col) => {
+    if (!studentStream || studentStream === 'ALL') return true;
     const { testName } = parseTestColumn(col);
     const isNeetTest = NEET_TEST_PREFIX.test(testName);
     if (studentStream === 'NEET') return isNeetTest;
@@ -708,10 +709,24 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
 
     let sum = 0, count = 0;
     validTestKeys.forEach(k => {
-      const m = numericScore(doc[k]);
+      let m = numericScore(doc[k]);
+      if (m === null) {
+        let subjectSum = 0;
+        let hasSubject = false;
+        subjects.forEach(subj => {
+          const mSubj = getScoreForDoc(doc, subj, [k]);
+          if (mSubj !== null) {
+            subjectSum += mSubj;
+            hasSubject = true;
+          }
+        });
+        if (hasSubject) {
+          m = subjectSum;
+        }
+      }
       if (m !== null) { sum += m; count++; }
     });
-    const total = count > 0 ? sum / count : null;
+    let total = count > 0 ? sum / count : null;
     const appeared =
       total !== null ||
       Object.values(subjectScores).some((v) => v !== null && v !== undefined);
@@ -1018,13 +1033,16 @@ export function buildCentreChartData(centerTests, testColumns, stream) {
 
   // Filter out tests belonging to the other stream (mirrors buildStudentChartData).
   const centreStream = String(stream || 'JEE').trim().toUpperCase();
-  const NEET_TEST_PREFIX = /^(MMT|NCT|NMT|NEET)/i;
+  const NEET_TEST_PREFIX = /^\s*(MMT|NCT|NMT|NEET)/i;
   const relevantColumns = (testColumns || []).filter((col) => {
+    if (!centreStream || centreStream === 'ALL') return true;
     const { testName } = parseTestColumn(col);
     const isNeetTest = NEET_TEST_PREFIX.test(testName);
     if (centreStream === 'NEET') return isNeetTest;
     return !isNeetTest; // JEE centres: skip NEET-only tests
   });
+
+  const allSubjects = new Set(['Physics', 'Chemistry', 'Math', 'Biology', 'Botany', 'Zoology']);
 
   centerTests.forEach((t) => {
     (relevantColumns || []).forEach((col) => {
@@ -1039,6 +1057,7 @@ export function buildCentreChartData(centerTests, testColumns, stream) {
             testsMap[testName].sumTotal += m;
             testsMap[testName].count += 1;
           } else {
+            allSubjects.add(subject);
             if (!testsMap[testName].subjectSums[subject]) {
               testsMap[testName].subjectSums[subject] = 0;
               testsMap[testName].subjectCounts[subject] = 0;
@@ -1053,10 +1072,12 @@ export function buildCentreChartData(centerTests, testColumns, stream) {
 
   const res = Object.values(testsMap).map(agg => {
     const row = { name: agg.name, Total: agg.count > 0 ? Math.round(agg.sumTotal / agg.count) : null };
-    ['Physics', 'Chemistry', 'Math', 'Biology', 'Botany', 'Zoology'].forEach(sub => {
+    allSubjects.forEach(sub => {
       const sum = agg.subjectSums[sub];
       const count = agg.subjectCounts[sub];
-      row[sub] = (count > 0) ? Math.round(sum / count) : null;
+      if (count > 0) {
+        row[sub] = Math.round(sum / count);
+      }
     });
     return row;
   });

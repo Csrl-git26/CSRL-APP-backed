@@ -1,56 +1,32 @@
-import os
 import re
 
-filepath = '/Users/surya/Desktop/CSRL-APP-backed/server.js'
-with open(filepath, 'r') as f:
-    content = f.read()
+server_path = '/Users/surya/Desktop/CSRL-APP-backed/server.js'
+with open(server_path, 'r') as f:
+    server_content = f.read()
 
-# Fix 1: In app.get('/api/analytics/centre-chart', ...)
-# Change hardcoded ['Physics', 'Chemistry', 'Math'] to use stream logic.
-old_chart = """      ['Physics', 'Chemistry', 'Math'].forEach(sub => {
-        const validCentres = insights.centreRows.filter(r => r.subjectAvgs[sub] !== null && r.subjectAvgs[sub] !== undefined);
-        if (validCentres.some(r => r.code === centerCode)) {
-          validCentres.sort((a, b) => b.subjectAvgs[sub] - a.subjectAvgs[sub]);
-          row[`${sub}_Rank`] = validCentres.findIndex(r => r.code === centerCode) + 1;
-        }
-      });"""
+test_insights_logic = """
+app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  const { testKey, rollKey, stream, centerCode } = req.query;
+  if (!testKey) return res.status(400).json({ message: 'testKey is required' });
 
-new_chart = """      const subjects = stream === 'NEET' ? ['Physics', 'Chemistry', 'Botany', 'Zoology', 'Biology'] : ['Physics', 'Chemistry', 'Math', 'Mathematics'];
-      subjects.forEach(sub => {
-        const validCentres = insights.centreRows.filter(r => r.subjectAvgs[sub] !== null && r.subjectAvgs[sub] !== undefined);
-        if (validCentres.some(r => r.code === centerCode)) {
-          validCentres.sort((a, b) => b.subjectAvgs[sub] - a.subjectAvgs[sub]);
-          row[`${sub}_Rank`] = validCentres.findIndex(r => r.code === centerCode) + 1;
-        }
-      });"""
+  let resolvedCenterCode = centerCode;
+  if (!resolvedCenterCode || resolvedCenterCode === 'undefined' || resolvedCenterCode === 'null') {
+    if (req.user.role === 'centre') {
+      resolvedCenterCode = req.user.id;
+    } else {
+      resolvedCenterCode = '';
+    }
+  }
 
-content = content.replace(old_chart, new_chart)
+  const global = resolvedCenterCode ? await loadCenterApplicationData(resolvedCenterCode) : await loadApplicationData();
+"""
 
-# Fix 2: rankStudentsByTest missing Botany due to strict tk.startsWith(k)
-old_student_rank = """          subjects.forEach(sub => {
-            const subKey = Object.keys(testDoc).find(tk => tk.startsWith(k) && tk.toLowerCase().includes(sub.toLowerCase()));
-            if (subKey) {
-              const sm = numericScore(testDoc[subKey]);
-              if (sm !== null) { subjectSum += sm; hasSubject = true; }
-            }
-          });"""
+old_pattern = r"app\.get\('/api/analytics/test-insights', authenticateToken, async \(req, res\) => \{\n  res\.setHeader\('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'\);\n  res\.setHeader\('Pragma', 'no-cache'\);\n  res\.setHeader\('Expires', '0'\);\n  const \{ testKey, rollKey, stream \} = req\.query;\n  if \(!testKey\) return res\.status\(400\)\.json\(\{ message: 'testKey is required' \}\);\n\n  const global = await loadApplicationData\(\);"
 
-new_student_rank = """          subjects.forEach(sub => {
-            let sm = null;
-            const keys = Object.keys(testDoc);
-            const strictKey = keys.find(tk => tk.startsWith(k) && tk.toLowerCase().includes(sub.toLowerCase()));
-            if (strictKey) {
-              sm = numericScore(testDoc[strictKey]);
-            } else {
-              const fallbackKey = keys.find(tk => tk.toLowerCase() === sub.toLowerCase());
-              if (fallbackKey) sm = numericScore(testDoc[fallbackKey]);
-            }
-            if (sm !== null) { subjectSum += sm; hasSubject = true; }
-          });"""
+server_content = re.sub(old_pattern, test_insights_logic.strip(), server_content)
 
-content = content.replace(old_student_rank, new_student_rank)
-
-with open(filepath, 'w') as f:
-    f.write(content)
-
-print("server.js patched successfully.")
+with open(server_path, 'w') as f:
+    f.write(server_content)

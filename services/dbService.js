@@ -200,7 +200,14 @@ export async function loadCenterApplicationData(centerCode) {
 }
 
 function normalizeCenterCode(v) {
-  return String(v ?? '').trim().toUpperCase();
+  let code = String(v ?? '').trim().toUpperCase();
+  const sponsors = ['GAIL GAS', 'GAIL', 'OIL INDIA', 'OIL'];
+  for (const sponsor of sponsors) {
+    if (code.startsWith(sponsor + ' ')) {
+      code = code.substring(sponsor.length + 1).trim();
+    }
+  }
+  return code;
 }
 
 export function sliceCenterFromGlobal(globalData, centerCode) {
@@ -270,8 +277,15 @@ function processDbDocuments(profilesDocs, tDocs) {
     }
     if (obj['CENTRE CODE']) {
       let cCode = String(obj['CENTRE CODE']).toUpperCase().trim();
+      const sponsors = ['GAIL GAS', 'GAIL', 'OIL INDIA', 'OIL'];
+      for (const sponsor of sponsors) {
+        if (cCode.startsWith(sponsor + ' ')) {
+          cCode = cCode.substring(sponsor.length + 1).trim();
+        }
+      }
       if (cCode === 'OIL INDIA' || cCode === 'OIL_INDIA') obj['CENTRE CODE'] = 'JDH';
-      if (cCode === 'GAIL') obj['CENTRE CODE'] = 'KNP';
+      else if (cCode === 'GAIL') obj['CENTRE CODE'] = 'KNP';
+      else obj['CENTRE CODE'] = cCode;
     }
 
     return obj;

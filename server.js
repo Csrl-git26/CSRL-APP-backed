@@ -204,6 +204,12 @@ app.get('/api/data/centers', authenticateToken, async (req, res) => {
   global.profiles.forEach((p) => {
     if (!p.centerCode) return;
     let code = p.centerCode.toUpperCase();
+    const sponsors = ['GAIL GAS', 'GAIL', 'OIL INDIA', 'OIL'];
+    for (const sponsor of sponsors) {
+      if (code.startsWith(sponsor + ' ')) {
+        code = code.substring(sponsor.length + 1).trim();
+      }
+    }
     if (code === 'OIL INDIA' || code === 'OIL_INDIA') code = 'JDH';
     if (code === 'GAIL') code = 'KNP';
 
