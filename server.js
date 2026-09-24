@@ -277,75 +277,85 @@ function filterByStream(profiles, tests, stream) {
   if (!stream || stream === 'ALL') return { profiles, tests };
   const targetStream = stream.toUpperCase();
   
-  // Create a map from ROLL_KEY -> tests doc for fast lookup
   const testsByRoll = {};
   tests.forEach(t => { testsByRoll[t.ROLL_KEY] = t; });
 
   const profileStreams = {};
-  profiles.forEach(p => {
-    let rawStream = p.stream || p.STREAM || p.Stream;
-    if (!rawStream && p.centerCode && NEET_CENTRE_CODES.has(String(p.centerCode).toUpperCase())) {
-      rawStream = 'NEET';
-    }
-    
-    // Auto-detect NEET by checking if they took any NEET specific tests
-    if (rawStream !== 'NEET' && testsByRoll[p.ROLL_KEY]) {
-      const hasNeetTest = Object.keys(testsByRoll[p.ROLL_KEY]).some(k => {
-        const kTrim = k.trim().toUpperCase();
-        if (kTrim.startsWith('NCT') || kTrim.startsWith('MMT') || kTrim.startsWith('NMT') || kTrim.startsWith('NEET')) {
-          const v = testsByRoll[p.ROLL_KEY][k];
-          return v !== undefined && v !== null && String(v).trim() !== '' && String(v).toLowerCase() !== 'absent';
-        }
-        return false;
-      });
-      if (hasNeetTest) {
-        rawStream = 'NEET';
-      }
+  
+  const detectStreams = (roll, rawStream, center, doc) => {
+    const streams = new Set();
+    if (rawStream) {
+      streams.add(String(rawStream).trim().toUpperCase());
     }
 
-    if (!rawStream) {
-      rawStream = 'JEE';
+    if (center && NEET_CENTRE_CODES.has(String(center).toUpperCase())) {
+      streams.add('NEET');
     }
-    profileStreams[p.ROLL_KEY] = String(rawStream).trim().toUpperCase();
+    
+    if (doc) {
+      let hasNeet = false;
+      let hasJee = false;
+      for (const k of Object.keys(doc)) {
+        if (k === 'ROLL_KEY' || k === 'centerCode' || k === 'stream') continue;
+        const v = doc[k];
+        const isValid = v !== undefined && v !== null && String(v).trim() !== '' && String(v).toLowerCase() !== 'absent';
+        if (isValid) {
+          const kTrim = k.trim().toUpperCase();
+          if (kTrim.startsWith('NCT') || kTrim.startsWith('MMT') || kTrim.startsWith('NMT') || kTrim.startsWith('NEET')) {
+            hasNeet = true;
+          }
+          if (kTrim.startsWith('MT') || kTrim.startsWith('CMT') || kTrim.startsWith('FMT') || kTrim.startsWith('PT') || kTrim.startsWith('JCT')) {
+            hasJee = true;
+          }
+        }
+        if (hasNeet && hasJee) break;
+      }
+      if (hasNeet) streams.add('NEET');
+      if (hasJee) streams.add('JEE');
+    }
+
+    if (streams.size === 0) {
+      streams.add('JEE'); // fallback
+    }
+    return streams;
+  };
+
+  profiles.forEach(p => {
+    profileStreams[p.ROLL_KEY] = detectStreams(p.ROLL_KEY, p.stream || p.STREAM || p.Stream, p.centerCode, testsByRoll[p.ROLL_KEY]);
   });
 
-  const filteredProfiles = profiles.filter(p => profileStreams[p.ROLL_KEY] === targetStream);
-  const profileKeys = new Set(filteredProfiles.map(p => p.ROLL_KEY));
+  const filteredProfiles = [];
+  const filteredTests = [];
+  const profileKeys = new Set();
 
-  const filteredTests = tests.filter(t => {
-    if (profileStreams[t.ROLL_KEY]) {
-      return profileStreams[t.ROLL_KEY] === targetStream;
-    }
-    let rawStream = t.stream;
-    const roll = t.ROLL_KEY || '';
-    const center = t.centerCode || '';
-    if (roll.includes('JRS') || roll.includes('TEZ') || roll.includes('PUN') || roll.includes('GVM') || roll.includes('JRT') || center === 'JRS' || center === 'TEZ' || center === 'PUN' || center === 'GVM' || center === 'JRT') {
-       rawStream = 'NEET';
-    } else {
-       const hasNeetTest = Object.keys(t).some(k => 
-         k !== 'ROLL_KEY' && k !== 'centerCode' && k !== 'stream' && (k.startsWith('NCT') || k.startsWith('MMT') || k.startsWith('NMT'))
-       );
-       if (hasNeetTest) rawStream = 'NEET';
-    }
-    if (!rawStream) {
-       rawStream = 'JEE';
+  tests.forEach(t => {
+    const roll = t.ROLL_KEY;
+    if (!profileStreams[roll]) {
+      profileStreams[roll] = detectStreams(roll, t.stream, t.centerCode, t);
     }
     
-    const isTarget = String(rawStream).trim().toUpperCase() === targetStream;
-    
-    if (isTarget) {
+    if (profileStreams[roll].has(targetStream)) {
+      filteredTests.push(t);
       if (!profileKeys.has(roll)) {
         filteredProfiles.push({
           ROLL_KEY: roll,
-          centerCode: center,
-          stream: rawStream,
+          centerCode: t.centerCode || '',
+          stream: Array.from(profileStreams[roll])[0],
           name: t.name || roll
         });
         profileKeys.add(roll);
       }
-      return true;
     }
-    return false;
+  });
+
+  profiles.forEach(p => {
+    const roll = p.ROLL_KEY;
+    if (profileStreams[roll].has(targetStream)) {
+      if (!profileKeys.has(roll)) {
+        filteredProfiles.push(p);
+        profileKeys.add(roll);
+      }
+    }
   });
 
   return { profiles: filteredProfiles, tests: filteredTests };
