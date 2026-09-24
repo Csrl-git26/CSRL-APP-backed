@@ -290,9 +290,14 @@ function filterByStream(profiles, tests, stream) {
     
     // Auto-detect NEET by checking if they took any NEET specific tests
     if (rawStream !== 'NEET' && testsByRoll[p.ROLL_KEY]) {
-      const hasNeetTest = Object.keys(testsByRoll[p.ROLL_KEY]).some(k => 
-        k.startsWith('NCT') || k.startsWith('MMT') || k.startsWith('NMT')
-      );
+      const hasNeetTest = Object.keys(testsByRoll[p.ROLL_KEY]).some(k => {
+        const kTrim = k.trim().toUpperCase();
+        if (kTrim.startsWith('NCT') || kTrim.startsWith('MMT') || kTrim.startsWith('NMT') || kTrim.startsWith('NEET')) {
+          const v = testsByRoll[p.ROLL_KEY][k];
+          return v !== undefined && v !== null && v !== '' && String(v).toLowerCase() !== 'absent';
+        }
+        return false;
+      });
       if (hasNeetTest) {
         rawStream = 'NEET';
       }

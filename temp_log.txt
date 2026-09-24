@@ -1,0 +1,51 @@
+commit 6fd8135530c74b2aedcd27f86b5125f7a6a0f53e
+Author: Your Name <Academics@csrl.in>
+Date:   Thu Sep 24 12:46:24 2026 +0530
+
+    Remove fs.writeFileSync to fix Vercel crash on Test Analysis Tab
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index ff049d0..7287641 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -591,7 +591,6 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
+         }
+      }
+   }
+-  fs.writeFileSync("debug.log", JSON.stringify({ actualSubjects: Array.from(subjectsSet), testKey: options.testKey, stream: options.stream, profilesLength: profiles.length, testsLength: tests.length }) + "\n");
+   let subjects = Array.from(subjectsSet);
+ 
+ 
+
+commit 712536f1acd212e85cba069daba7a8c6d5d641b2
+Author: Your Name <Academics@csrl.in>
+Date:   Thu Sep 24 12:19:56 2026 +0530
+
+    Fix rankStudentsByTest to correctly process test columns with leading spaces
+
+diff --git a/services/analyticsService.js b/services/analyticsService.js
+index a9e7cd4..ff049d0 100644
+--- a/services/analyticsService.js
++++ b/services/analyticsService.js
+@@ -90,8 +90,8 @@ export function rankStudentsByTest(profiles, tests, testKey) {
+           const subjects = ["Physics", "Chemistry", "Math", "Mathematics", "Biology", "Botany", "Zoology"];
+           subjects.forEach(sub => {
+             const subKey = Object.keys(testDoc).find(tk => {
+-              if (!tk.startsWith(k)) return false;
+-              const tkUpper = tk.toUpperCase();
++              if (!tk.trim().startsWith(k)) return false;
++              const tkUpper = tk.trim().toUpperCase();
+               const subUpper = sub.toUpperCase();
+               if (tkUpper.includes(subUpper) || (tkUpper.includes("PHY") && sub === "Physics") || (tkUpper.includes("CHEM") && sub === "Chemistry") || (tkUpper.includes("BIO") && sub === "Biology") || (tkUpper.includes("BOT") && sub === "Botany") || (tkUpper.includes("ZOO") && sub === "Zoology") || (tkUpper.includes("MAT") && sub === "Math") || (tkUpper.includes("MATHS") && sub === "Math")) return true;
+               return false;
+@@ -121,8 +121,8 @@ export function rankStudentsByTest(profiles, tests, testKey) {
+         testKeys.forEach(k => {
+           // Look for k_sub e.g. FMT01_Physics
+           const subKey = Object.keys(testDoc).find(tk => {
+-              if (!tk.startsWith(k)) return false;
+-              const tkUpper = tk.toUpperCase();
++              if (!tk.trim().startsWith(k)) return false;
++              const tkUpper = tk.trim().toUpperCase();
+               const subUpper = sub.toUpperCase();
+               if (tkUpper.includes(subUpper) || (tkUpper.includes("PHY") && sub === "Physics") || (tkUpper.includes("CHEM") && sub === "Chemistry") || (tkUpper.includes("BIO") && sub === "Biology") || (tkUpper.includes("BOT") && sub === "Botany") || (tkUpper.includes("ZOO") && sub === "Zoology") || (tkUpper.includes("MAT") && sub === "Math") || (tkUpper.includes("MATHS") && sub === "Math")) return true;
+               return false;
