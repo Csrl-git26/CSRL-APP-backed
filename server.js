@@ -266,6 +266,13 @@ app.get('/api/analytics/overview', authenticateToken, async (req, res) => {
 
 
 // ── Stream filter helper ────────────────────────────────────────────────────
+// Centres that run the NEET stream. Kept as a single source of truth so it can't
+// drift out of sync between the different places that need to auto-detect stream
+// from a centre code (this list previously existed in two places, each missing
+// several centres — e.g. JKEM, JMM, JKM, GLT, MUM, SKM, RCH — which caused those
+// centres' NEET data to be silently treated as JEE in some analytics views).
+const NEET_CENTRE_CODES = new Set(['JRT', 'MUM', 'JKM', 'GLT', 'GVM', 'TEZ', 'SKM', 'PUN', 'JKEM', 'JRS', 'RCH', 'JMM']);
+
 function filterByStream(profiles, tests, stream) {
   if (!stream || stream === 'ALL') return { profiles, tests };
   const targetStream = stream.toUpperCase();
@@ -277,7 +284,7 @@ function filterByStream(profiles, tests, stream) {
   const profileStreams = {};
   profiles.forEach(p => {
     let rawStream = p.stream || p.STREAM || p.Stream;
-    if (p.ROLL_KEY && (p.ROLL_KEY.includes('JRS') || p.ROLL_KEY.includes('TEZ') || p.ROLL_KEY.includes('PUN') || p.ROLL_KEY.includes('GVM') || p.ROLL_KEY.includes('JRT'))) {
+    if (!rawStream && p.centerCode && NEET_CENTRE_CODES.has(String(p.centerCode).toUpperCase())) {
       rawStream = 'NEET';
     }
     
@@ -1204,8 +1211,7 @@ app.post('/api/tests/bulk-upsert', authenticateToken, requireAdmin, async (req, 
       if (!roll || !center) return null;
 
       // Auto-detect stream from centre code if not provided
-      const neetCentres = new Set(['JRS', 'TEZ', 'GVM', 'JRT', 'PUN']);
-      const autoStream = neetCentres.has(center) ? 'NEET' : (mark.scores?.stream || 'JEE');
+      const autoStream = NEET_CENTRE_CODES.has(center) ? 'NEET' : (mark.scores?.stream || 'JEE');
 
       const $setObj = { stream: autoStream };
       
