@@ -31,6 +31,7 @@ import {
   invalidateDataCache,
 } from './services/dbService.js';
 import { flatToNested, parseTestColumn } from './utils/testColumns.js';
+import { compareTestsAsc } from './utils/testSort.js';
 import {
   computeOverview,
   rankStudentsByTest,
@@ -579,7 +580,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
 
     // Enrich chart data with rankings (raw marks accuracy already computed above from StudentRawMarks)
     let enrichedChartData = [...chartData];
-    enrichedChartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
+    enrichedChartData.sort((a, b) => compareTestsAsc(a.name, b.name));
 
     const finalChartData = enrichedChartData.map((row) => {
       // Calculate global rankings for this test
@@ -622,7 +623,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
 
     const chartData = buildCentreChartData(centerTests, source.testColumns, stream);
 
-    chartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
+    chartData.sort((a, b) => compareTestsAsc(a.name, b.name));
 
     const finalChartData = chartData.map((row) => {
       const testName = row.name;
@@ -777,7 +778,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
         }
         
         // Re-sort after merge
-        finalChartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
+        finalChartData.sort((a, b) => compareTestsAsc(a.name, b.name));
       }
     } catch (dbErr) {
       console.error('[Analytics] Error merging MongoDB data:', dbErr);
@@ -2070,7 +2071,7 @@ app.get('/api/debug-marks', async (req, res) => {
           finalChartData.push(rawRow);
         }
       }
-      finalChartData.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
+      finalChartData.sort((a, b) => compareTestsAsc(a.name, b.name));
     }
 
     res.json({ finalChartData, rawDocsCount: rawDocs ? rawDocs.length : 0 });

@@ -4,6 +4,7 @@
  */
 
 import { parseTestColumn } from '../utils/testColumns.js';
+import { compareTestsAsc } from '../utils/testSort.js';
 import fs from 'fs';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1077,6 +1078,6 @@ export function sortTestRowsChronologically(rows) {
     if (idxA !== -1 && idxB !== -1 && idxA !== idxB) {
       return idxA - idxB;
     }
-    return a.name.localeCompare(b.name, undefined, { numeric: true });
+    return compareTestsAsc(a.name, b.name);
   });
 }
