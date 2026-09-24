@@ -89,7 +89,13 @@ export function rankStudentsByTest(profiles, tests, testKey) {
           let hasSubject = false;
           const subjects = ["Physics", "Chemistry", "Math", "Mathematics", "Biology", "Botany", "Zoology"];
           subjects.forEach(sub => {
-            const subKey = Object.keys(testDoc).find(tk => tk.startsWith(k) && tk.toLowerCase().includes(sub.toLowerCase()));
+            const subKey = Object.keys(testDoc).find(tk => {
+              if (!tk.startsWith(k)) return false;
+              const tkUpper = tk.toUpperCase();
+              const subUpper = sub.toUpperCase();
+              if (tkUpper.includes(subUpper) || (tkUpper.includes("PHY") && sub === "Physics") || (tkUpper.includes("CHEM") && sub === "Chemistry") || (tkUpper.includes("BIO") && sub === "Biology") || (tkUpper.includes("BOT") && sub === "Botany") || (tkUpper.includes("ZOO") && sub === "Zoology") || (tkUpper.includes("MAT") && sub === "Math") || (tkUpper.includes("MATHS") && sub === "Math")) return true;
+              return false;
+            });
             if (subKey) {
               const sm = numericScore(testDoc[subKey]);
               if (sm !== null) { subjectSum += sm; hasSubject = true; }
@@ -114,7 +120,13 @@ export function rankStudentsByTest(profiles, tests, testKey) {
         let subCount = 0;
         testKeys.forEach(k => {
           // Look for k_sub e.g. FMT01_Physics
-          const subKey = Object.keys(testDoc).find(tk => tk.startsWith(k) && tk.toLowerCase().includes(sub.toLowerCase()));
+          const subKey = Object.keys(testDoc).find(tk => {
+              if (!tk.startsWith(k)) return false;
+              const tkUpper = tk.toUpperCase();
+              const subUpper = sub.toUpperCase();
+              if (tkUpper.includes(subUpper) || (tkUpper.includes("PHY") && sub === "Physics") || (tkUpper.includes("CHEM") && sub === "Chemistry") || (tkUpper.includes("BIO") && sub === "Biology") || (tkUpper.includes("BOT") && sub === "Botany") || (tkUpper.includes("ZOO") && sub === "Zoology") || (tkUpper.includes("MAT") && sub === "Math") || (tkUpper.includes("MATHS") && sub === "Math")) return true;
+              return false;
+            });
           if (subKey) {
              const m = numericScore(testDoc[subKey]);
              if (m !== null) { subSum += m; subCount++; }
