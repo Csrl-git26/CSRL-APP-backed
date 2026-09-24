@@ -375,7 +375,7 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
 
   let resolvedCenterCode = req.query.centerCode;
   if (!resolvedCenterCode || resolvedCenterCode === 'undefined' || resolvedCenterCode === 'null') {
-    if (req.user.role === 'centre') {
+    if (req.user.role === 'centre' && req.user.id !== 'centre') {
       resolvedCenterCode = req.user.id;
     } else {
       resolvedCenterCode = '';
@@ -538,7 +538,7 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
 
   let resolvedCenterCode = centerCode;
   if (!resolvedCenterCode || resolvedCenterCode === 'undefined' || resolvedCenterCode === 'null') {
-    if (req.user.role === 'centre') {
+    if (req.user.role === 'centre' && req.user.id !== 'centre') {
       resolvedCenterCode = req.user.id;
     } else {
       resolvedCenterCode = '';
