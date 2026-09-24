@@ -90,8 +90,8 @@ export function rankStudentsByTest(profiles, tests, testKey) {
           const subjects = ["Physics", "Chemistry", "Math", "Mathematics", "Biology", "Botany", "Zoology"];
           subjects.forEach(sub => {
             const subKey = Object.keys(testDoc).find(tk => {
-              if (!tk.startsWith(k)) return false;
-              const tkUpper = tk.toUpperCase();
+              if (!tk.trim().startsWith(k)) return false;
+              const tkUpper = tk.trim().toUpperCase();
               const subUpper = sub.toUpperCase();
               if (tkUpper.includes(subUpper) || (tkUpper.includes("PHY") && sub === "Physics") || (tkUpper.includes("CHEM") && sub === "Chemistry") || (tkUpper.includes("BIO") && sub === "Biology") || (tkUpper.includes("BOT") && sub === "Botany") || (tkUpper.includes("ZOO") && sub === "Zoology") || (tkUpper.includes("MAT") && sub === "Math") || (tkUpper.includes("MATHS") && sub === "Math")) return true;
               return false;
@@ -121,8 +121,8 @@ export function rankStudentsByTest(profiles, tests, testKey) {
         testKeys.forEach(k => {
           // Look for k_sub e.g. FMT01_Physics
           const subKey = Object.keys(testDoc).find(tk => {
-              if (!tk.startsWith(k)) return false;
-              const tkUpper = tk.toUpperCase();
+              if (!tk.trim().startsWith(k)) return false;
+              const tkUpper = tk.trim().toUpperCase();
               const subUpper = sub.toUpperCase();
               if (tkUpper.includes(subUpper) || (tkUpper.includes("PHY") && sub === "Physics") || (tkUpper.includes("CHEM") && sub === "Chemistry") || (tkUpper.includes("BIO") && sub === "Biology") || (tkUpper.includes("BOT") && sub === "Botany") || (tkUpper.includes("ZOO") && sub === "Zoology") || (tkUpper.includes("MAT") && sub === "Math") || (tkUpper.includes("MATHS") && sub === "Math")) return true;
               return false;
