@@ -784,7 +784,11 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
   });
 
   studentStates.forEach((st) => {
-    if (!st.appeared || st.qualified) return;
+    if (st.stream === 'NEET') {
+      if (st.appeared) return; // Count only absent/empty students
+    } else {
+      if (!st.appeared || st.qualified) return; // Count appeared but not qualified
+    }
     const c = st.center;
     notQualifiedOverall[c] = (notQualifiedOverall[c] || 0) + 1;
   });
