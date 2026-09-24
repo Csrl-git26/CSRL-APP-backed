@@ -770,6 +770,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       stream,
       appeared: true,
       qualified,
+      hasMbbsStatus: mbbsFlag !== undefined,
       total,
       subjectScores,
       overallMin,
@@ -785,9 +786,9 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
 
   studentStates.forEach((st) => {
     if (st.stream === 'NEET') {
-      if (st.appeared) return; // Count only absent/empty students
+      if (st.hasMbbsStatus) return; // Count ONLY if the MBBS status cell was empty/vacant
     } else {
-      if (!st.appeared || st.qualified) return; // Count appeared but not qualified
+      if (!st.appeared || st.qualified) return; // For JEE: Count appeared but not qualified
     }
     const c = st.center;
     notQualifiedOverall[c] = (notQualifiedOverall[c] || 0) + 1;
