@@ -1,3 +1,4 @@
+import { testBranchMiddleware, filterTestDocuments, registerTestBranch, registerScoreBranches, registerBulkScoreBranches } from './services/testBranchService.js';
 import { enrichStudentChartFromRawMarks } from './services/studentChartRawMarks.js';
 import './bootstrap-env.js';
 import express from 'express';
@@ -48,6 +49,7 @@ import {
 import { CENTERS_CONFIG, ADMIN_CREDENTIALS } from './config/centers.js';
 
 const app = express();
+app.use(testBranchMiddleware);
 app.use(compression());
 const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'csrl_super_secret_key_2026';
@@ -614,7 +616,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
   const weakSubj = computeStudentWeakSubject(testDoc, filteredTestColumns);
 
   try {
-    const rawMarks = await StudentRawMarks.find({ studentId: rollKey }).lean();
+    const rawMarks = await filterTestDocuments(await StudentRawMarks.find({ studentId: rollKey }).lean());
     if (rawMarks && rawMarks.length > 0) {
       const topicMaps = await TopicMap.find({ testId: { $in: rawMarks.map(m => m.testId) } }).lean();
       
@@ -709,6 +711,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
         }
       }
 
+      rawDocs = await filterTestDocuments(rawDocs);
       if (rawDocs.length > 0) {
         const testIds = Array.from(new Set(rawDocs.map(d => d.testId)));
         const topicMaps = await TopicMap.find({ testId: { $in: testIds } }).lean();
@@ -914,7 +917,7 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
 app.get('/api/debug-state/:rollKey', async (req, res) => {
   try {
     const rollKey = req.params.rollKey;
-    const rawMarks = await StudentRawMarks.find({ studentId: rollKey }).lean();
+    const rawMarks = await filterTestDocuments(await StudentRawMarks.find({ studentId: rollKey }).lean());
     const weakTopics = await StudentWeakTopics.find({ studentId: rollKey }).lean();
     const allRaw = await StudentRawMarks.find({ testId: 'FMT02' }).select('studentId').lean();
     
@@ -1215,6 +1218,8 @@ app.post('/api/tests/bulk-upsert', authenticateToken, requireAdmin, async (req, 
     await initMongo();
     const TestScore = (await import('./models/TestScore.js')).default;
 
+    await registerBulkScoreBranches(marks, req.body);
+
     const ops = marks.map((mark) => {
       const roll = normalizeRollKey(mark.rollKey);
       let center = normalizeCenterCode(mark.centerCode);
@@ -1232,7 +1237,7 @@ app.post('/api/tests/bulk-upsert', authenticateToken, requireAdmin, async (req, 
       if (!roll || !center) return null;
 
       // Auto-detect stream from centre code if not provided
-      const autoStream = NEET_CENTRE_CODES.has(center) ? 'NEET' : (mark.scores?.stream || 'JEE');
+      const autoStream = req.body.stream || (NEET_CENTRE_CODES.has(center) ? 'NEET' : (mark.scores?.stream || 'JEE'));
 
       const $setObj = { stream: autoStream };
       
@@ -1279,7 +1284,7 @@ app.post('/api/tests/bulk-upsert', authenticateToken, requireAdmin, async (req, 
     });
   } catch (e) {
     console.error('[BULK] Bulk upsert tests failed:', e);
-    return res.status(500).json({ message: e.message || 'Bulk upsert tests failed' });
+    return res.status(e.statusCode || 500).json({ message: e.message || 'Bulk upsert tests failed' });
   }
 });
 
@@ -1308,6 +1313,7 @@ app.post('/api/tests/:rollKey', authenticateToken, requireAdmin, async (req, res
 
   try {
     if (isDbEnabled()) {
+      await registerScoreBranches(scores, req.body);
       const testRecord = await upsertTestDoc(cc, rollKey, scores);
       console.log(`[CRUD] Upserted test scores for: ${rollKey}`);
       return res.json({ success: true, testRecord });
@@ -1326,7 +1332,7 @@ app.post('/api/tests/:rollKey', authenticateToken, requireAdmin, async (req, res
     return res.json({ success: true, testRecord });
   } catch (e) {
     console.error('[CRUD] Test upsert failed:', e);
-    return res.status(500).json({ message: e.message || 'Save failed' });
+    return res.status(e.statusCode || 500).json({ message: e.message || 'Save failed' });
   }
 });
 
@@ -1492,6 +1498,8 @@ app.post('/api/admin/weak-topics/upload-test-sheet', authenticateToken, requireA
       });
     }
 
+    await registerTestBranch(testId, req.body);
+
     const {
       topicsWithQuestions,
       smallQuestionTopics,
@@ -1562,7 +1570,7 @@ app.post('/api/admin/weak-topics/upload-test-sheet', authenticateToken, requireA
     });
   } catch (e) {
     console.error('[WeakTopics] upload-test-sheet error:', e);
-    return res.status(500).json({ success: false, message: e.message || 'Failed to process test sheet' });
+    return res.status(e.statusCode || 500).json({ success: false, message: e.message || 'Failed to process test sheet' });
   }
 });
 
@@ -1613,6 +1621,8 @@ app.post('/api/admin/weak-topics/upload-topic-map', authenticateToken, requireAd
       });
     }
 
+    await registerTestBranch(testId, req.body);
+
     const { topicsWithQuestions, unknownSubjectQuestions } = parsed;
 
     // Upsert TopicMap (single doc per testId)
@@ -1643,7 +1653,7 @@ app.post('/api/admin/weak-topics/upload-topic-map', authenticateToken, requireAd
     });
   } catch (e) {
     console.error('[TopicMap] upload-topic-map error:', e);
-    return res.status(500).json({ success: false, message: e.message || 'Failed to process topic map' });
+    return res.status(e.statusCode || 500).json({ success: false, message: e.message || 'Failed to process topic map' });
   }
 });
 
@@ -1696,6 +1706,8 @@ app.post('/api/admin/weak-topics/upload-marks-sheet', authenticateToken, require
       });
     }
 
+    await registerTestBranch(testId, req.body);
+
     const { students } = parsed;
 
     // Collect unique centers present in this sheet
@@ -1741,7 +1753,7 @@ app.post('/api/admin/weak-topics/upload-marks-sheet', authenticateToken, require
     });
   } catch (e) {
     console.error('[MarksSheet] upload-marks-sheet error:', e);
-    return res.status(500).json({ success: false, message: e.message || 'Failed to process marks sheet' });
+    return res.status(e.statusCode || 500).json({ success: false, message: e.message || 'Failed to process marks sheet' });
   }
 });
 
@@ -1760,11 +1772,11 @@ app.get('/api/student/weak-topics/:studentId', authenticateToken, async (req, re
 
     if (testId) {
       const doc = await StudentWeakTopics.findOne({ studentId, testId }).lean();
-      return res.json({ success: true, data: doc || {} });
+      return res.json({ success: true, data: (await filterTestDocuments(doc ? [doc] : []))[0] || {} });
     }
 
     const docs = await StudentWeakTopics.find({ studentId }).sort({ testId: 1 }).lean();
-    const filtered = docs.filter(d => d.testId && d.testId.length > 1 && d.testId !== 'CAT4');
+    const filtered = (await filterTestDocuments(docs)).filter(d => d.testId && d.testId.length > 1 && d.testId !== 'CAT4');
     return res.json({ success: true, data: filtered });
   } catch (e) {
     console.error('[WeakTopics] student route error:', e);
@@ -1790,11 +1802,11 @@ app.get('/api/center/weak-topics/:centerId', authenticateToken, async (req, res)
 
     if (testId) {
       const doc = await CenterWeakTopics.findOne({ centerId, testId }).lean();
-      return res.json({ success: true, data: doc || {} });
+      return res.json({ success: true, data: (await filterTestDocuments(doc ? [doc] : []))[0] || {} });
     }
 
     const docs = await CenterWeakTopics.find({ centerId }).sort({ testId: 1 }).lean();
-    const filtered = docs.filter(d => d.testId && d.testId.length > 1 && d.testId !== 'CAT4');
+    const filtered = (await filterTestDocuments(docs)).filter(d => d.testId && d.testId.length > 1 && d.testId !== 'CAT4');
     return res.json({ success: true, data: filtered });
   } catch (e) {
     console.error('[WeakTopics] center route error:', e);
