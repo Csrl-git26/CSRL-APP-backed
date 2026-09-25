@@ -675,9 +675,10 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
 
     chartData.sort((a, b) => compareTestsAsc(a.name, b.name));
 
+    const { profiles: streamProfiles, tests: streamTests } = filterByStream(global.profiles, global.tests, stream);
     const finalChartData = chartData.map((row) => {
       const testName = row.name;
-      const insights = computeTestInsights(global.profiles, global.tests, testName, global.testColumns, { stream });
+      const insights = computeTestInsights(streamProfiles, streamTests, testName, global.testColumns, { stream });
       const centreRow = insights.centreRows.find(r => r.code === centerCode);
       row.qualRate = centreRow && centreRow.appeared > 0 ? centreRow.qualRate : null;
       if (centreRow) {
