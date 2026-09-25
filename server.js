@@ -285,6 +285,11 @@ function filterByStream(profiles, tests, stream) {
   const profileStreams = {};
   
   const detectStreams = (roll, rawStream, center, doc) => {
+    // Known NEET centres must not enter JEE rankings through stale stream labels
+    // or incorrectly imported JEE score columns.
+    if (NEET_CENTRE_CODES.has(String(center || '').trim().toUpperCase())) {
+      return new Set(['NEET']);
+    }
     const streams = new Set();
     if (rawStream) {
       streams.add(String(rawStream).trim().toUpperCase());
