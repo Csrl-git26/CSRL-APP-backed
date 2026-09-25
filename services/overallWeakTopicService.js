@@ -15,6 +15,12 @@ import StudentOverallWeakTopics from '../models/StudentOverallWeakTopics.js';
 import CenterOverallWeakTopics from '../models/CenterOverallWeakTopics.js';
 import { matchCanonicalTopic, getMark, isStudentAbsent } from '../utils/topicUtils.js';
 
+// Applies only to overall topic rollups; individual test analytics retain these tests.
+function excludedFromOverall(testId, stream) {
+  return currentTestBranch() === 'MAIN' && stream === 'JEE'
+    && ['MT01', 'MT02'].includes(String(testId).trim().toUpperCase());
+}
+
 const SUBJECTS = ['PHYSICS', 'CHEMISTRY', 'MATHEMATICS'];
 
 function marksToPlainObject(marksField) {
@@ -87,6 +93,7 @@ export async function computeStudentOverallWeakTopics(studentId, { persist = tru
     const tm = testTopicMaps[doc.testId];
     if (!tm) continue;
     const stream = tm.stream;
+    if (excludedFromOverall(doc.testId, stream)) continue;
 
     const marks = marksToPlainObject(doc.marks);
     if (isStudentAbsent(marks, tm.allQs)) continue;
@@ -225,6 +232,7 @@ export async function computeCenterOverallWeakTopics(centerId) {
     const tm = testTopicMaps[testId];
     if (!tm) continue;
     const stream = tm.stream;
+    if (excludedFromOverall(testId, stream)) continue;
 
     const validMarks = marksList.filter(marks => !isStudentAbsent(marks, tm.allQs));
     if (validMarks.length === 0) continue;

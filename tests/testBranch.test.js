@@ -100,7 +100,9 @@ test('student and centre overall topics aggregate only selected branch without o
   t.after(() => { mongoose.connection.readyState = oldState; });
   t.mock.method(TestBranch, 'find', () => ({ lean: () => ({ exec: async () => catalog }) }));
   const raw = [
-    { studentId:'1',centerId:'A',testId:'MT01',marks:{Q1:4,Q2:4,Q3:4} },
+    { studentId:'1',centerId:'A',testId:'MT01',marks:{Q1:-1,Q2:-1,Q3:-1} },
+    { studentId:'1',centerId:'A',testId:'MT02',marks:{Q1:0,Q2:0,Q3:4} },
+    { studentId:'1',centerId:'A',testId:'CMT01',marks:{Q1:4,Q2:4,Q3:4} },
     { studentId:'1',centerId:'A',testId:'CAT01',marks:{Q1:-1,Q2:0,Q3:4} },
     { studentId:'1',centerId:'A',testId:'NCT01',marks:{Q1:4,Q2:4,Q3:4} },
   ];
@@ -110,14 +112,33 @@ test('student and centre overall topics aggregate only selected branch without o
     t.mock.method(model, 'findOne', () => { throw new Error('Must not reuse cross-branch stored rollup'); });
     t.mock.method(model, 'updateOne', () => { throw new Error('Scoped GET must not write a rollup'); });
   }
-  for (const [branch,id] of [['MAIN','MT01'],['ADVANCED','CAT01']]) {
+  for (const [branch,id] of [['MAIN','CMT01'],['ADVANCED','CAT01']]) {
     await inBranch(branch, async () => {
       const student = await getStudentOverallWeakTopicsForStream('1','JEE');
       const centre = await getCenterOverallWeakTopicsWithRates('A','JEE');
       assert.deepEqual(student.testsIncluded,[id]);
       assert.deepEqual(centre.testsIncluded,[id]);
+      if (branch === 'MAIN') {
+        assert.equal(student.totalTests, 1);
+        assert.equal(centre.totalTests, 1);
+        assert.equal(student.totalScore, 12);
+        assert.equal(centre.averageScore, 12);
+        assert.equal(student.strongTopics[0].ar, 100);
+        assert.equal(student.strongTopics[0].acc, 100);
+        assert.equal(centre.topicRates[0].totalPossible, 3);
+        assert.equal(centre.topicRates[0].attemptPercentage, 100);
+        assert.equal(centre.topicRates[0].accuracyPercentage, 100);
+      }
+      const neetCentre = await getCenterOverallWeakTopicsWithRates('A','NEET');
+      assert.deepEqual(neetCentre.testsIncluded,['NCT01']);
       const neet = await getStudentOverallWeakTopicsForStream('1','NEET');
       assert.deepEqual(neet.testsIncluded,['NCT01']);
     });
   }
+  raw.splice(raw.findIndex(doc => doc.testId === 'CMT01'), 1);
+  await inBranch('MAIN', async () => {
+    assert.equal(await getStudentOverallWeakTopicsForStream('1', 'JEE'), undefined);
+    assert.equal(await getCenterOverallWeakTopicsWithRates('A', 'JEE'), undefined);
+  });
 });
+
