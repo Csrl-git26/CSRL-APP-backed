@@ -273,7 +273,7 @@ app.get('/api/analytics/overview', authenticateToken, async (req, res) => {
 // from a centre code (this list previously existed in two places, each missing
 // several centres — e.g. JKEM, JMM, JKM, GLT, MUM, SKM, RCH — which caused those
 // centres' NEET data to be silently treated as JEE in some analytics views).
-const NEET_CENTRE_CODES = new Set(['JRT', 'MUM', 'JKM', 'GLT', 'GVM', 'TEZ', 'SKM', 'PUN', 'JKEM', 'JRS', 'RCH', 'JMM']);
+const NEET_CENTRE_CODES = new Set(['JRT', 'JKM', 'GLT', 'GVM', 'TEZ', 'SKM', 'PUN', 'JKEM', 'JRS', 'RCH', 'JMM']);
 
 function filterByStream(profiles, tests, stream) {
   if (!stream || stream === 'ALL') return { profiles, tests };
@@ -285,6 +285,8 @@ function filterByStream(profiles, tests, stream) {
   const profileStreams = {};
   
   const detectStreams = (roll, rawStream, center, doc) => {
+    // MUM is a JEE centre; override historical inferred NEET labels.
+    if (String(center || '').trim().toUpperCase() === 'MUM') return new Set(['JEE']);
     // Known NEET centres must not enter JEE rankings through stale stream labels
     // or incorrectly imported JEE score columns.
     if (NEET_CENTRE_CODES.has(String(center || '').trim().toUpperCase())) {
