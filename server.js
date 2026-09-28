@@ -601,6 +601,22 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/analytics/student-profile?rollKey=
+ * Returns the full profile document for a student from global data.
+ * Used by the Centre Dashboard as a fallback when the center slice doesn't include the profile.
+ */
+app.get('/api/analytics/student-profile', authenticateToken, async (req, res) => {
+  const { rollKey } = req.query;
+  if (!rollKey) return res.status(400).json({ message: 'rollKey is required' });
+  const globalData = await loadApplicationData();
+  const profile = globalData.profiles.find(
+    (p) => String(p.ROLL_KEY).trim() === String(rollKey).trim() || String(p['ROLL NO.'] || '').trim() === String(rollKey).trim()
+  );
+  if (!profile) return res.status(404).json({ message: 'Profile not found' });
+  res.json(profile);
+});
+
+/**
  * GET /api/analytics/student-chart?rollKey=&centerCode=
  * Chart-ready performance data for a single student.
  */
@@ -615,14 +631,26 @@ app.get('/api/analytics/student-chart', async (req, res) => {
   const { rollKey, centerCode } = req.query;
   if (!rollKey) return res.status(400).json({ message: 'rollKey is required' });
 
+  // Always load global data so that:
+  //   1. Ranks are computed against ALL students (not just this centre's)
+  //   2. We can fall back to global data if the centre slice is missing this student
+  const globalData = await loadApplicationData();
   let source;
   if (centerCode) {
     source = await loadCenterApplicationData(centerCode);
   } else {
-    source = await loadApplicationData(); // Fallback if no centerCode provided
+    source = globalData;
   }
-  const testDoc = source.tests.find((t) => String(t.ROLL_KEY).trim() === String(rollKey).trim()) || {};
-  const profileDoc = source.profiles.find((p) => String(p.ROLL_KEY).trim() === String(rollKey).trim() || String(p['ROLL NO.']).trim() === String(rollKey).trim()) || {};
+  
+  // Try to find testDoc and profileDoc in center data first, then fall back to global data
+  let testDoc = source.tests.find((t) => String(t.ROLL_KEY).trim() === String(rollKey).trim()) || null;
+  if (!testDoc) {
+    testDoc = globalData.tests.find((t) => String(t.ROLL_KEY).trim() === String(rollKey).trim()) || {};
+  }
+  let profileDoc = source.profiles.find((p) => String(p.ROLL_KEY).trim() === String(rollKey).trim() || String(p['ROLL NO.'] || '').trim() === String(rollKey).trim()) || null;
+  if (!profileDoc) {
+    profileDoc = globalData.profiles.find((p) => String(p.ROLL_KEY).trim() === String(rollKey).trim() || String(p['ROLL NO.'] || '').trim() === String(rollKey).trim()) || {};
+  }
 
   // Filter testColumns to only include tests relevant to the student's stream.
   // NEET-specific prefixes: MMT, NCT, NMT, NEET  /  JEE-specific prefixes: MT, CMT, FMT, PT, JCT
@@ -652,10 +680,10 @@ app.get('/api/analytics/student-chart', async (req, res) => {
     enrichedChartData.sort((a, b) => compareTestsAsc(a.name, b.name));
 
     const finalChartData = enrichedChartData.map((row) => {
-      // Calculate global rankings for this test
+      // Calculate GLOBAL rankings for this test (against ALL students, not just this centre)
       (studentStream === 'NEET' ? ['Total', 'Physics', 'Chemistry', 'Botany', 'Zoology'] : ['Total', 'Physics', 'Chemistry', 'Math']).forEach((sub) => {
         const testKey = sub === 'Total' ? row.name : `${row.name}_${sub}`;
-        const rankedList = rankStudentsByTest(source.profiles, source.tests, testKey);
+        const rankedList = rankStudentsByTest(globalData.profiles, globalData.tests, testKey);
         const studentRankObj = rankedList.find(s => String(s.roll).trim() === String(rollKey).trim());
         if (studentRankObj && studentRankObj.rank !== '-') {
           row[`${sub}_Rank`] = studentRankObj.rank;
