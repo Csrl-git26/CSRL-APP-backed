@@ -640,7 +640,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
       (studentStream === 'NEET' ? ['Total', 'Physics', 'Chemistry', 'Botany', 'Zoology'] : ['Total', 'Physics', 'Chemistry', 'Math']).forEach((sub) => {
         const testKey = sub === 'Total' ? row.name : `${row.name}_${sub}`;
         const rankedList = rankStudentsByTest(source.profiles, source.tests, testKey);
-        const studentRankObj = rankedList.find(s => s.roll === rollKey);
+        const studentRankObj = rankedList.find(s => String(s.roll).trim() === String(rollKey).trim());
         if (studentRankObj && studentRankObj.rank !== '-') {
           row[`${sub}_Rank`] = studentRankObj.rank;
         }
@@ -870,7 +870,7 @@ app.get('/api/debug-chart/:rollKey', async (req, res) => {
         const outSub = sub === 'Mathematics' ? 'Math' : sub;
         const testKey = `${row.name}-${sub}`;
         const rankedList = rankStudentsByTest(global.profiles, global.tests, testKey);
-        const studentRankObj = rankedList.find(s => s.roll === rollKey);
+        const studentRankObj = rankedList.find(s => String(s.roll).trim() === String(rollKey).trim());
         if (studentRankObj && studentRankObj.rank !== '-') {
           row[`${outSub}_Rank`] = studentRankObj.rank;
         }
