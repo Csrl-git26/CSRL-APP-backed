@@ -71,7 +71,7 @@ export async function computeStudentOverallWeakTopics(studentId, { persist = tru
       for (const q of entry.questions) allQs.add(q);
       const canonical = { ...matchCanonicalTopic(entry.topic) };
       const explicitSubject = String(entry.subject || '').trim().toUpperCase();
-      if (['PHYSICS', 'CHEMISTRY', 'MATHEMATICS', 'BOTANY', 'ZOOLOGY'].includes(explicitSubject)) canonical.subject = explicitSubject;
+      if (canonical.code !== 'C20' && ['PHYSICS', 'CHEMISTRY', 'MATHEMATICS', 'BOTANY', 'ZOOLOGY'].includes(explicitSubject)) canonical.subject = explicitSubject;
       if (canonical.subject === 'BOTANY' || canonical.subject === 'ZOOLOGY' || canonical.name.toUpperCase().includes('BOTANY')) isNeet = true;
       if (!qMap[canonical.name]) {
         qMap[canonical.name] = [];
@@ -204,7 +204,7 @@ export async function computeCenterOverallWeakTopics(centerId) {
       for (const q of entry.questions) allQs.add(q);
       const canonical = { ...matchCanonicalTopic(entry.topic) };
       const explicitSubject = String(entry.subject || '').trim().toUpperCase();
-      if (['PHYSICS', 'CHEMISTRY', 'MATHEMATICS', 'BOTANY', 'ZOOLOGY'].includes(explicitSubject)) canonical.subject = explicitSubject;
+      if (canonical.code !== 'C20' && ['PHYSICS', 'CHEMISTRY', 'MATHEMATICS', 'BOTANY', 'ZOOLOGY'].includes(explicitSubject)) canonical.subject = explicitSubject;
       if (canonical.subject === 'BOTANY' || canonical.subject === 'ZOOLOGY' || canonical.name.toUpperCase().includes('BOTANY')) isNeet = true;
       if (!qMap[canonical.name]) {
         qMap[canonical.name] = [];

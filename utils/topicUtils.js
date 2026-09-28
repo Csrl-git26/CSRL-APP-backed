@@ -68,7 +68,7 @@ export const SHEET4_CURRICULUM = [
   { code: 'C17', name: 'Biomolecules', subject: 'CHEMISTRY' },
   { code: 'C18', name: 'Chemical Thermodynamics', subject: 'CHEMISTRY' },
   { code: 'C19', name: 'Chemical Equilibrium', subject: 'CHEMISTRY' },
-  { code: 'C20', name: 'Ionic Equlibrium', subject: 'CHEMISTRY' },
+  { code: 'C20', name: 'Ionic Equilibrium', subject: 'CHEMISTRY' },
   { code: 'C21', name: 'Electrochemistry', subject: 'CHEMISTRY' },
   { code: 'C22', name: 'p Block Elements', subject: 'CHEMISTRY' },
   { code: 'C23', name: 'Principles Related to Practical Chemistry-Inorganic & Organic', subject: 'CHEMISTRY' },
@@ -207,6 +207,11 @@ export function matchCanonicalTopic(rawTopicStr) {
 
   // Trim and remove newline
   const clean = raw.trim().replace(/\n/g, '').replace(/\s+/g, ' ').toLowerCase();
+
+  // Accept the historical misspelling and the standard topic name.
+  if (/^ionic equ(?:i)?librium$/.test(clean)) {
+    return SHEET4_CURRICULUM.find(item => item.code === 'C20');
+  }
 
   for (const item of SHEET4_CURRICULUM) {
     const target = item.name.toLowerCase();
