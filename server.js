@@ -193,8 +193,24 @@ app.get('/api/data/center', authenticateToken, async (req, res) => {
   if (req.user.role !== 'centre' && req.user.role !== 'admin' && req.user.role !== 'bog') {
     return res.status(403).json({ message: 'Forbidden' });
   }
-  const centerCode = req.query.centerCode || req.user.id;
-  res.json(await loadCenterApplicationData(centerCode));
+  
+  let centerCode = req.query.centerCode;
+  if (!centerCode || centerCode === 'undefined' || centerCode === 'null') {
+    if (req.user.role === 'centre' && req.user.id !== 'centre') {
+      centerCode = req.user.id;
+    } else {
+      centerCode = '';
+    }
+  }
+  if (centerCode === 'ALL' || centerCode === 'All centres') {
+    centerCode = '';
+  }
+
+  if (centerCode) {
+    res.json(await loadCenterApplicationData(centerCode));
+  } else {
+    res.json(await loadApplicationData());
+  }
 });
 
 app.get('/api/data/centers', authenticateToken, async (req, res) => {
