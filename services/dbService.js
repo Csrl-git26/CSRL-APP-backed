@@ -365,23 +365,35 @@ async function fetchCenterDataFromDbOnce(centerCode) {
     return false;
   });
 
-  const rollKeysArray = Array.from(relevantRollKeys);
-  const numberRollKeys = rollKeysArray.map(k => Number(k)).filter(k => !isNaN(k));
+  const rollKeysArray = Array.from(relevantRollKeys).map(k => String(k).trim().toLowerCase());
   
-  // Now find profiles that match the centerCode OR match the RollKeys found above (both string and number formats)
-  const profilesDocs = await Profile.find({
-    $or: [
-      { centerCode: regex },
-      { ROLL_KEY: { $in: [...rollKeysArray, ...numberRollKeys] } }
-    ]
-  }).lean();
+  // Now find profiles that match the centerCode OR match the RollKeys found above.
+  // We do this in-memory instead of with a DB query to avoid formatting/whitespace issues.
+  const allProfiles = await Profile.find({}).lean();
+  const profilesDocs = allProfiles.filter(p => {
+    let code = String(p.centerCode || p.centreCode || p['CENTRE CODE'] || '').trim().toUpperCase();
+    const sponsors = ['GAIL GAS', 'GAIL', 'OIL INDIA', 'OIL'];
+    for (const sponsor of sponsors) {
+      if (code.startsWith(sponsor + ' ')) {
+        code = code.substring(sponsor.length + 1).trim();
+      }
+    }
+    if (code === 'OIL INDIA' || code === 'OIL_INDIA') code = 'JDH';
+    if (code === 'GAIL') code = 'KNP';
+
+    const pCenter = code.toLowerCase();
+    const pRoll = String(p.ROLL_KEY || p['ROLL NO.'] || p.rollKey || '').trim().toLowerCase();
+    
+    return pCenter === normCenter.toLowerCase() || rollKeysArray.includes(pRoll);
+  });
   
   // Also make sure we include any test docs for profiles we matched directly by centerCode
-  const profileRollKeys = profilesDocs.map(p => String(p.ROLL_KEY));
+  const profileRollKeys = profilesDocs.map(p => String(p.ROLL_KEY || p['ROLL NO.'] || p.rollKey || '').trim().toLowerCase());
   const finalTestDocs = allTests.filter(d => {
     const raw = { ...d };
     const nested = ensureNested(raw);
-    return relevantRollKeys.has(String(nested.ROLL_KEY)) || profileRollKeys.includes(String(nested.ROLL_KEY));
+    const nRoll = String(nested.ROLL_KEY || '').trim().toLowerCase();
+    return rollKeysArray.includes(nRoll) || profileRollKeys.includes(nRoll);
   });
 
   const result = processDbDocuments(profilesDocs, finalTestDocs);
