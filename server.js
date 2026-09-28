@@ -1,3 +1,4 @@
+import { normalizeTopicSubjects } from './utils/normalizeTopicSubjects.js';
 import { testBranchMiddleware, filterTestDocuments, registerTestBranch, registerScoreBranches, registerBulkScoreBranches } from './services/testBranchService.js';
 import { enrichStudentChartFromRawMarks } from './services/studentChartRawMarks.js';
 import './bootstrap-env.js';
@@ -1780,12 +1781,12 @@ app.get('/api/student/weak-topics/:studentId', authenticateToken, async (req, re
 
     if (testId) {
       const doc = await StudentWeakTopics.findOne({ studentId, testId }).lean();
-      return res.json({ success: true, data: (await filterTestDocuments(doc ? [doc] : []))[0] || {} });
+      return res.json({ success: true, data: normalizeTopicSubjects((await filterTestDocuments(doc ? [doc] : []))[0]) || {} });
     }
 
     const docs = await StudentWeakTopics.find({ studentId }).sort({ testId: 1 }).lean();
     const filtered = (await filterTestDocuments(docs)).filter(d => d.testId && d.testId.length > 1 && d.testId !== 'CAT4');
-    return res.json({ success: true, data: filtered });
+    return res.json({ success: true, data: filtered.map(normalizeTopicSubjects) });
   } catch (e) {
     console.error('[WeakTopics] student route error:', e);
     return res.status(500).json({ success: false, message: e.message || 'Failed to fetch student weak topics' });
@@ -1810,12 +1811,12 @@ app.get('/api/center/weak-topics/:centerId', authenticateToken, async (req, res)
 
     if (testId) {
       const doc = await CenterWeakTopics.findOne({ centerId, testId }).lean();
-      return res.json({ success: true, data: (await filterTestDocuments(doc ? [doc] : []))[0] || {} });
+      return res.json({ success: true, data: normalizeTopicSubjects((await filterTestDocuments(doc ? [doc] : []))[0]) || {} });
     }
 
     const docs = await CenterWeakTopics.find({ centerId }).sort({ testId: 1 }).lean();
     const filtered = (await filterTestDocuments(docs)).filter(d => d.testId && d.testId.length > 1 && d.testId !== 'CAT4');
-    return res.json({ success: true, data: filtered });
+    return res.json({ success: true, data: filtered.map(normalizeTopicSubjects) });
   } catch (e) {
     console.error('[WeakTopics] center route error:', e);
     return res.status(500).json({ success: false, message: e.message || 'Failed to fetch center weak topics' });
