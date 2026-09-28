@@ -1,3 +1,4 @@
+import { correctedTopicSubject } from './normalizeTopicSubjects.js';
 /**
  * utils/topicUtils.js
  */
@@ -219,6 +220,8 @@ export function matchCanonicalTopic(rawTopicStr) {
       return item;
     }
   }
+  const corrected = correctedTopicSubject(raw);
+  if (corrected) return { code: 'SUBJECT_CORRECTED', name: raw.trim(), subject: corrected };
   // Fallback
   return { code: 'GEN', name: rawTopicStr.trim(), subject: 'PHYSICS' };
 }
