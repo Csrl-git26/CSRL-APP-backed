@@ -870,7 +870,12 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
         for (const rawRow of rawChartData) {
           const existing = finalChartData.find(r => r.name === rawRow.name);
           if (existing) {
-            Object.assign(existing, rawRow);
+            // Keep marks from the same score dataset used for rankings. Raw sheets
+            // enrich attempt/accuracy metrics and fill genuinely missing marks.
+            for (const [key, value] of Object.entries(rawRow)) {
+              if (key === 'name') continue;
+              if (key.endsWith('_Attempted') || key.endsWith('_Accuracy') || existing[key] == null) existing[key] = value;
+            }
           } else {
             finalChartData.push(rawRow);
           }
@@ -1541,7 +1546,7 @@ app.post('/api/admin/weak-topics/upload-test-sheet', authenticateToken, requireA
     // Parse the sheet — throws with .validationErrors if sheet is malformed
     let parsed;
     try {
-      parsed = parseTestSheet(req.file.buffer);
+      parsed = parseTestSheet(req.file.buffer, { testId });
     } catch (parseErr) {
       const errors = parseErr.validationErrors || [parseErr.message];
       return res.status(422).json({
@@ -1568,7 +1573,7 @@ app.post('/api/admin/weak-topics/upload-test-sheet', authenticateToken, requireA
     await StudentRawMarks.deleteMany({ testId, centerId: { $in: centersInSheet } });
 
     // Upsert TopicMap (single doc per testId)
-    const topicEntries = Object.entries(topicsWithQuestions).map(([topic, { questions, subject }]) => ({
+    const topicEntries = Object.entries(topicsWithQuestions).map(([key, { topic = key, questions, subject }]) => ({
       topic,
       subject,
       questions,
@@ -1590,6 +1595,7 @@ app.post('/api/admin/weak-topics/upload-test-sheet', authenticateToken, requireA
         marks:       s.marks,
       }));
       await StudentRawMarks.insertMany(marksDocs, { ordered: false });
+      invalidateDataCache();
     }
 
     // Compute weak topics immediately (no paper-count gate needed anymore)
@@ -1664,7 +1670,7 @@ app.post('/api/admin/weak-topics/upload-topic-map', authenticateToken, requireAd
     // Parse the topic-map sheet
     let parsed;
     try {
-      parsed = parseTopicMapSheet(req.file.buffer);
+      parsed = parseTopicMapSheet(req.file.buffer, { testId });
     } catch (parseErr) {
       const errors = parseErr.validationErrors || [parseErr.message];
       return res.status(422).json({
@@ -1679,7 +1685,7 @@ app.post('/api/admin/weak-topics/upload-topic-map', authenticateToken, requireAd
     const { topicsWithQuestions, unknownSubjectQuestions } = parsed;
 
     // Upsert TopicMap (single doc per testId)
-    const topicEntries = Object.entries(topicsWithQuestions).map(([topic, { questions, subject }]) => ({
+    const topicEntries = Object.entries(topicsWithQuestions).map(([key, { topic = key, questions, subject }]) => ({
       topic,
       subject,
       questions,
@@ -1782,6 +1788,7 @@ app.post('/api/admin/weak-topics/upload-marks-sheet', authenticateToken, require
         marks:       s.marks,
       }));
       await StudentRawMarks.insertMany(marksDocs, { ordered: false });
+      invalidateDataCache();
       console.log(`[MarksSheet] Inserted ${marksDocs.length} student raw mark docs for testId="${testId}".`);
     }
 
@@ -2222,3 +2229,4 @@ app.listen(PORT, async () => {
     console.log("Mongo Check Error:", e);
   }
 });
+

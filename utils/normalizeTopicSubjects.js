@@ -1,6 +1,7 @@
 // Explicit subject corrections shared by new calculations and saved results.
-export function correctedTopicSubject(topic) {
+export function correctedTopicSubject(topic, testId) {
   const name = String(topic || '').split('/').pop().trim().replace(/\s+/g, ' ');
+  if (String(testId || '').trim().toUpperCase() === 'NCT01' && /^biomolecules$/i.test(name)) return 'ZOOLOGY';
   if (/^ionic equ(?:i)?librium$/i.test(name)) return 'CHEMISTRY';
   if (/^basic maths?(?:\s*\([^)]*\))?$/i.test(name)
       || /^sets?\s*(?:&|and)\s*relations?$/i.test(name)) return 'MATHEMATICS';
@@ -17,7 +18,7 @@ export function normalizeTopicSubjects(doc) {
     const moved = [];
     for (const [subject, groups] of Object.entries(subjectWise)) {
       groups[level] = (groups[level] || []).filter(item => {
-        const target = correctedTopicSubject(typeof item === 'string' ? item : item?.topic);
+        const target = correctedTopicSubject(typeof item === 'string' ? item : item?.topic, doc.testId);
         if (!target || target === subject) return true;
         moved.push({ target, item });
         return false;
@@ -31,3 +32,4 @@ export function normalizeTopicSubjects(doc) {
   }
   return { ...doc, subjectWise };
 }
+

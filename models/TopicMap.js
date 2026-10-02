@@ -1,3 +1,4 @@
+import { normalizeTestTopicMap } from '../utils/testSubjectMapping.js';
 import mongoose from 'mongoose';
 
 const TopicEntrySchema = new mongoose.Schema({
@@ -16,4 +17,12 @@ const TopicMapSchema = new mongoose.Schema({
 // One topic-map per test (unique on testId alone)
 TopicMapSchema.index({ testId: 1 }, { unique: true });
 
+// Normalize persisted historical maps for every analytics reader, including lean queries.
+TopicMapSchema.post(['find', 'findOne'], function(result) {
+  for (const doc of (Array.isArray(result) ? result : [result])) {
+    if (doc) doc.topics = normalizeTestTopicMap(doc.toObject ? doc.toObject() : doc).topics;
+  }
+});
+
 export default mongoose.models.TopicMap || mongoose.model('TopicMap', TopicMapSchema);
+
