@@ -1,3 +1,5 @@
+import { correctedTopicSubject } from '../utils/normalizeTopicSubjects.js';
+import { verifiedQuestionSubject } from '../utils/testSubjectMapping.js';
 /**
  * services/csvParserService.js
  *
@@ -189,12 +191,14 @@ function inferSubject(rawTopic) {
     const prefix = trimmed.slice(0, colonIdx).trim();
     const topic  = trimmed.slice(colonIdx + 1).trim();
     if (KNOWN_SUBJECTS.has(prefix)) {
-      // Also register in our runtime lookup so cross-question consistency works
-      const normTopic = topic.replace(/\s+/g, ' ').trim().toUpperCase();
-      TOPIC_SUBJECT_MAP[normTopic] = prefix;
       return { subject: prefix, topic };
     }
   }
+
+  // Topics shared by multiple subjects require an explicit subject.
+  if (normalized === 'BIOMOLECULES') return { subject: null, topic: trimmed };
+  const corrected = correctedTopicSubject(trimmed);
+  if (corrected) return { subject: corrected === 'MATHEMATICS' ? 'Mathematics' : 'Chemistry', topic: trimmed };
 
   // Exact Match
   if (TOPIC_SUBJECT_MAP[normalized]) {
@@ -207,7 +211,7 @@ function inferSubject(rawTopic) {
   if (ultraIn.length > 5) { // Only do this for reasonably long topics to avoid false positives
     for (const [knownTopic, knownSubject] of Object.entries(TOPIC_SUBJECT_MAP)) {
       const ultraKnown = knownTopic.replace(/[^a-zA-Z0-9]/g, '');
-      if (ultraKnown.startsWith(ultraIn) || ultraIn.startsWith(ultraKnown)) {
+      if (ultraKnown === ultraIn) {
         return { subject: knownSubject, topic: trimmed };
       }
     }
@@ -267,7 +271,7 @@ function normalizeColumnHeader(col) {
  * }}
  * @throws {Error} with a structured `.validationErrors` array if the sheet is malformed
  */
-export function parseTestSheet(buffer) {
+export function parseTestSheet(buffer, { testId } = {}) {
   // ── 1. Raw parse (all rows as arrays, no column-name inference yet) ─────────
   const allRows = parse(buffer, {
     skip_empty_lines: false, // we need exact row indices
@@ -344,7 +348,10 @@ export function parseTestSheet(buffer) {
       continue;
     }
 
-    const { subject, topic } = inferSubject(rawTopic);
+    const inferred = inferSubject(rawTopic);
+    const verified = verifiedQuestionSubject(testId, qName);
+    const subject = verified ? verified[0] + verified.slice(1).toLowerCase() : inferred.subject;
+    const topic = inferred.topic;
 
     questionTopicMap[qName] = topic;
 
@@ -378,10 +385,9 @@ export function parseTestSheet(buffer) {
   for (const [qName, topic] of Object.entries(questionTopicMap)) {
     const subject = questionSubjectMap[qName];
     if (!subject) continue; // already flagged above
-    if (!topicsWithQuestions[topic]) {
-      topicsWithQuestions[topic] = { questions: [], subject };
-    }
-    topicsWithQuestions[topic].questions.push(qName);
+    const topicKey = `${subject}/${topic}`;
+    if (!topicsWithQuestions[topicKey]) topicsWithQuestions[topicKey] = { topic, questions: [], subject };
+    topicsWithQuestions[topicKey].questions.push(qName);
   }
 
   // Identify topics with fewer than 3 questions (edge case #1 — diagnostic only)
@@ -471,7 +477,7 @@ export function parseTestSheet(buffer) {
  * @returns {{ topicsWithQuestions, questionTopicMap, questionSubjectMap, unknownSubjectQuestions }}
  * @throws {Error} with .validationErrors
  */
-export function parseTopicMapSheet(buffer) {
+export function parseTopicMapSheet(buffer, { testId } = {}) {
   const allRows = parse(buffer, {
     skip_empty_lines: true,
     trim: true,
@@ -541,14 +547,13 @@ export function parseTopicMapSheet(buffer) {
         continue;
       }
 
-      // Subject: from column if present, otherwise infer
-      let subject = sIdx !== -1 ? String(row[sIdx] || '').trim() : null;
-      if (!subject || !KNOWN_SUBJECTS.has(subject)) {
-        const inferred = inferSubject(rawTopic);
-        subject = inferred.subject;
-      }
+      const inferred = inferSubject(rawTopic);
+      const verified = verifiedQuestionSubject(testId, qName);
+      const supplied = sIdx !== -1 ? String(row[sIdx] || '').trim() : '';
+      const explicit = [...KNOWN_SUBJECTS].find(s => s.toLowerCase() === supplied.toLowerCase());
+      const subject = verified ? verified[0] + verified.slice(1).toLowerCase() : explicit || inferred.subject;
 
-      questionTopicMap[qName] = rawTopic;
+      questionTopicMap[qName] = inferred.topic;
       if (subject && KNOWN_SUBJECTS.has(subject)) {
         questionSubjectMap[qName] = subject;
       } else {
@@ -574,7 +579,10 @@ export function parseTopicMapSheet(buffer) {
         continue;
       }
 
-      const { subject, topic } = inferSubject(rawTopic);
+      const inferred = inferSubject(rawTopic);
+      const verified = verifiedQuestionSubject(testId, qName);
+      const subject = verified ? verified[0] + verified.slice(1).toLowerCase() : inferred.subject;
+      const topic = inferred.topic;
       questionTopicMap[qName] = topic;
 
       if (subject && KNOWN_SUBJECTS.has(subject)) {
@@ -608,10 +616,9 @@ export function parseTopicMapSheet(buffer) {
   for (const [qName, topic] of Object.entries(questionTopicMap)) {
     const subject = questionSubjectMap[qName];
     if (!subject) continue;
-    if (!topicsWithQuestions[topic]) topicsWithQuestions[topic] = { questions: [], subject };
-    if (!topicsWithQuestions[topic].questions.includes(qName)) {
-      topicsWithQuestions[topic].questions.push(qName);
-    }
+    const topicKey = `${subject}/${topic}`;
+    if (!topicsWithQuestions[topicKey]) topicsWithQuestions[topicKey] = { topic, questions: [], subject };
+    topicsWithQuestions[topicKey].questions.push(qName);
   }
 
   return { topicsWithQuestions, questionTopicMap, questionSubjectMap, unknownSubjectQuestions };
@@ -720,3 +727,4 @@ export function parseMarksOnlySheet(buffer) {
 
   return { students, questionCols };
 }
+

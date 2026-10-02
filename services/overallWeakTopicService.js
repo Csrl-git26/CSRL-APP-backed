@@ -74,12 +74,13 @@ export async function computeStudentOverallWeakTopics(studentId, { persist = tru
       const explicitSubject = String(entry.subject || '').trim().toUpperCase();
       if (!correctedTopicSubject(entry.topic) && ['PHYSICS', 'CHEMISTRY', 'MATHEMATICS', 'BOTANY', 'ZOOLOGY'].includes(explicitSubject)) canonical.subject = explicitSubject;
       if (canonical.subject === 'BOTANY' || canonical.subject === 'ZOOLOGY' || canonical.name.toUpperCase().includes('BOTANY')) isNeet = true;
-      if (!qMap[canonical.name]) {
-        qMap[canonical.name] = [];
-        sMap[canonical.name] = canonical.subject;
+      const topicKey = `${canonical.subject}\u001f${canonical.name}`;
+      if (!qMap[topicKey]) {
+        qMap[topicKey] = [];
+        sMap[topicKey] = canonical.subject;
       }
       for (const q of entry.questions) {
-        if (!qMap[canonical.name].includes(q)) qMap[canonical.name].push(q);
+        if (!qMap[topicKey].includes(q)) qMap[topicKey].push(q);
       }
     }
     testTopicMaps[tm.testId] = { qMap, sMap, allQs: Array.from(allQs), stream: isNeet ? 'NEET' : 'JEE' };
@@ -132,7 +133,7 @@ export async function computeStudentOverallWeakTopics(studentId, { persist = tru
       const AR = (metrics.att / metrics.totalQ);
       const Acc = metrics.att > 0 ? (metrics.corr / metrics.att) : 0;
       const CS = (0.70 * Acc) + (0.30 * AR);
-      const topicObj = { topic: topicName, ar: Math.round(AR * 100), acc: Math.round(Acc * 100) };
+      const topicObj = { topic: topicName.split('\u001f').at(-1), ar: Math.round(AR * 100), acc: Math.round(Acc * 100) };
       
       const subject = metrics.subject;
 
@@ -207,12 +208,13 @@ export async function computeCenterOverallWeakTopics(centerId) {
       const explicitSubject = String(entry.subject || '').trim().toUpperCase();
       if (!correctedTopicSubject(entry.topic) && ['PHYSICS', 'CHEMISTRY', 'MATHEMATICS', 'BOTANY', 'ZOOLOGY'].includes(explicitSubject)) canonical.subject = explicitSubject;
       if (canonical.subject === 'BOTANY' || canonical.subject === 'ZOOLOGY' || canonical.name.toUpperCase().includes('BOTANY')) isNeet = true;
-      if (!qMap[canonical.name]) {
-        qMap[canonical.name] = [];
-        sMap[canonical.name] = canonical.subject;
+      const topicKey = `${canonical.subject}\u001f${canonical.name}`;
+      if (!qMap[topicKey]) {
+        qMap[topicKey] = [];
+        sMap[topicKey] = canonical.subject;
       }
       for (const q of entry.questions) {
-        if (!qMap[canonical.name].includes(q)) qMap[canonical.name].push(q);
+        if (!qMap[topicKey].includes(q)) qMap[topicKey].push(q);
       }
     }
     testTopicMaps[tm.testId] = { qMap, sMap, allQs: Array.from(allQs), stream: isNeet ? 'NEET' : 'JEE' };
@@ -275,11 +277,11 @@ export async function computeCenterOverallWeakTopics(centerId) {
       const AR = (metrics.att / metrics.totalPossible);
       const Acc = metrics.att > 0 ? (metrics.corr / metrics.att) : 0;
       const CS = (0.70 * Acc) + (0.30 * AR);
-      const topicObj = { topic: topicName, ar: Math.round(AR * 100), acc: Math.round(Acc * 100) };
+      const topicObj = { topic: topicName.split('\u001f').at(-1), ar: Math.round(AR * 100), acc: Math.round(Acc * 100) };
       
       const subject = metrics.subject;
       topicRates.push({
-        topic: topicName,
+        topic: topicName.split('\u001f').at(-1),
         subject,
         attempted: metrics.att,
         correct: metrics.corr,
@@ -345,3 +347,4 @@ export async function getCenterOverallWeakTopicsWithRates(centerId, stream = 'JE
   }
   return doc;
 }
+

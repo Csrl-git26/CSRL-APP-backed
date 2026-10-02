@@ -1,12 +1,14 @@
+import StudentRawMarks from '../models/StudentRawMarks.js';
+import { applyVerifiedRawScores } from '../utils/testSubjectMapping.js';
 import { filterApplicationData } from './testBranchService.js';
 import NodeCache from 'node-cache';
 import Redis from 'ioredis';
 import { isMongoReady, initMongo } from './mongoInit.js';
 import Profile from '../models/Profile.js';
 import TestScore from '../models/TestScore.js';
-import { flatToNested, nestedToFlat, extractColumnsFromNestedTests } from '../utils/testColumns.js';
+import { parseTestColumn, flatToNested, nestedToFlat, extractColumnsFromNestedTests } from '../utils/testColumns.js';
 
-const GLOBAL_DATA_CACHE_KEY = 'globalData_v2';
+const GLOBAL_DATA_CACHE_KEY = 'globalData_v3_subjects';
 const pendingGlobalQueries = new Map();
 
 function readCacheTtlMs() {
@@ -321,7 +323,7 @@ async function fetchGlobalDataFromDbOnce() {
     TestScore.find({}).lean()
   ]);
 
-  return processDbDocuments(profilesDocs, tDocs);
+  return repairVerifiedScores(processDbDocuments(profilesDocs, tDocs));
 }
 
 async function fetchCenterDataFromDbOnce(centerCode) {
@@ -410,7 +412,12 @@ async function fetchCenterDataFromDbOnce(centerCode) {
   });
   result.testColumns = Array.from(allTestColumnsSet);
   
-  return result;
+  return repairVerifiedScores(result);
+}
+
+async function repairVerifiedScores(data) {
+  const raw = await StudentRawMarks.find({ testId: 'NCT01' }).lean();
+  return applyVerifiedRawScores(data, raw, parseTestColumn);
 }
 
 export async function loadGlobalDataFromDb() {
@@ -470,7 +477,7 @@ export async function loadCenterDataFromDb(centerCode) {
   }
 
   const normCenter = normalizeCenterCode(centerCode);
-  const cacheKey = `centerData_v2_${normCenter}`;
+  const cacheKey = `centerData_v3_subjects_${normCenter}`;
   
   if (pendingGlobalQueries.has(cacheKey)) {
     return pendingGlobalQueries.get(cacheKey);
@@ -610,7 +617,7 @@ export async function loadSingleStudentDataFromDb(centerCode, rollKey) {
   const pDocs = profileDoc ? [profileDoc] : [];
   const tDocs = testDoc ? [testDoc] : [];
   
-  const processed = processDbDocuments(pDocs, tDocs);
+  const processed = await repairVerifiedScores(processDbDocuments(pDocs, tDocs));
   
   // We still need the global testColumns so charts render properly
   const centerData = await loadCenterDataFromDb(centerCode);
@@ -621,3 +628,4 @@ export async function loadSingleStudentDataFromDb(centerCode, rollKey) {
     testColumns: centerData.testColumns
   });
 }
+

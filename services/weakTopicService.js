@@ -1,3 +1,4 @@
+import { correctedTopicSubject } from '../utils/normalizeTopicSubjects.js';
 /**
  * services/weakTopicService.js
  *
@@ -63,14 +64,17 @@ export async function computeWeakTopics(testId) {
   
   for (const entry of topicMapDoc.topics) {
     for (const q of entry.questions) allTestQuestions.add(q);
-    const canonical = matchCanonicalTopic(entry.topic);
-    if (!canonicalQuestionsMap[canonical.name]) {
-      canonicalQuestionsMap[canonical.name] = [];
-      canonicalSubjectMap[canonical.name] = canonical.subject;
+    const canonical = { ...matchCanonicalTopic(entry.topic) };
+    const explicitSubject = String(entry.subject || '').trim().toUpperCase();
+    canonical.subject = correctedTopicSubject(entry.topic, testId) || (SUBJECTS.includes(explicitSubject) ? explicitSubject : canonical.subject);
+    const topicKey = `${canonical.subject}\u001f${canonical.name}`;
+    if (!canonicalQuestionsMap[topicKey]) {
+      canonicalQuestionsMap[topicKey] = [];
+      canonicalSubjectMap[topicKey] = canonical.subject;
     }
     for (const q of entry.questions) {
-      if (!canonicalQuestionsMap[canonical.name].includes(q)) {
-        canonicalQuestionsMap[canonical.name].push(q);
+      if (!canonicalQuestionsMap[topicKey].includes(q)) {
+        canonicalQuestionsMap[topicKey].push(q);
       }
     }
   }
@@ -114,7 +118,7 @@ export async function computeWeakTopics(testId) {
       const AR = totalQ > 0 ? (att / totalQ) : 0;
       const Acc = att > 0 ? (corr / att) : 0;
       const CS = (0.70 * Acc) + (0.30 * AR);
-      const topicObj = { topic: topicName, ar: Math.round(AR * 100), acc: Math.round(Acc * 100) };
+      const topicObj = { topic: topicName.split('\u001f').at(-1), ar: Math.round(AR * 100), acc: Math.round(Acc * 100) };
 
       if (CS >= 0.80 && AR >= 0.70) {
         classification.strongTopics.push(topicObj);
@@ -231,7 +235,7 @@ export async function computeCenterWeakTopics(testId, allMarksDocs, canonicalQue
       const AR = (totalQ * studentCount) > 0 ? (centerAtt / (totalQ * studentCount)) : 0;
       const Acc = centerAtt > 0 ? (centerCorr / centerAtt) : 0;
       const CS = (0.70 * Acc) + (0.30 * AR);
-      const topicObj = { topic: topicName, ar: Math.round(AR * 100), acc: Math.round(Acc * 100) };
+      const topicObj = { topic: topicName.split('\u001f').at(-1), ar: Math.round(AR * 100), acc: Math.round(Acc * 100) };
 
       if (CS >= 0.80 && AR >= 0.70) {
         classification.strongTopics.push(topicObj);
@@ -273,3 +277,4 @@ export async function computeCenterWeakTopics(testId, allMarksDocs, canonicalQue
 
   return centerBulkOps.length;
 }
+

@@ -10,13 +10,40 @@ import fs from 'fs';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function hasUsableScore(v) {
-  return v !== undefined && v !== null && v !== '' && String(v).toLowerCase() !== 'absent';
+  return v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim().toLowerCase() !== 'absent';
 }
 
 function numericScore(v) {
   if (!hasUsableScore(v)) return null;
   const n = parseFloat(v);
   return isNaN(n) ? null : n;
+}
+
+// Resolve only the requested test and subject; never borrow marks from another test.
+function subjectScore(doc, testName, subject) {
+  if (!doc) return null;
+  const target = subject === 'Mathematics' ? 'Math' : subject;
+  const key = Object.keys(doc).find(k => {
+    const parsed = parseTestColumn(k);
+    return parsed.testName === testName && parsed.subject === target;
+  });
+  return key === undefined ? null : numericScore(doc[key]);
+}
+
+function averageSubjectScore(doc, testNames, subject) {
+  const values = testNames.map(name => subjectScore(doc, name, subject)).filter(v => v !== null);
+  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+}
+
+function testScore(doc, key) {
+  if (!doc) return null;
+  const direct = numericScore(doc[key]);
+  if (direct !== null) return direct;
+  const parsed = parseTestColumn(key);
+  if (!parsed.isTotal) return subjectScore(doc, parsed.testName, parsed.subject);
+  const values = ['Physics', 'Chemistry', 'Math', 'Biology', 'Botany', 'Zoology']
+    .map(sub => subjectScore(doc, parsed.testName, sub)).filter(v => v !== null);
+  return values.length ? values.reduce((a, b) => a + b, 0) : null;
 }
 
 /**
@@ -83,29 +110,7 @@ export function rankStudentsByTest(profiles, tests, testKey) {
     let sum = 0, count = 0;
     if (testDoc) {
       testKeys.forEach(k => {
-        let m = numericScore(testDoc[k]);
-        if (m === null) {
-          let subjectSum = 0;
-          let hasSubject = false;
-          const subjects = ["Physics", "Chemistry", "Math", "Mathematics", "Biology", "Botany", "Zoology"];
-          subjects.forEach(sub => {
-            const subKey = Object.keys(testDoc).find(tk => {
-              if (!tk.trim().startsWith(k)) return false;
-              const tkUpper = tk.trim().toUpperCase();
-              const subUpper = sub.toUpperCase();
-              if (tkUpper.includes(subUpper) || (tkUpper.includes("PHY") && sub === "Physics") || (tkUpper.includes("CHEM") && sub === "Chemistry") || (tkUpper.includes("BIO") && sub === "Biology") || (tkUpper.includes("BOT") && sub === "Botany") || (tkUpper.includes("ZOO") && sub === "Zoology") || (tkUpper.includes("MAT") && sub === "Math") || (tkUpper.includes("MATHS") && sub === "Math")) return true;
-              return false;
-            });
-            if (subKey) {
-              const sm = numericScore(testDoc[subKey]);
-              if (sm !== null) { subjectSum += sm; hasSubject = true; }
-            }
-          });
-          if (hasSubject) {
-            m = subjectSum;
-            testDoc[k] = m;
-          }
-        }
+        const m = testScore(testDoc, k);
         if (m !== null) { sum += m; count++; }
       });
     }
@@ -119,18 +124,8 @@ export function rankStudentsByTest(profiles, tests, testKey) {
         let subSum = 0;
         let subCount = 0;
         testKeys.forEach(k => {
-          // Look for k_sub e.g. FMT01_Physics
-          const subKey = Object.keys(testDoc).find(tk => {
-              if (!tk.trim().startsWith(k)) return false;
-              const tkUpper = tk.trim().toUpperCase();
-              const subUpper = sub.toUpperCase();
-              if (tkUpper.includes(subUpper) || (tkUpper.includes("PHY") && sub === "Physics") || (tkUpper.includes("CHEM") && sub === "Chemistry") || (tkUpper.includes("BIO") && sub === "Biology") || (tkUpper.includes("BOT") && sub === "Botany") || (tkUpper.includes("ZOO") && sub === "Zoology") || (tkUpper.includes("MAT") && sub === "Math") || (tkUpper.includes("MATHS") && sub === "Math")) return true;
-              return false;
-            });
-          if (subKey) {
-             const m = numericScore(testDoc[subKey]);
-             if (m !== null) { subSum += m; subCount++; }
-          }
+          const m = subjectScore(testDoc, k, sub);
+          if (m !== null) { subSum += m; subCount++; }
         });
         if (subCount > 0) {
            injectedRawScores[sub] = Math.round(subSum / subCount);
@@ -190,7 +185,7 @@ export function absentCount(profiles, tests, testKey) {
     let hasAnyScore = false;
     validTestKeys.forEach(k => {
       const v = doc[k];
-      if (v && String(v).toLowerCase() !== 'absent') {
+      if (numericScore(v) !== null) {
         hasAnyScore = true;
       }
     });
@@ -290,26 +285,7 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
     if (!doc) return;
     
     testKeys.forEach(key => {
-      let mark = numericScore(doc[key]);
-      
-      if (mark === null) {
-        let subjectSum = 0;
-        let hasSubject = false;
-        const subjects = ["Physics", "Chemistry", "Math", "Mathematics", "Biology", "Botany", "Zoology"];
-        subjects.forEach(sub => {
-          let sm = null;
-          const rKeys = Object.keys(doc);
-          const strictKey = rKeys.find(tk => tk.startsWith(key) && tk.toLowerCase().includes(sub.toLowerCase()));
-          if (strictKey) {
-            sm = numericScore(doc[strictKey]);
-          } else {
-            const fallbackKey = rKeys.find(tk => tk.toLowerCase() === sub.toLowerCase());
-            if (fallbackKey) sm = numericScore(doc[fallbackKey]);
-          }
-          if (sm !== null) { subjectSum += sm; hasSubject = true; }
-        });
-        if (hasSubject) mark = subjectSum;
-      }
+      const mark = testScore(doc, key);
       
       if (mark === null) return;
       centreAgg[code].sum   += mark;
@@ -318,27 +294,7 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
       if (mark < centreAgg[code].min) centreAgg[code].min = mark;
     });
 
-    const rKeys = Object.keys(doc);
-    const getScore = (sub) => {
-       let k = null;
-       for (const key of testKeys) {
-          k = rKeys.find(rk => rk === `${key}_${sub}` || rk === `${key}_${sub.toUpperCase()}` || rk === `${key}_${sub.toLowerCase()}`);
-          if (k) break;
-       }
-       if (!k) {
-         k = rKeys.find(rk => {
-            const rkUpper = rk.toUpperCase();
-        const subUpper = sub.toUpperCase();
-        if (rkUpper === subUpper || (rkUpper === "PHY" && sub === "Physics") || (rkUpper === "CHEM" && sub === "Chemistry") || (rkUpper === "BIO" && sub === "Biology") || (rkUpper === "BOT" && sub === "Botany") || (rkUpper === "ZOO" && sub === "Zoology") || (rkUpper === "MAT" && sub === "Math") || (rkUpper === "MATHS" && sub === "Math") || (rkUpper === "MATHEMATICS" && sub === "Math") || (rkUpper.includes("BOTNAY") && sub === "Botany")) return true;
-        return rk.toLowerCase().endsWith("_" + sub.toLowerCase()) || (rk.toLowerCase().endsWith("_botnay") && sub === "Botany") || (rkUpper.endsWith("_PHY") && sub === "Physics") || (rkUpper.endsWith("_CHEM") && sub === "Chemistry") || (rkUpper.endsWith("_BIO") && sub === "Biology") || (rkUpper.endsWith("_BOT") && sub === "Botany") || (rkUpper.endsWith("_ZOO") && sub === "Zoology") || (rkUpper.endsWith("_MAT") && sub === "Math") || (rkUpper.endsWith("_MATHS") && sub === "Math");
-         });
-       }
-       if (k && !isNaN(Number(doc[k]))) {
-           let val = Number(doc[k]);
-           return val > 0 ? val : 0;
-       }
-       return null;
-    };
+    const getScore = sub => averageSubjectScore(doc, testKeys, sub);
     
     const phy = getScore('Physics');
     if (phy !== null) { centreAgg[code].phySum += phy; centreAgg[code].phyCount++; }
@@ -346,7 +302,7 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
     if (che !== null) { centreAgg[code].cheSum += che; centreAgg[code].cheCount++; }
     
     const m1 = getScore('Math'), m2 = getScore('Mathematics');
-    const math = Math.max(m1||0, m2||0);
+    const math = m1 ?? m2;
     if (m1 !== null || m2 !== null) { 
          centreAgg[code].mathSum += math; 
          centreAgg[code].mathCount++; 
@@ -552,31 +508,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
   }
 
   const validTestKeys = testKey.split(',').map(k => k.trim());
-  const getScoreForDoc = (doc, sub, validTestKeys) => {
-    if (!doc) return null;
-    const rKeys = Object.keys(doc);
-    let k = null;
-    for (const rk of rKeys) {
-        const pcol = parseTestColumn(rk);
-        if (validTestKeys.includes(pcol.testName) && pcol.subject === sub) {
-        k = rk;
-        break;
-        }
-    }
-    if (!k) {
-        k = rKeys.find(rk => {
-        const rkUpper = rk.toUpperCase();
-        const subUpper = sub.toUpperCase();
-        if (rkUpper === subUpper || (rkUpper === "PHY" && sub === "Physics") || (rkUpper === "CHEM" && sub === "Chemistry") || (rkUpper === "BIO" && sub === "Biology") || (rkUpper === "BOT" && sub === "Botany") || (rkUpper === "ZOO" && sub === "Zoology") || (rkUpper === "MAT" && sub === "Math") || (rkUpper === "MATHS" && sub === "Math") || (rkUpper === "MATHEMATICS" && sub === "Math") || (rkUpper.includes("BOTNAY") && sub === "Botany")) return true;
-        return rk.toLowerCase().endsWith("_" + sub.toLowerCase()) || (rk.toLowerCase().endsWith("_botnay") && sub === "Botany") || (rkUpper.endsWith("_PHY") && sub === "Physics") || (rkUpper.endsWith("_CHEM") && sub === "Chemistry") || (rkUpper.endsWith("_BIO") && sub === "Biology") || (rkUpper.endsWith("_BOT") && sub === "Botany") || (rkUpper.endsWith("_ZOO") && sub === "Zoology") || (rkUpper.endsWith("_MAT") && sub === "Math") || (rkUpper.endsWith("_MATHS") && sub === "Math");
-        });
-    }
-    if (k && !isNaN(Number(doc[k]))) {
-        let val = Number(doc[k]);
-        return val > 0 ? val : 0;
-    }
-    return null;
-  };
+  const getScoreForDoc = (doc, sub, keys) => averageSubjectScore(doc, keys, sub);
 
   let subjectsSet = new Set();
   const allSubjs = ['Physics', 'Chemistry', 'Math', 'Biology', 'Botany', 'Zoology'];
@@ -937,31 +869,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     const doc = tests.find((t) => t.ROLL_KEY === p.ROLL_KEY);
     if (!doc) return;
 
-    const rKeys = Object.keys(doc);
-
-    const getScore = (sub) => {
-       let k = null;
-       for (const rk of rKeys) {
-         const p = parseTestColumn(rk);
-         if (validTestKeys.includes(p.testName) && p.subject === sub) {
-            k = rk;
-            break;
-         }
-       }
-       if (!k) {
-         k = rKeys.find(rk => {
-            const rkUpper = rk.toUpperCase();
-        const subUpper = sub.toUpperCase();
-        if (rkUpper === subUpper || (rkUpper === "PHY" && sub === "Physics") || (rkUpper === "CHEM" && sub === "Chemistry") || (rkUpper === "BIO" && sub === "Biology") || (rkUpper === "BOT" && sub === "Botany") || (rkUpper === "ZOO" && sub === "Zoology") || (rkUpper === "MAT" && sub === "Math") || (rkUpper === "MATHS" && sub === "Math") || (rkUpper === "MATHEMATICS" && sub === "Math") || (rkUpper.includes("BOTNAY") && sub === "Botany")) return true;
-        return rk.toLowerCase().endsWith("_" + sub.toLowerCase()) || (rk.toLowerCase().endsWith("_botnay") && sub === "Botany") || (rkUpper.endsWith("_PHY") && sub === "Physics") || (rkUpper.endsWith("_CHEM") && sub === "Chemistry") || (rkUpper.endsWith("_BIO") && sub === "Biology") || (rkUpper.endsWith("_BOT") && sub === "Botany") || (rkUpper.endsWith("_ZOO") && sub === "Zoology") || (rkUpper.endsWith("_MAT") && sub === "Math") || (rkUpper.endsWith("_MATHS") && sub === "Math");
-         });
-       }
-       if (k && !isNaN(Number(doc[k]))) {
-           let val = Number(doc[k]);
-           return val > 0 ? val : 0;
-       }
-       return null;
-    };
+    const getScore = sub => averageSubjectScore(doc, validTestKeys, sub);
     
     ['Physics', 'Chemistry', 'Biology', 'Botany', 'Zoology'].forEach(sub => {
       if (options.stream === 'JEE' && ['Biology', 'Botany', 'Zoology'].includes(sub)) return;
@@ -973,7 +881,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
 
     if (options.stream !== 'NEET') {
       const m1 = getScore("Math"), m2 = getScore("Mathematics");
-      const math = Math.max(m1||0, m2||0);
+      const math = m1 ?? m2;
       if (m1 !== null || m2 !== null) {
         subjectMap.Math.push({ roll: p.ROLL_KEY, name: p["NAME"] || p["name"] || p["STUDENT NAME"] || p["STUDENT'S NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score: math });
       }
@@ -1061,7 +969,7 @@ export function buildCentreChartData(centerTests, testColumns, stream) {
             testsMap[testName].count += 1;
           } else {
             allSubjects.add(subject);
-            if (!testsMap[testName].subjectSums[subject]) {
+            if (testsMap[testName].subjectCounts[subject] === undefined) {
               testsMap[testName].subjectSums[subject] = 0;
               testsMap[testName].subjectCounts[subject] = 0;
             }
@@ -1117,3 +1025,4 @@ export function sortTestRowsChronologically(rows) {
     return compareTestsAsc(a.name, b.name);
   });
 }
+
