@@ -7,6 +7,19 @@ import { parseTestColumn } from '../utils/testColumns.js';
 import { compareTestsAsc } from '../utils/testSort.js';
 import fs from 'fs';
 
+// Student profile uploads use several equivalent name headers.
+export function studentDisplayName(profile) {
+  const entries = Object.entries(profile || {});
+  for (const alias of ['studentsname', 'studentname', 'name', 'fullname']) {
+    for (const [key, value] of entries) {
+      if (key.toLowerCase().replace(/[^a-z]/g, '') !== alias || typeof value !== 'string') continue;
+      const name = value.trim();
+      if (name && !['null', 'undefined', 'n/a', 'na', '-', '—'].includes(name.toLowerCase())) return name;
+    }
+  }
+  return '';
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function hasUsableScore(v) {
@@ -136,7 +149,7 @@ export function rankStudentsByTest(profiles, tests, testKey) {
     if (mark === null) {
       absent.push({
         roll:     p.ROLL_KEY,
-        name:     p["STUDENT'S NAME"] || '',
+        name:     studentDisplayName(p),
         marks:    'Absent',
         center:   p.centerCode || '',
         category: p.CATEGORY   || '',
@@ -150,7 +163,7 @@ export function rankStudentsByTest(profiles, tests, testKey) {
     } else {
       scored.push({
         roll:     p.ROLL_KEY,
-        name:     p["STUDENT'S NAME"] || '',
+        name:     studentDisplayName(p),
         marks:    mark,
         center:   p.centerCode || '',
         category: p.CATEGORY   || '',
@@ -557,7 +570,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       bestPct = pct;
       bestScorePercentStudent = {
         roll: p.ROLL_KEY,
-        name: p["STUDENT'S NAME"] || '',
+        name: studentDisplayName(p),
         center: p.centerCode || '—',
         total: t,
         scorePercent: round2(pct),
@@ -875,7 +888,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       if (options.stream === 'JEE' && ['Biology', 'Botany', 'Zoology'].includes(sub)) return;
       const score = getScore(sub);
       if (score !== null) {
-        subjectMap[sub].push({ roll: p.ROLL_KEY, name: p["NAME"] || p["name"] || p["STUDENT NAME"] || p["STUDENT'S NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score });
+        subjectMap[sub].push({ roll: p.ROLL_KEY, name: studentDisplayName(p) || "Unknown", centerCode: p.centerCode || "UNKNOWN", score });
       }
     });
 
@@ -883,7 +896,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       const m1 = getScore("Math"), m2 = getScore("Mathematics");
       const math = m1 ?? m2;
       if (m1 !== null || m2 !== null) {
-        subjectMap.Math.push({ roll: p.ROLL_KEY, name: p["NAME"] || p["name"] || p["STUDENT NAME"] || p["STUDENT'S NAME"] || "Unknown", centerCode: p.centerCode || "UNKNOWN", score: math });
+        subjectMap.Math.push({ roll: p.ROLL_KEY, name: studentDisplayName(p) || "Unknown", centerCode: p.centerCode || "UNKNOWN", score: math });
       }
     }
   });
