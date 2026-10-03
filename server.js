@@ -350,6 +350,7 @@ function filterByStream(profiles, tests, stream) {
     profileStreams[p.ROLL_KEY] = detectStreams(p.ROLL_KEY, p.stream || p.STREAM || p.Stream, p.centerCode, testsByRoll[p.ROLL_KEY]);
   });
 
+  const profilesByRoll = new Map(profiles.map(p => [String(p.ROLL_KEY).trim(), p]));
   const filteredProfiles = [];
   const filteredTests = [];
   const profileKeys = new Set();
@@ -363,11 +364,11 @@ function filterByStream(profiles, tests, stream) {
     if (profileStreams[roll].has(targetStream)) {
       filteredTests.push(t);
       if (!profileKeys.has(roll)) {
-        filteredProfiles.push({
+        filteredProfiles.push(profilesByRoll.get(String(roll).trim()) || {
           ROLL_KEY: roll,
           centerCode: t.centerCode || '',
           stream: Array.from(profileStreams[roll])[0],
-          name: t.name || roll
+          name: t.name || ''
         });
         profileKeys.add(roll);
       }
