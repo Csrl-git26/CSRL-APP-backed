@@ -3,6 +3,7 @@ import { testBranchMiddleware, filterTestDocuments, registerTestBranch, register
 import { enrichStudentChartFromRawMarks } from './services/studentChartRawMarks.js';
 import './bootstrap-env.js';
 import express from 'express';
+import facultyTestsRouter from './routes/facultyTests.js';
 import cors from 'cors';
 import compression from 'compression';
 import jwt from 'jsonwebtoken';
@@ -183,6 +184,8 @@ function requireAdmin(req, res, next) {
 }
 
 // ── Data Read Routes ───────────────────────────────────────────────────────────
+
+app.use('/api/faculty-tests', authenticateToken, facultyTestsRouter);
 
 app.get('/api/data/global', authenticateToken, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
