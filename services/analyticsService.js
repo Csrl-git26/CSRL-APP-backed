@@ -725,8 +725,11 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
 
   const notQualifiedOverall = {};
   const notQualifiedBySubject = {};
+  const lowScoringStudentsBySubject = {};
+  const namesByRoll = new Map(profiles.map(p => [p.ROLL_KEY, studentDisplayName(p)]));
   subjects.forEach((subj) => {
     notQualifiedBySubject[subj] = {};
+    lowScoringStudentsBySubject[subj] = {};
   });
 
   studentStates.forEach((st) => {
@@ -747,6 +750,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       if (m !== null && smin !== undefined && m <= smin) {
         const c = st.center;
         notQualifiedBySubject[subj][c] = (notQualifiedBySubject[subj][c] || 0) + 1;
+        (lowScoringStudentsBySubject[subj][c] ||= []).push({ roll: st.roll, name: namesByRoll.get(st.roll) || '', center: c, marks: m });
       }
     });
   });
@@ -942,6 +946,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
     bottom5Centres,
     notQualifiedOverall,
     notQualifiedBySubject,
+    lowScoringStudentsBySubject,
     qualificationRateByCentre,
     studentInsight,
     note:
