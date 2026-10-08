@@ -22,6 +22,7 @@ export function validateFacultyResults(input) {
     if (seen.has(key)) throw new Error(`Row ${i + 1}: duplicate faculty/test/subject.`); seen.add(key);
     const date = text('date');
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`Row ${i + 1}: use YYYY-MM-DD for dates.`);
-    return { year,email,name,test,subject,centres: text('centres').toUpperCase().split(/\s*(?:&|,|;)\s*/).filter(Boolean),attempted,correct,marks,maxMarks,totalQuestions,accuracy,qualification,status,date };
+    const profile = Object.fromEntries(['facultyId','serialNumber','contact','projectManager','mentor','degree','college','passingYear','joiningDate'].map(key => [key,text(key)]));
+    return { ...profile,year,email,name,test,subject,centres: text('centres').toUpperCase().split(/\s*(?:&|,|;)\s*/).filter(Boolean),attempted,correct,marks,maxMarks,totalQuestions,accuracy,qualification,status,date };
   });
 }
