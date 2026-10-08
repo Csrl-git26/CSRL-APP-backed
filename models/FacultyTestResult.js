@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 const schema = new mongoose.Schema({
+  facultyId: String, serialNumber: String, contact: String, projectManager: String, mentor: String, degree: String, college: String, passingYear: String, joiningDate: String,
   year: String, email: String, name: String, test: String, subject: String, centres: [String],
   attempted: Number, correct: Number, marks: Number, maxMarks: Number, totalQuestions: Number,
   accuracy: Number, qualification: String, status: String, date: String,
