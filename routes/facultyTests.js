@@ -19,4 +19,18 @@ router.post('/import', async (req,res) => {
     res.json({ count: rows.length });
   } catch { res.status(500).json({ message: 'Import could not finish. Please retry the same file; existing results will not be duplicated.' }); }
 });
+router.post('/delete', async (req,res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin access required.' });
+  const { year, test, ids, confirmation } = req.body || {};
+  if (typeof year !== 'string' || !year.trim() || year === 'ALL' ||
+      typeof test !== 'string' || !test.trim() || test === 'ALL' ||
+      confirmation !== 'DELETE' || !Array.isArray(ids) || !ids.length || ids.length > 10000 ||
+      ids.some(id => typeof id !== 'string' || !/^[a-f0-9]{24}$/i.test(id))) {
+    return res.status(400).json({ message: 'Select an academic year and test, review the records, and confirm deletion.' });
+  }
+  try {
+    const result = await FacultyTestResult.deleteMany({ year, test, _id: { $in: ids } });
+    res.json({ deletedCount: result.deletedCount });
+  } catch { res.status(500).json({ message: 'Unable to delete faculty results. Reload before retrying.' }); }
+});
 export default router;
