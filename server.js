@@ -800,7 +800,8 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
               sumTotal: 0, count: 0, 
               subjectSums: {}, subjectCounts: {},
               totalAttemptedSum: 0, totalCorrectSum: 0,
-              subjectAttemptedSum: {}, subjectCorrectSum: {}
+              subjectAttemptedSum: {}, subjectCorrectSum: {},
+              studentTotals: []
             };
           }
           const agg = testAggMap[tid];
@@ -832,6 +833,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
             }
           }
           agg.sumTotal += total;
+          agg.studentTotals.push(total);
           agg.totalAttemptedSum += studentTotalAttempted;
           agg.totalCorrectSum += studentTotalCorrect;
           agg.count += 1;
@@ -845,9 +847,14 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
             const avgTotalAttempted = Math.round(agg.totalAttemptedSum / agg.count);
             row['Total_Attempted'] = avgTotalAttempted;
             row['Total_Accuracy'] = agg.totalAttemptedSum > 0 ? Math.round((agg.totalCorrectSum / agg.totalAttemptedSum) * 100) : 0;
+            const streamKey = String(stream).toUpperCase() === 'NEET' ? 'NEET' : 'JEE';
+            const defaultMin = streamKey === 'NEET' ? 550 : 100;
+            const qCount = agg.studentTotals.filter(t => t >= defaultMin).length;
+            row.qualRate = Math.round((qCount / agg.count) * 100);
           } else {
             row['Total_Attempted'] = null;
             row['Total_Accuracy'] = null;
+            row.qualRate = null;
           }
 
           const subjectsForStream = String(stream).toUpperCase() === 'NEET'
@@ -880,6 +887,9 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
               if (key === 'name') continue;
               if (key.endsWith('_Attempted') || key.endsWith('_Accuracy') || existing[key] == null) existing[key] = value;
             }
+            if (existing.qualRate == null && rawRow.qualRate != null) {
+              existing.qualRate = rawRow.qualRate;
+            }
           } else {
             finalChartData.push(rawRow);
           }
@@ -898,16 +908,53 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
           if (row['Total_Rank'] !== undefined && row['Total_Rank'] !== null) continue; // already ranked
           const testName = row.name;
           const rankInsights = computeTestInsights(streamProfiles, streamTests, testName, global.testColumns, { stream });
-          const rCentreRow = rankInsights.centreRows.find(r => r.code === centerCode);
-          if (rCentreRow) {
-            row['Total_Rank'] = rankInsights.centreRows.findIndex(r => r.code === centerCode) + 1;
+          
+          // Combine centres from rankInsights with this centre's row if not present
+          const allCentres = (rankInsights.centreRows || []).map(r => ({
+            code: r.code,
+            totalAvg: r.totalAvg,
+            subjectAvgs: { ...(r.subjectAvgs || {}) }
+          }));
+
+          const existingCentre = allCentres.find(r => r.code === centerCode);
+          if (!existingCentre) {
+            const thisCentreRow = {
+              code: centerCode,
+              totalAvg: row['Total'] != null ? Number(row['Total']) : 0,
+              subjectAvgs: {}
+            };
             subjectsForRank.forEach(sub => {
-              const validCentres = rankInsights.centreRows.filter(r => r.subjectAvgs[sub] !== null && r.subjectAvgs[sub] !== undefined);
-              if (validCentres.some(r => r.code === centerCode)) {
-                validCentres.sort((a, b) => b.subjectAvgs[sub] - a.subjectAvgs[sub]);
-                row[`${sub}_Rank`] = validCentres.findIndex(r => r.code === centerCode) + 1;
+              thisCentreRow.subjectAvgs[sub] = row[sub] != null ? Number(row[sub]) : null;
+            });
+            allCentres.push(thisCentreRow);
+          }
+
+          if (allCentres.length > 0) {
+            allCentres.sort((a, b) => (b.totalAvg || 0) - (a.totalAvg || 0));
+            const totalRankIdx = allCentres.findIndex(r => r.code === centerCode);
+            if (totalRankIdx !== -1) {
+              row['Total_Rank'] = totalRankIdx + 1;
+            }
+
+            subjectsForRank.forEach(sub => {
+              if (row[sub] != null) {
+                const validCentres = allCentres.filter(r => r.subjectAvgs && r.subjectAvgs[sub] !== null && r.subjectAvgs[sub] !== undefined);
+                if (validCentres.some(r => r.code === centerCode)) {
+                  validCentres.sort((a, b) => b.subjectAvgs[sub] - a.subjectAvgs[sub]);
+                  row[`${sub}_Rank`] = validCentres.findIndex(r => r.code === centerCode) + 1;
+                }
               }
             });
+          }
+
+          if (row.qualRate == null && testAggMap[testName]) {
+            const agg = testAggMap[testName];
+            const streamKey = String(stream).toUpperCase() === 'NEET' ? 'NEET' : 'JEE';
+            const overallMin = rankInsights.cutoffs?.[streamKey]?.overallMin ?? (streamKey === 'NEET' ? 550 : 100);
+            if (agg.studentTotals && agg.studentTotals.length > 0) {
+              const qCount = agg.studentTotals.filter(t => t >= overallMin).length;
+              row.qualRate = Math.round((qCount / agg.studentTotals.length) * 100);
+            }
           }
         }
       }
