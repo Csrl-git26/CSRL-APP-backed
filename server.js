@@ -887,6 +887,29 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
         
         // Re-sort after merge
         finalChartData.sort((a, b) => compareTestsAsc(a.name, b.name));
+
+        // ── 2nd pass: fill in ranks for rows that came only from MongoDB (no spreadsheet data) ──
+        // These rows were pushed into finalChartData AFTER the rank loop, so they have no _Rank fields.
+        const subjectsForRank = String(stream).toUpperCase() === 'NEET'
+          ? ['Physics', 'Chemistry', 'Botany', 'Zoology']
+          : ['Physics', 'Chemistry', 'Math'];
+
+        for (const row of finalChartData) {
+          if (row['Total_Rank'] !== undefined && row['Total_Rank'] !== null) continue; // already ranked
+          const testName = row.name;
+          const rankInsights = computeTestInsights(streamProfiles, streamTests, testName, global.testColumns, { stream });
+          const rCentreRow = rankInsights.centreRows.find(r => r.code === centerCode);
+          if (rCentreRow) {
+            row['Total_Rank'] = rankInsights.centreRows.findIndex(r => r.code === centerCode) + 1;
+            subjectsForRank.forEach(sub => {
+              const validCentres = rankInsights.centreRows.filter(r => r.subjectAvgs[sub] !== null && r.subjectAvgs[sub] !== undefined);
+              if (validCentres.some(r => r.code === centerCode)) {
+                validCentres.sort((a, b) => b.subjectAvgs[sub] - a.subjectAvgs[sub]);
+                row[`${sub}_Rank`] = validCentres.findIndex(r => r.code === centerCode) + 1;
+              }
+            });
+          }
+        }
       }
     } catch (dbErr) {
       console.error('[Analytics] Error merging MongoDB data:', dbErr);
