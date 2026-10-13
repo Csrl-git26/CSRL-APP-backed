@@ -1,4 +1,5 @@
 import { normalizeTopicSubjects } from './utils/normalizeTopicSubjects.js';
+import { replaceCompleteTest } from './services/completeTestImport.js';
 import { testBranchMiddleware, filterTestDocuments, registerTestBranch, registerScoreBranches, registerBulkScoreBranches } from './services/testBranchService.js';
 import { enrichStudentChartFromRawMarks } from './services/studentChartRawMarks.js';
 import './bootstrap-env.js';
@@ -1337,7 +1338,7 @@ app.delete('/api/students/:rollKey', authenticateToken, requireAdmin, async (req
  * High-performance bulk import for test scores.
  * Body: { marks: [ { rollKey, centerCode, scores }, ... ] }
  */
-app.post('/api/tests/bulk-upsert', authenticateToken, requireAdmin, async (req, res) => {
+app.post(['/api/tests/bulk-upsert', '/api/tests/import/replace-complete'], authenticateToken, requireAdmin, async (req, res) => {
   const { marks } = req.body;
   if (!Array.isArray(marks) || marks.length === 0) {
     return res.status(400).json({ message: 'marks array is required' });
@@ -1349,6 +1350,14 @@ app.post('/api/tests/bulk-upsert', authenticateToken, requireAdmin, async (req, 
     }
     await initMongo();
     const TestScore = (await import('./models/TestScore.js')).default;
+
+    if (req.path === '/api/tests/import/replace-complete') {
+      // Register/validate the immutable test destination before starting the transaction.
+      await registerTestBranch(req.body.testKey, req.body);
+      const result = await replaceCompleteTest({ testKey: req.body.testKey, stream: req.body.stream, marks });
+      invalidateDataCache();
+      return res.json(result);
+    }
 
     await registerBulkScoreBranches(marks, req.body);
 
