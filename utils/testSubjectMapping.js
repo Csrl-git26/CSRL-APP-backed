@@ -3,8 +3,11 @@ import { correctedTopicSubject } from './normalizeTopicSubjects.js';
 // Verified against the supplied NCT01 paper: four consecutive 45-question sections.
 // Do not apply this layout to other tests without a verified paper definition.
 export function verifiedQuestionSubject(testId, question) {
-  if (String(testId || '').trim().toUpperCase() !== 'NCT01') return null;
+  const test = String(testId || '').trim().toUpperCase();
   const n = Number(String(question).replace(/^Q/i, ''));
+  // MT02 Q45 (Biomolecules): Chemistry, confirmed by the test owner.
+  if (test === 'MT02' && n === 45) return 'CHEMISTRY';
+  if (test !== 'NCT01') return null;
   if (!Number.isInteger(n) || n < 1 || n > 180) return null;
   return ['PHYSICS', 'CHEMISTRY', 'BOTANY', 'ZOOLOGY'][Math.floor((n - 1) / 45)];
 }
