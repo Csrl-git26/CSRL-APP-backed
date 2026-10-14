@@ -26,6 +26,8 @@ export const KNOWN_SUBJECTS = new Set(['Physics', 'Chemistry', 'Mathematics', 'B
 // backend infers the subject. Extend this map or use SyllabusTopics from DB.
 // If a topic is not in this map, we return null (unknown subject → validation error).
 const TOPIC_SUBJECT_MAP = {
+  'BASIC MATHS, SETS & RELATION': 'Mathematics',
+  'BASIC MATHS, SETS AND RELATION': 'Mathematics',
   // Hardcoded mappings provided by the user for standardizing uploads
   // Physics
   'GENERAL PHYSICS AND EXPERIMENTAL SKILLS': 'Physics',
