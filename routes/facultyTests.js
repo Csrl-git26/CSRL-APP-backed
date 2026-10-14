@@ -33,4 +33,19 @@ router.post('/delete', async (req,res) => {
     res.json({ deletedCount: result.deletedCount });
   } catch { res.status(500).json({ message: 'Unable to delete faculty results. Reload before retrying.' }); }
 });
+
+router.post('/delete-all', async (req,res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin access required.' });
+  const { ids, confirmation } = req.body || {};
+  if (confirmation !== 'DELETE ALL' || !Array.isArray(ids) || !ids.length || ids.length > 100000 ||
+      ids.some(id => typeof id !== 'string' || !/^[a-f0-9]{24}$/i.test(id))) {
+    return res.status(400).json({ message: 'Review all trainee faculty records and type DELETE ALL to confirm.' });
+  }
+  try {
+    // Delete only records reviewed by this admin; concurrent new uploads are preserved.
+    const result = await FacultyTestResult.deleteMany({ _id: { $in: ids } });
+    res.json({ deletedCount: result.deletedCount });
+  } catch { res.status(500).json({ message: 'Unable to delete trainee faculty results. Reload before retrying.' }); }
+});
+
 export default router;
