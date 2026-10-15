@@ -160,7 +160,7 @@ app.post('/api/auth/login', async (req, res) => {
         return res.status(503).json({ success: false, message: 'Login service temporarily unavailable. Please retry.' });
       }
     }
-    if (id === 'centre' && password === 'centre123') {
+    if (id === 'centre' && password === 'Csrl@123') {
       const token = jwt.sign({ role: 'centre', id: 'centre' }, JWT_SECRET, { expiresIn: '12h' });
       return res.json({ success: true, token, role: 'centre', id: 'centre', name: 'Centre Dashboard' });
     }
