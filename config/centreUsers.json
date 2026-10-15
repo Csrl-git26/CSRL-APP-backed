@@ -1,0 +1,1282 @@
+{
+  "passwordSalt": "fb6d4de96213bb5ecd29cf22070d79ab",
+  "passwordHash": "4f8294da029ced90bd339da9d71d1e5e5e15d25ac81834f282afec638bbc1f405fc033043fb3b04bed897752cefb38773f211b82ae149d087c8dede97016aa30",
+  "users": [
+    {
+      "id": "anirban.das@csrl.in",
+      "name": "Anirban Das",
+      "centres": [
+        "AGR"
+      ]
+    },
+    {
+      "id": "william.molsom@csrl.in",
+      "name": "WILLIAM MOLSOM",
+      "centres": [
+        "AGR"
+      ]
+    },
+    {
+      "id": "gyanesh.kumar@csrl.in",
+      "name": "Gyanesh Kumar",
+      "centres": [
+        "BEAS"
+      ]
+    },
+    {
+      "id": "gaurav.arya@csrl.in",
+      "name": "Gaurav Kumar Arya",
+      "centres": [
+        "BEAS"
+      ]
+    },
+    {
+      "id": "saurabh.saini@csrl.in",
+      "name": "Saurabh Saini",
+      "centres": [
+        "BEAS"
+      ]
+    },
+    {
+      "id": "sriram@csrl.in",
+      "name": "Sriram A",
+      "centres": [
+        "CHN"
+      ]
+    },
+    {
+      "id": "amit.singh@csrl.in",
+      "name": "Amit Kumar Singh",
+      "centres": [
+        "CHN"
+      ]
+    },
+    {
+      "id": "gokul.m@csrl.in",
+      "name": "Gokul M",
+      "centres": [
+        "CHN"
+      ]
+    },
+    {
+      "id": "ajeet@csrl.in",
+      "name": "Ajeet",
+      "centres": [
+        "DDN"
+      ]
+    },
+    {
+      "id": "govindsingh.kanwal@csrl.in",
+      "name": "Govind Singh Kanwal",
+      "centres": [
+        "DDN"
+      ]
+    },
+    {
+      "id": "girish.chandra@csrl.in",
+      "name": "Girish Chandra",
+      "centres": [
+        "DEL"
+      ]
+    },
+    {
+      "id": "janhavi.verma@csrl.in",
+      "name": "Janhavi Verma",
+      "centres": [
+        "DEL"
+      ]
+    },
+    {
+      "id": "jaishankar.rai@csrl.in",
+      "name": "Jai Shankar Rai",
+      "centres": [
+        "DIB"
+      ]
+    },
+    {
+      "id": "suman.talukdar@csrl.in",
+      "name": "Suman Talukdar",
+      "centres": [
+        "DIB",
+        "SIV"
+      ]
+    },
+    {
+      "id": "koushik.gogoi@csrl.in",
+      "name": "Koushik Gogoi",
+      "centres": [
+        "DIB"
+      ]
+    },
+    {
+      "id": "nidhi.soni@csrl.in",
+      "name": "Nidhi Soni",
+      "centres": [
+        "GVE&M"
+      ]
+    },
+    {
+      "id": "vikas.kumar@csrl.in",
+      "name": "Vikash Kumar",
+      "centres": [
+        "GVE&M"
+      ]
+    },
+    {
+      "id": "shivangi.patel@csrl.in",
+      "name": "Shivangi Patel",
+      "centres": [
+        "GVE&M"
+      ]
+    },
+    {
+      "id": "ram.prakash@csrl.in",
+      "name": "Ram Prakash",
+      "centres": [
+        "GVE&M"
+      ]
+    },
+    {
+      "id": "anjali.kushwaha@csrl.in",
+      "name": "Anjali Kushwaha",
+      "centres": [
+        "GVE&M"
+      ]
+    },
+    {
+      "id": "dhananjay.yadav@csrl.in",
+      "name": "Dhananjay Yadav",
+      "centres": [
+        "GVE&M"
+      ]
+    },
+    {
+      "id": "deeksha.shandilya@csrl.in",
+      "name": "Deeksha Shandilya",
+      "centres": [
+        "GLT"
+      ]
+    },
+    {
+      "id": "kunal.gupta@csrl.in",
+      "name": "Kunal Gupta",
+      "centres": [
+        "GLT"
+      ]
+    },
+    {
+      "id": "sunali.tamang@csrl.in",
+      "name": "Sunali Tamang",
+      "centres": [
+        "GUW"
+      ]
+    },
+    {
+      "id": "bhabesh.boro@csrl.in",
+      "name": "Bhabesh boro",
+      "centres": [
+        "GUW",
+        "NGN"
+      ]
+    },
+    {
+      "id": "giriraj.yadav@csrl.in",
+      "name": "Giriraj Yadav",
+      "centres": [
+        "GUW"
+      ]
+    },
+    {
+      "id": "manish.pant@csrl.in",
+      "name": "Manish Pant",
+      "centres": [
+        "HLD"
+      ]
+    },
+    {
+      "id": "manisha.verma@csrl.in",
+      "name": "Manisha Verma",
+      "centres": [
+        "HLD"
+      ]
+    },
+    {
+      "id": "abhishek.kmr@csrl.in",
+      "name": "Abhishek Kumar",
+      "centres": [
+        "HLD"
+      ]
+    },
+    {
+      "id": "suresh.dhami@csrl.in",
+      "name": "Suresh Singh Dhami",
+      "centres": [
+        "HLD"
+      ]
+    },
+    {
+      "id": "nayan.pegu@csrl.in",
+      "name": "Nayan Pegu",
+      "centres": [
+        "ITN"
+      ]
+    },
+    {
+      "id": "shubham.chowdhury@csrl.in",
+      "name": "Shubham Chowdhury",
+      "centres": [
+        "ITN"
+      ]
+    },
+    {
+      "id": "devendra.sawkare@csrl.in",
+      "name": "Devendra Sawkare",
+      "centres": [
+        "JLG"
+      ]
+    },
+    {
+      "id": "ravin.parmar@csrl.in",
+      "name": "Ravin Parmar",
+      "centres": [
+        "JLG"
+      ]
+    },
+    {
+      "id": "sourav.roy@csrl.in",
+      "name": "Saurav Roy",
+      "centres": [
+        "JLG"
+      ]
+    },
+    {
+      "id": "shashi.rai@csrl.in",
+      "name": "Shashi Prakash Rai",
+      "centres": [
+        "JAMMU"
+      ]
+    },
+    {
+      "id": "umar.hajam@csrl.in",
+      "name": "Umar Ahmad Hajam",
+      "centres": [
+        "JAMMU"
+      ]
+    },
+    {
+      "id": "ravi.sharma@csrl.in",
+      "name": "Ravi Sharma",
+      "centres": [
+        "JAMMU"
+      ]
+    },
+    {
+      "id": "rahul.agarwal@csrl.in",
+      "name": "Rahul Agarwal",
+      "centres": [
+        "JDH"
+      ]
+    },
+    {
+      "id": "shoaib@csrl.in",
+      "name": "Shoaib",
+      "centres": [
+        "JDH"
+      ]
+    },
+    {
+      "id": "bharat.bhushan@csrl.in",
+      "name": "Bharat Bhushan",
+      "centres": [
+        "JRT"
+      ]
+    },
+    {
+      "id": "pranjit.bharali@csrl.in",
+      "name": "PRANJIT BHARALI",
+      "centres": [
+        "JRT"
+      ]
+    },
+    {
+      "id": "dhaniram.taw@csrl.in",
+      "name": "DHANIRAM TAW",
+      "centres": [
+        "JRT SCHOOL"
+      ]
+    },
+    {
+      "id": "abinash.dutta@csrl.in",
+      "name": "Abinash Dutta",
+      "centres": [
+        "JRT SCHOOL"
+      ]
+    },
+    {
+      "id": "manash.saikia@csrl.in",
+      "name": "Manash Protim Saikia",
+      "centres": [
+        "JRT SCHOOL"
+      ]
+    },
+    {
+      "id": "saurav.baruah@csrl.in",
+      "name": "Saurav Baruah",
+      "centres": [
+        "JRT SCHOOL"
+      ]
+    },
+    {
+      "id": "rahul.kumar@csrl.in",
+      "name": "Rahul Kumar",
+      "centres": [
+        "KNG"
+      ]
+    },
+    {
+      "id": "pravendra.kumar@csrl.in",
+      "name": "Pravendra Kumar",
+      "centres": [
+        "KNG"
+      ]
+    },
+    {
+      "id": "vipin.kumar@csrl.in",
+      "name": "VIPIN KUMAR",
+      "centres": [
+        "KNP"
+      ]
+    },
+    {
+      "id": "devendra.sharma@csrl.in",
+      "name": "Devendra Sharma",
+      "centres": [
+        "KNP"
+      ]
+    },
+    {
+      "id": "vidyadhar.tiwari@csrl.in",
+      "name": "Vidyadhar Tiwari",
+      "centres": [
+        "KNP"
+      ]
+    },
+    {
+      "id": "priyanshu.yadav@csrl.in",
+      "name": "Priyanshu Yadav",
+      "centres": [
+        "KNP"
+      ]
+    },
+    {
+      "id": "abhishek.pandey@csrl.in",
+      "name": "Abhishek Kumar Pandey",
+      "centres": [
+        "KNP"
+      ]
+    },
+    {
+      "id": "abhishek.singh@csrl.in",
+      "name": "Abhishek Singh",
+      "centres": [
+        "KNP"
+      ]
+    },
+    {
+      "id": "arun.parihar@csrl.in",
+      "name": "Arun Kumar Singh Parihar",
+      "centres": [
+        "KNP"
+      ]
+    },
+    {
+      "id": "vinita.rewatkar@csrl.in",
+      "name": "Vinita S Rewatkar",
+      "centres": [
+        "MUM"
+      ]
+    },
+    {
+      "id": "rituparna.talukdar@csrl.in",
+      "name": "Rituparna Talukdar",
+      "centres": [
+        "NGN"
+      ]
+    },
+    {
+      "id": "bhaswati.das@csrl.in",
+      "name": "Bhaswati Das",
+      "centres": [
+        "NGN"
+      ]
+    },
+    {
+      "id": "nilakshee.mahanta@csrl.in",
+      "name": "Nilakshee Mahanta",
+      "centres": [
+        "NUM"
+      ]
+    },
+    {
+      "id": "rammi.kumari@csrl.in",
+      "name": "Rammi Kumari",
+      "centres": [
+        "PTN"
+      ]
+    },
+    {
+      "id": "ankit.kumar@csrl.in",
+      "name": "Ankit Kumar",
+      "centres": [
+        "PTN"
+      ]
+    },
+    {
+      "id": "piyali.dev@csrl.in",
+      "name": "Piyali Dev",
+      "centres": [
+        "PTN"
+      ]
+    },
+    {
+      "id": "sahil.barma@csrl.in",
+      "name": "Sahil Barma",
+      "centres": [
+        "PTN"
+      ]
+    },
+    {
+      "id": "aparajita.devi@csrl.in",
+      "name": "Aparajita Devi",
+      "centres": [
+        "PUN"
+      ]
+    },
+    {
+      "id": "mitali.raj@csrl.in",
+      "name": "Mitali Raj",
+      "centres": [
+        "PUN"
+      ]
+    },
+    {
+      "id": "rishkar.singh@csrl.in",
+      "name": "Rishkar Kumar Singh",
+      "centres": [
+        "RCH"
+      ]
+    },
+    {
+      "id": "garima.stuti@csrl.in",
+      "name": "Garima Stuti",
+      "centres": [
+        "RCH"
+      ]
+    },
+    {
+      "id": "manish.kannoujiya@csrl.in",
+      "name": "Manish Kannoujiya",
+      "centres": [
+        "RCH"
+      ]
+    },
+    {
+      "id": "ujjwal.singh@csrl.in",
+      "name": "Ujjwal Kumar",
+      "centres": [
+        "RCH"
+      ]
+    },
+    {
+      "id": "krishna.chetri@csrl.in",
+      "name": "Krishna Chetri",
+      "centres": [
+        "SIV"
+      ]
+    },
+    {
+      "id": "himanta.gogoi@csrl.in",
+      "name": "Himanta Gogoi",
+      "centres": [
+        "SIV"
+      ]
+    },
+    {
+      "id": "majid.aziz@csrl.in",
+      "name": "Majid Aziz",
+      "centres": [
+        "SRINAGAR JKE"
+      ]
+    },
+    {
+      "id": "danish.ali@csrl.in",
+      "name": "Danish Ali",
+      "centres": [
+        "SRINAGAR JKE"
+      ]
+    },
+    {
+      "id": "bilal.najar@csrl.in",
+      "name": "Bilal Ahmad Najar",
+      "centres": [
+        "SRINAGAR JKE"
+      ]
+    },
+    {
+      "id": "shakoor.lone@csrl.in",
+      "name": "Shakoor Ahmad Lone",
+      "centres": [
+        "SRINAGAR JKM"
+      ]
+    },
+    {
+      "id": "shazia.shafi@csrl.in",
+      "name": "Shazia Shafi",
+      "centres": [
+        "SRINAGAR JKM"
+      ]
+    },
+    {
+      "id": "biswajit.dasgupta@csrl.in",
+      "name": "Biswajit Dasgupta",
+      "centres": [
+        "SKN"
+      ]
+    },
+    {
+      "id": "ashish.pal@csrl.in",
+      "name": "Ashish Pal",
+      "centres": [
+        "SKN"
+      ]
+    },
+    {
+      "id": "jyotiskar.das@csrl.in",
+      "name": "Jyotiskar Das",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "sukanya.bharadwaj@csrl.in",
+      "name": "Sukanya Bharadwaj",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "rajiv.pandey@csrl.in",
+      "name": "Rajiv Kumar Pandey",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "madhusmita.das@csrl.in",
+      "name": "Madhusmita Das",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "krishna.das@csrl.in",
+      "name": "Krishna Gopal Das",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "dipak.doley@csrl.in",
+      "name": "Dipak Doley",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "kamakhyaprasad.sut@csrl.in",
+      "name": "Kamakhya Prasad Sut",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "nicky.kumari@csrl.in",
+      "name": "Nicky Kumari",
+      "centres": [
+        "TRIKUTA"
+      ]
+    },
+    {
+      "id": "jaganjot.kaur@csrl.in",
+      "name": "Jaganjot Kaur",
+      "centres": [
+        "TRIKUTA"
+      ]
+    },
+    {
+      "id": "rinku.singh319@gmail.com",
+      "name": "BALKESHWER SINGH",
+      "centres": [
+        "AGR"
+      ]
+    },
+    {
+      "id": "bhaskr088@gmail.com",
+      "name": "Bhupendra Bhaskar",
+      "centres": [
+        "AGR"
+      ]
+    },
+    {
+      "id": "chandanpkh@gmail.com",
+      "name": "CHANDAN KUMAR",
+      "centres": [
+        "AGR"
+      ]
+    },
+    {
+      "id": "kmranwa@gmail.com",
+      "name": "Kalyan Mal Ranwa",
+      "centres": [
+        "BEAS"
+      ]
+    },
+    {
+      "id": "adarshbhatti407@gmail.com",
+      "name": "ADARSH BHATTI",
+      "centres": [
+        "BEAS"
+      ]
+    },
+    {
+      "id": "lovejeetsingh048@gmail.com",
+      "name": "Lovejeet Singh",
+      "centres": [
+        "BEAS"
+      ]
+    },
+    {
+      "id": "jujujyo@gmail.com",
+      "name": "SANEPALLI RAMANAIAH",
+      "centres": [
+        "CHN"
+      ]
+    },
+    {
+      "id": "ashokdhaharwal@gmail.com",
+      "name": "ASHOK DHARAWAL",
+      "centres": [
+        "CHN"
+      ]
+    },
+    {
+      "id": "anujpandey9025@gmail.com",
+      "name": "ANUJ KUMAR PANDEY",
+      "centres": [
+        "CHN"
+      ]
+    },
+    {
+      "id": "deepgahtori01@gmail.com",
+      "name": "DEEP CHANDRA GAHTORI",
+      "centres": [
+        "DDN"
+      ]
+    },
+    {
+      "id": "vaassu913@gmail.com",
+      "name": "VASU CHANDRA",
+      "centres": [
+        "DDN"
+      ]
+    },
+    {
+      "id": "nikhil.bansal074@gmail.com",
+      "name": "Nikhil Agarwal",
+      "centres": [
+        "DDN"
+      ]
+    },
+    {
+      "id": "dheeraj.saini@csrl.in",
+      "name": "DHEERAJ",
+      "centres": [
+        "DEL"
+      ]
+    },
+    {
+      "id": "ashusinha3737@gmail.com",
+      "name": "Ashutosh",
+      "centres": [
+        "DEL"
+      ]
+    },
+    {
+      "id": "deepak.dk7ei@gmail.com",
+      "name": "Deepak Kumar",
+      "centres": [
+        "DEL"
+      ]
+    },
+    {
+      "id": "goutam.das@csrl.in",
+      "name": "GOUTAM DAS",
+      "centres": [
+        "DIB & SIB"
+      ]
+    },
+    {
+      "id": "chandansonibme@gmail.com",
+      "name": "CHANDAN SONI",
+      "centres": [
+        "DIB & SIB"
+      ]
+    },
+    {
+      "id": "sunil.vmcav@gmail.com",
+      "name": "SUNIL KUMAR BAGI",
+      "centres": [
+        "DIB & SIB"
+      ]
+    },
+    {
+      "id": "irshadraushan.iitb@gmail.com",
+      "name": "IRSHAD RAUSHAN",
+      "centres": [
+        "GHY & NGN"
+      ]
+    },
+    {
+      "id": "kuldeepkarwa@gmail.com",
+      "name": "KULDEEP KARWA",
+      "centres": [
+        "GHY & NGN"
+      ]
+    },
+    {
+      "id": "rahul.kumar.mec12@itbhu.ac.in",
+      "name": "Rahul Kumar",
+      "centres": [
+        "GHY & NGN"
+      ]
+    },
+    {
+      "id": "sankalp133113@gmail.com",
+      "name": "SANKALP SINGH PARIHAR",
+      "centres": [
+        "HLD"
+      ]
+    },
+    {
+      "id": "nekib.ali@csrl.in",
+      "name": "NEKIB ALI",
+      "centres": [
+        "HLD"
+      ]
+    },
+    {
+      "id": "jagatjudoka@gmail.com",
+      "name": "JAGAT NARAYAN SHARMA",
+      "centres": [
+        "HLD"
+      ]
+    },
+    {
+      "id": "upendra.singh@csrl.in",
+      "name": "UPENDRA SINGH",
+      "centres": [
+        "ITN"
+      ]
+    },
+    {
+      "id": "bhargab.kachari@csrl.in",
+      "name": "bhargav kachari",
+      "centres": [
+        "ITN"
+      ]
+    },
+    {
+      "id": "rituraj.bordoloi@csrl.in",
+      "name": "RITURAJ BORDOLOI",
+      "centres": [
+        "ITN"
+      ]
+    },
+    {
+      "id": "atish2012@gmail.com",
+      "name": "ATISH KUMAR",
+      "centres": [
+        "JLG"
+      ]
+    },
+    {
+      "id": "chandankumar969312@gmail.com",
+      "name": "Chandan Kumar",
+      "centres": [
+        "JLG"
+      ]
+    },
+    {
+      "id": "govindtiwari03@gmail.com",
+      "name": "GOVIND TIWARI",
+      "centres": [
+        "JLG"
+      ]
+    },
+    {
+      "id": "shubham.gupta@csrl.in",
+      "name": "SHUBHAM GUPTA",
+      "centres": [
+        "JAMMU"
+      ]
+    },
+    {
+      "id": "chaman.singh@csrl.in",
+      "name": "Chaman Singh",
+      "centres": [
+        "JAMMU"
+      ]
+    },
+    {
+      "id": "snyvarsha@gmail.com",
+      "name": "SUNNY KUMAR",
+      "centres": [
+        "JAMMU"
+      ]
+    },
+    {
+      "id": "mkschem@gmail.com",
+      "name": "MUKESH SHARMA",
+      "centres": [
+        "JDH"
+      ]
+    },
+    {
+      "id": "enigma.maths@gmail.com",
+      "name": "SURENDRA SEN",
+      "centres": [
+        "JDH"
+      ]
+    },
+    {
+      "id": "suchitrabalani@gmail.com",
+      "name": "SUNIL BALANI",
+      "centres": [
+        "JDH"
+      ]
+    },
+    {
+      "id": "abanitasharma28@gmail.com",
+      "name": "ABANITA SARMA",
+      "centres": [
+        "JRT SCHOOL"
+      ]
+    },
+    {
+      "id": "diganta.biswas@csrl.in",
+      "name": "Diganta Biswas",
+      "centres": [
+        "JRT SCHOOL"
+      ]
+    },
+    {
+      "id": "cinthiyaborah85318@gmail.com",
+      "name": "CINTHIYA BARAH",
+      "centres": [
+        "JRT SCHOOL"
+      ]
+    },
+    {
+      "id": "tulshi.kalakheti@csrl.in",
+      "name": "TULSHI KALAKHETI",
+      "centres": [
+        "JRT SCHOOL"
+      ]
+    },
+    {
+      "id": "anurag.verma@csrl.in",
+      "name": "ANURAG VERMA",
+      "centres": [
+        "JRT SCHOOL"
+      ]
+    },
+    {
+      "id": "rawani18anand@gmail.com",
+      "name": "ANAND RAWANI",
+      "centres": [
+        "JRT, JRT SCHOOL & GOL"
+      ]
+    },
+    {
+      "id": "shiblalnamadas@gmail.com",
+      "name": "Shiblal Namdas",
+      "centres": [
+        "JRT, JRT SCHOOL & GOL"
+      ]
+    },
+    {
+      "id": "avinashbaro2017@gmail.com",
+      "name": "AVINASH BARO",
+      "centres": [
+        "JRT, JRT SCHOOL & GOL"
+      ]
+    },
+    {
+      "id": "ganeshganpati.37@gmail.com",
+      "name": "GANESH CHOUDHUARY",
+      "centres": [
+        "KNG"
+      ]
+    },
+    {
+      "id": "sharmajitendrakumar395@gmail.com",
+      "name": "Jitendra Sharma",
+      "centres": [
+        "KNG"
+      ]
+    },
+    {
+      "id": "mandivojya2001@gmail.com",
+      "name": "MANOJ KUMAR",
+      "centres": [
+        "KNG"
+      ]
+    },
+    {
+      "id": "itbhu.devesh@gmail.com",
+      "name": "DEVESH DIXIT",
+      "centres": [
+        "KNP"
+      ]
+    },
+    {
+      "id": "sudhanshu.9itbhu@gmail.com",
+      "name": "Sudhanshu Misra",
+      "centres": [
+        "KNP"
+      ]
+    },
+    {
+      "id": "anantagnihotrimnnit@gmail.com",
+      "name": "ANANT AGNIHOTRI",
+      "centres": [
+        "KNP"
+      ]
+    },
+    {
+      "id": "poojagarg250699@gmail.com",
+      "name": "Pooja Garg",
+      "centres": [
+        "TRIKUTA"
+      ]
+    },
+    {
+      "id": "rjvmmc212@gmail.com",
+      "name": "Rajeev Kumar Yadav",
+      "centres": [
+        "TRIKUTA"
+      ]
+    },
+    {
+      "id": "brajeshtrivedi@gmail.com",
+      "name": "Brajesh Kumar Trivedi",
+      "centres": [
+        "TRIKUTA"
+      ]
+    },
+    {
+      "id": "sanjeetkotwal92@gmail.com",
+      "name": "Sanjeet Singh",
+      "centres": [
+        "TRIKUTA"
+      ]
+    },
+    {
+      "id": "neelam.lecturer07@gmail.com",
+      "name": "Neelam Luthra",
+      "centres": [
+        "MUM"
+      ]
+    },
+    {
+      "id": "rhlsinha89@gmail.com",
+      "name": "RAHUL SINHA",
+      "centres": [
+        "MUM"
+      ]
+    },
+    {
+      "id": "iitian.amitkb@gmail.com",
+      "name": "Amit Brahaha",
+      "centres": [
+        "MUM"
+      ]
+    },
+    {
+      "id": "gangwarpsit@gmail.com",
+      "name": "Sachin Kumar Gangwar",
+      "centres": [
+        "MUM"
+      ]
+    },
+    {
+      "id": "rajeshyadavcnb@gmail.com",
+      "name": "RAJESH YADAV",
+      "centres": [
+        "NRL"
+      ]
+    },
+    {
+      "id": "pallabjyoti.baruah@csrl.in",
+      "name": "PALLAB JYOTI",
+      "centres": [
+        "NRL"
+      ]
+    },
+    {
+      "id": "r.s.mishra0606@gmail.com",
+      "name": "RAVI MISHRA",
+      "centres": [
+        "NRL"
+      ]
+    },
+    {
+      "id": "kapil.hazarika@csrl.in",
+      "name": "KAPIL HAZARIKA",
+      "centres": [
+        "NRL"
+      ]
+    },
+    {
+      "id": "laxmikantmpawar88@gmail.com",
+      "name": "LAXMIKANT PAWAR",
+      "centres": [
+        "PUN"
+      ]
+    },
+    {
+      "id": "bharti4chem@gmail.com",
+      "name": "SUJIT BHARTI",
+      "centres": [
+        "PUN"
+      ]
+    },
+    {
+      "id": "bhanupratap.armsacademy@gmail.com",
+      "name": "BHANU PRATAP SINGH",
+      "centres": [
+        "PUN"
+      ]
+    },
+    {
+      "id": "sanjeevkrchaudhary@gmail.com",
+      "name": "SANJEEV KR. CHOUDHARY",
+      "centres": [
+        "PUN"
+      ]
+    },
+    {
+      "id": "amitbadshra000@gmail.com",
+      "name": "amit kumar",
+      "centres": [
+        "RCH"
+      ]
+    },
+    {
+      "id": "ak118karali@gmail.com",
+      "name": "lakshmi kumar singh",
+      "centres": [
+        "RCH"
+      ]
+    },
+    {
+      "id": "jhashubheksha@gmail.com",
+      "name": "SUBEKSHA JHA",
+      "centres": [
+        "RCH"
+      ]
+    },
+    {
+      "id": "tarunsoni293@gmail.com",
+      "name": "TARUN SONI",
+      "centres": [
+        "SRINAGAR JKE"
+      ]
+    },
+    {
+      "id": "abhishek.sengar@csrl.in",
+      "name": "ABHISHEK KUMAR SENGAR",
+      "centres": [
+        "SRINAGAR JKE"
+      ]
+    },
+    {
+      "id": "mail.knots@gmail.com",
+      "name": "MOHD ASHRAF",
+      "centres": [
+        "SRINAGAR JKE"
+      ]
+    },
+    {
+      "id": "rajaowais54@gmail.com",
+      "name": "RAJA OWAIS",
+      "centres": [
+        "SRINAGAR JKE & JKM"
+      ]
+    },
+    {
+      "id": "mirparvaiz822@gmail.com",
+      "name": "PRAVAIZ AHMAD DAR",
+      "centres": [
+        "SRINAGAR JKE & JKM"
+      ]
+    },
+    {
+      "id": "salmanjameel238@gmail.com",
+      "name": "SALMAN JAMEEL",
+      "centres": [
+        "SRINAGAR JKM"
+      ]
+    },
+    {
+      "id": "surinder1thakur@gmail.com",
+      "name": "Surinder Singh",
+      "centres": [
+        "SRINAGAR JKM"
+      ]
+    },
+    {
+      "id": "manishanju232006@gmail.com",
+      "name": "Manish Kumar Pal",
+      "centres": [
+        "SKN"
+      ]
+    },
+    {
+      "id": "kanchandutta1996@gmail.com",
+      "name": "Kanchan Dutta",
+      "centres": [
+        "SKN"
+      ]
+    },
+    {
+      "id": "chandan96chaman@gmail.com",
+      "name": "Chandam Chaman",
+      "centres": [
+        "SKN"
+      ]
+    },
+    {
+      "id": "anjani13.singh@gmail.com",
+      "name": "ANJANI KUMAR SINGH",
+      "centres": [
+        "SKN"
+      ]
+    },
+    {
+      "id": "sajidahmadsh@gmail.com",
+      "name": "SAJID AHMAD",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "nathrupam458@gmail.com",
+      "name": "Rupam Nath",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "bhaskarbora59860@gmail.com",
+      "name": "BHASKAR BORA",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "mihirkrmech5674@gmail.com",
+      "name": "Mihir Kumar Mech",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "sahil@csrl.in",
+      "name": "SAHIL",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "coolsafi.hussain6@gmail.com",
+      "name": "SAFIKUL HUSSAIN",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "mridupawan67@gmail.com",
+      "name": "Mridupawan Baruah",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "naina.bhuyan14@gmail.com",
+      "name": "NAINA BHUYAN",
+      "centres": [
+        "TEZ"
+      ]
+    },
+    {
+      "id": "khanumaraly@gmail.com",
+      "name": "Mohammad Umar Khan",
+      "centres": [
+        "VARANASI"
+      ]
+    },
+    {
+      "id": "aniket.kumar@csrl.in",
+      "name": "ANIKET KUMAR",
+      "centres": [
+        "VARANASI"
+      ]
+    },
+    {
+      "id": "vaibhav.rmishra.min11@itbhu.ac.in",
+      "name": "VAIBHAV RAJ MISHRA",
+      "centres": [
+        "VARANASI"
+      ]
+    },
+    {
+      "id": "pawan088889@gmail.com",
+      "name": "PAWAN KUMAR",
+      "centres": [
+        "VARANASI"
+      ]
+    },
+    {
+      "id": "rsyadav.newlight@gmail.com",
+      "name": "R. S. YADAV",
+      "centres": [
+        "VARANASI"
+      ]
+    },
+    {
+      "id": "shukla.rashmi2892@gmail.com",
+      "name": "Rashmi Shukla",
+      "centres": [
+        "VARANASI"
+      ]
+    },
+    {
+      "id": "jashish349@gmail.com",
+      "name": "Ashish Joseph",
+      "centres": [
+        "VARANASI"
+      ]
+    }
+  ]
+}

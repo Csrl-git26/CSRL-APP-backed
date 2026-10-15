@@ -1,3 +1,7 @@
+import { randomUUID } from 'node:crypto';
+import { authenticateCentreUser } from './services/centreUserAuth.js';
+import PortalLoginSession from './models/PortalLoginSession.js';
+import portalTrackingRouter from './routes/portalTracking.js';
 import { normalizeTopicSubjects } from './utils/normalizeTopicSubjects.js';
 import { replaceCompleteTest } from './services/completeTestImport.js';
 import { testBranchMiddleware, filterTestDocuments, registerTestBranch, registerScoreBranches, registerBulkScoreBranches } from './services/testBranchService.js';
@@ -130,6 +134,19 @@ app.post('/api/auth/login', async (req, res) => {
       return res.json({ success: true, token, role: 'admin', id: 'admin', name: 'CSRL Admin' });
     }
   } else if (role === 'centre') {
+    const account = authenticateCentreUser(id, password);
+    if (account) {
+      try {
+        const now = new Date();
+        const portalSessionId = randomUUID();
+        await PortalLoginSession.create({ _id: portalSessionId, userId: account.id, name: account.name, centres: account.centres, loginAt: now, lastSeenAt: now });
+        // Retain the existing centre dashboard access semantics; identity is separate.
+        const token = jwt.sign({ role: 'centre', id: 'centre', loginUserId: account.id, portalSessionId }, JWT_SECRET, { expiresIn: '12h' });
+        return res.json({ success: true, token, role: 'centre', id: 'centre', loginUserId: account.id, name: account.name, portalSessionId });
+      } catch {
+        return res.status(503).json({ success: false, message: 'Login service temporarily unavailable. Please retry.' });
+      }
+    }
     if (id === 'centre' && password === 'centre123') {
       const token = jwt.sign({ role: 'centre', id: 'centre' }, JWT_SECRET, { expiresIn: '12h' });
       return res.json({ success: true, token, role: 'centre', id: 'centre', name: 'Centre Dashboard' });
@@ -186,6 +203,7 @@ function requireAdmin(req, res, next) {
 
 // ── Data Read Routes ───────────────────────────────────────────────────────────
 
+app.use('/api/portal-login-tracking', authenticateToken, portalTrackingRouter);
 app.use('/api/faculty-tests', authenticateToken, facultyTestsRouter);
 
 app.get('/api/data/global', authenticateToken, async (req, res) => {
