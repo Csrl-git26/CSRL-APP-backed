@@ -1,6 +1,6 @@
-import { authenticateManagementUser } from './services/managementUserAuth.js';
+import { portalUsers } from './services/portalUserService.js';
+import portalUsersRouter from './routes/portalUsers.js';
 import { randomUUID } from 'node:crypto';
-import { authenticateCentreUser } from './services/centreUserAuth.js';
 import PortalLoginSession from './models/PortalLoginSession.js';
 import portalTrackingRouter from './routes/portalTracking.js';
 import { normalizeTopicSubjects } from './utils/normalizeTopicSubjects.js';
@@ -130,13 +130,15 @@ app.post('/api/auth/login', async (req, res) => {
   const { role, id, password } = req.body;
 
   if (role === 'admin') {
-    const account = authenticateManagementUser(id, password);
+    let account;
+    try { account = await portalUsers.authenticate('admin', id, password); }
+    catch { return res.status(503).json({ success: false, message: 'Login service temporarily unavailable. Please retry.' }); }
     if (account) {
       try {
         const now = new Date();
         const portalSessionId = randomUUID();
         await PortalLoginSession.create({ _id: portalSessionId, userId: account.id, name: account.name, centres: account.centres, role: 'admin', loginAt: now, lastSeenAt: now });
-        const token = jwt.sign({ role: 'admin', id: 'admin', loginUserId: account.id, portalSessionId }, JWT_SECRET, { expiresIn: '12h' });
+        const token = jwt.sign({ role: 'admin', id: 'admin', loginUserId: account.id, accountVersion: account.version, portalSessionId }, JWT_SECRET, { expiresIn: '12h' });
         return res.json({ success: true, token, role: 'admin', id: 'admin', loginUserId: account.id, name: account.name, portalSessionId });
       } catch {
         return res.status(503).json({ success: false, message: 'Login service temporarily unavailable. Please retry.' });
@@ -147,14 +149,16 @@ app.post('/api/auth/login', async (req, res) => {
       return res.json({ success: true, token, role: 'admin', id: 'admin', name: 'CSRL Admin' });
     }
   } else if (role === 'centre') {
-    const account = authenticateCentreUser(id, password);
+    let account;
+    try { account = await portalUsers.authenticate('centre', id, password); }
+    catch { return res.status(503).json({ success: false, message: 'Login service temporarily unavailable. Please retry.' }); }
     if (account) {
       try {
         const now = new Date();
         const portalSessionId = randomUUID();
         await PortalLoginSession.create({ _id: portalSessionId, userId: account.id, name: account.name, centres: account.centres, role: 'centre', loginAt: now, lastSeenAt: now });
         // Retain the existing centre dashboard access semantics; identity is separate.
-        const token = jwt.sign({ role: 'centre', id: 'centre', loginUserId: account.id, portalSessionId }, JWT_SECRET, { expiresIn: '12h' });
+        const token = jwt.sign({ role: 'centre', id: 'centre', loginUserId: account.id, accountVersion: account.version, portalSessionId }, JWT_SECRET, { expiresIn: '12h' });
         return res.json({ success: true, token, role: 'centre', id: 'centre', loginUserId: account.id, name: account.name, portalSessionId });
       } catch {
         return res.status(503).json({ success: false, message: 'Login service temporarily unavailable. Please retry.' });
@@ -202,8 +206,11 @@ function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return res.sendStatus(401);
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, async (err, user) => {
     if (err) return res.sendStatus(403);
+    try {
+      if (!await portalUsers.isTokenActive(user)) return res.status(401).json({ message: 'This user login has been deleted. Please sign in again.' });
+    } catch { return res.status(503).json({ message: 'Unable to verify account access. Please retry.' }); }
     req.user = user;
     next();
   });
@@ -216,6 +223,7 @@ function requireAdmin(req, res, next) {
 
 // ── Data Read Routes ───────────────────────────────────────────────────────────
 
+app.use('/api/portal-users', authenticateToken, portalUsersRouter);
 app.use('/api/portal-login-tracking', authenticateToken, portalTrackingRouter);
 app.use('/api/faculty-tests', authenticateToken, facultyTestsRouter);
 
