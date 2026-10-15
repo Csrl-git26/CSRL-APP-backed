@@ -3,6 +3,7 @@ const schema = new mongoose.Schema({
   _id: String,
   userId: { type: String, required: true, index: true },
   name: String,
+  role: { type: String, enum: ['centre', 'admin'], default: 'centre' },
   centres: [String],
   loginAt: { type: Date, required: true, index: true },
   lastSeenAt: { type: Date, required: true },

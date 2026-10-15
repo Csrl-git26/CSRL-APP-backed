@@ -1,3 +1,4 @@
+import { authenticateManagementUser } from './services/managementUserAuth.js';
 import { randomUUID } from 'node:crypto';
 import { authenticateCentreUser } from './services/centreUserAuth.js';
 import PortalLoginSession from './models/PortalLoginSession.js';
@@ -129,6 +130,18 @@ app.post('/api/auth/login', async (req, res) => {
   const { role, id, password } = req.body;
 
   if (role === 'admin') {
+    const account = authenticateManagementUser(id, password);
+    if (account) {
+      try {
+        const now = new Date();
+        const portalSessionId = randomUUID();
+        await PortalLoginSession.create({ _id: portalSessionId, userId: account.id, name: account.name, centres: account.centres, role: 'admin', loginAt: now, lastSeenAt: now });
+        const token = jwt.sign({ role: 'admin', id: 'admin', loginUserId: account.id, portalSessionId }, JWT_SECRET, { expiresIn: '12h' });
+        return res.json({ success: true, token, role: 'admin', id: 'admin', loginUserId: account.id, name: account.name, portalSessionId });
+      } catch {
+        return res.status(503).json({ success: false, message: 'Login service temporarily unavailable. Please retry.' });
+      }
+    }
     if (id === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
       const token = jwt.sign({ role: 'admin', id: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
       return res.json({ success: true, token, role: 'admin', id: 'admin', name: 'CSRL Admin' });
@@ -139,7 +152,7 @@ app.post('/api/auth/login', async (req, res) => {
       try {
         const now = new Date();
         const portalSessionId = randomUUID();
-        await PortalLoginSession.create({ _id: portalSessionId, userId: account.id, name: account.name, centres: account.centres, loginAt: now, lastSeenAt: now });
+        await PortalLoginSession.create({ _id: portalSessionId, userId: account.id, name: account.name, centres: account.centres, role: 'centre', loginAt: now, lastSeenAt: now });
         // Retain the existing centre dashboard access semantics; identity is separate.
         const token = jwt.sign({ role: 'centre', id: 'centre', loginUserId: account.id, portalSessionId }, JWT_SECRET, { expiresIn: '12h' });
         return res.json({ success: true, token, role: 'centre', id: 'centre', loginUserId: account.id, name: account.name, portalSessionId });

@@ -1,0 +1,62 @@
+{
+  "passwordSalt": "a5466b2f6bfa3b6c340e5708782966d4",
+  "passwordHash": "0e4820d8e27a1ae0e5d35298328a2cfe36bd0dbaebdfb4ef2f4fad24263a17aeab231150480833319bb8e3a1203df8eb4a59078607ecccf8e3684d59afb481dc",
+  "users": [
+    {
+      "id": "diropr@csrl.in",
+      "name": "Krishnamurti Singh",
+      "centres": [
+        "H.O."
+      ]
+    },
+    {
+      "id": "nk.bharali@csrl.in",
+      "name": "Nripen Kumar Bharali",
+      "centres": [
+        "H.O."
+      ]
+    },
+    {
+      "id": "meenakshi.shahi@csrl.in",
+      "name": "Meenakshi Shahi",
+      "centres": [
+        "H.O."
+      ]
+    },
+    {
+      "id": "jaswant@csrl.in",
+      "name": "Jaswant",
+      "centres": [
+        "H.O."
+      ]
+    },
+    {
+      "id": "mamta.gautam@csrl.in",
+      "name": "Mamta Gautam",
+      "centres": [
+        "H.O."
+      ]
+    },
+    {
+      "id": "jay.pandey@csrl.in",
+      "name": "Jay Pandey",
+      "centres": [
+        "H.O."
+      ]
+    },
+    {
+      "id": "ajaya.kumar@csrl.in",
+      "name": "Ajay Kumar",
+      "centres": [
+        "H.O."
+      ]
+    },
+    {
+      "id": "chilakapati.sudheer@csrl.in",
+      "name": "Chilkapati Sudheer",
+      "centres": [
+        "H.O."
+      ]
+    }
+  ]
+}

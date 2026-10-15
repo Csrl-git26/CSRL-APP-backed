@@ -5,6 +5,7 @@ import express from 'express';
 import { advanceSession, publicSession } from '../services/portalTracking.js';
 import { authenticateCentreUser } from '../services/centreUserAuth.js';
 import Session from '../models/PortalLoginSession.js';
+import { authenticateManagementUser } from '../services/managementUserAuth.js';
 import router from '../routes/portalTracking.js';
 const start = new Date('2026-10-15T00:00:00Z');
 const base = () => ({ _id: 'session', userId: 'person@example.org', revision: 0, loginAt: start, lastSeenAt: start, sessionMs: 0, activeMs: 0 });
@@ -39,7 +40,7 @@ test('directory has unique ids and auth rejects unknown or wrong passwords', () 
 });
 test('tracking endpoints enforce roles, identity, logout and date validation', async () => {
   const app = express(); app.use(express.json());
-  app.use((req, _res, next) => { req.user = { role: req.headers['x-role'] || 'student', portalSessionId: 'session', loginUserId: 'person@example.org' }; next(); });
+  app.use((req, _res, next) => { req.user = { role: req.headers['x-role'] || 'student', portalSessionId: req.headers['x-untracked'] ? undefined : 'session', loginUserId: 'person@example.org' }; next(); });
   app.use('/tracking', router);
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
@@ -55,7 +56,10 @@ test('tracking endpoints enforce roles, identity, logout and date validation', a
     assert.equal((await fetch(url)).status, 403);
     assert.equal((await fetch(url, { headers: { 'x-role': 'centre' } })).status, 403);
     assert.equal((await fetch(url + '?from=bad', { headers: { 'x-role': 'admin' } })).status, 400);
-    assert.equal((await fetch(url + '/heartbeat', { method: 'POST', headers: { 'content-type': 'application/json', 'x-role': 'admin' }, body: '{}' })).status, 403);
+    assert.equal((await fetch(url + '/heartbeat', { method: 'POST', headers: { 'content-type': 'application/json', 'x-role': 'student' }, body: '{}' })).status, 403);
+    assert.equal((await fetch(url + '/heartbeat', { method: 'POST', headers: { 'content-type': 'application/json', 'x-role': 'admin', 'x-untracked': '1' }, body: '{}' })).status, 403);
+    const adminOptions = { method: 'POST', headers: { 'content-type': 'application/json', 'x-role': 'admin' }, body: '{"active":true}' };
+    assert.equal((await fetch(url + '/heartbeat', adminOptions)).status, 200);
     const options = { method: 'POST', headers: { 'content-type': 'application/json', 'x-role': 'centre' }, body: '{"active":true,"userId":"forged"}' };
     assert.equal((await fetch(url + '/heartbeat', options)).status, 200);
     assert.equal((await fetch(url + '/logout', options)).status, 200);
@@ -64,5 +68,19 @@ test('tracking endpoints enforce roles, identity, logout and date validation', a
   } finally {
     Session.findOne = originalFind; Session.findOneAndUpdate = originalUpdate;
     await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('all listed management accounts validate with their password and reject incorrect credentials', () => {
+  const directory = JSON.parse(fs.readFileSync(new URL('../config/managementUsers.json', import.meta.url)));
+  assert.equal(directory.users.length, 8);
+  assert.equal(new Set(directory.users.map(u => u.id)).size, 8);
+  assert.equal(authenticateManagementUser('unknown@example.org', 'invalid'), null);
+  for (const user of directory.users) {
+    assert.equal(authenticateManagementUser(user.id, 'invalid'), null);
+    assert.equal(authenticateCentreUser(user.id, 'invalid'), null);
+    if (process.env.TEST_MANAGEMENT_PASSWORD) {
+      assert.equal(authenticateManagementUser(` ${user.id.toUpperCase()} `, process.env.TEST_MANAGEMENT_PASSWORD)?.id, user.id);
+    }
   }
 });

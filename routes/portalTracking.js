@@ -4,7 +4,7 @@ import { advanceSession, publicSession } from '../services/portalTracking.js';
 const router = express.Router();
 router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 async function updatePresence(req, res, end) {
-  if (req.user.role !== 'centre' || !req.user.portalSessionId) return res.status(403).json({ message: 'Tracked centre login required' });
+  if (!['centre', 'admin'].includes(req.user.role) || !req.user.portalSessionId) return res.status(403).json({ message: 'Tracked portal login required' });
   try {
     // Compare-and-swap prevents concurrent tabs/retries from counting time twice.
     for (let attempt = 0; attempt < 5; attempt++) {
