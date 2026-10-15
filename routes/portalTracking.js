@@ -24,6 +24,7 @@ router.get('/', async (req, res) => {
   try {
     const page = Math.max(1, Math.min(100000, Number.parseInt(req.query.page, 10) || 1));
     const query = {};
+    if (req.query.userId) query.userId = String(req.query.userId).trim().toLowerCase();
     const search = String(req.query.search || '').trim().slice(0, 120);
     if (search) {
       const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -33,12 +34,30 @@ router.get('/', async (req, res) => {
       query.loginAt = {};
       for (const key of ['from', 'to']) if (req.query[key]) {
         const value = String(req.query[key]);
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return res.status(400).json({ message: 'Invalid date' });
-        const date = new Date(`${value}T${key === 'from' ? '00:00:00.000' : '23:59:59.999'}+05:30`);
+        if (!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(value)) return res.status(400).json({ message: 'Invalid date' });
+        const time = value.includes('T') ? `${value}:${key === 'from' ? '00.000' : '59.999'}` : `${value}T${key === 'from' ? '00:00:00.000' : '23:59:59.999'}`;
+        const date = new Date(`${time}+05:30`);
         if (!Number.isFinite(date.getTime())) return res.status(400).json({ message: 'Invalid date' });
         query.loginAt[key === 'from' ? '$gte' : '$lte'] = date;
       }
       if (query.loginAt.$gte > query.loginAt.$lte) return res.status(400).json({ message: 'From date must precede to date' });
+    }
+    if (req.query.view === 'users') {
+      const [result] = await Session.aggregate([
+        { $match: query },
+        { $sort: { loginAt: -1, _id: -1 } },
+        { $group: {
+          _id: '$userId', name: { $first: '$name' }, centres: { $first: '$centres' },
+          roles: { $addToSet: { $ifNull: ['$role', 'centre'] } },
+          loginCount: { $sum: 1 }, activeMs: { $sum: '$activeMs' },
+        } },
+        { $facet: {
+          rows: [{ $sort: { activeMs: -1, _id: 1 } }, { $skip: (page - 1) * 50 }, { $limit: 50 }],
+          totals: [{ $group: { _id: null, users: { $sum: 1 }, loginCount: { $sum: '$loginCount' }, activeMs: { $sum: '$activeMs' } } }],
+        } },
+      ]);
+      const summary = result?.totals[0] || { users: 0, loginCount: 0, activeMs: 0 };
+      return res.json({ rows: (result?.rows || []).map(row => ({ ...row, userId: row._id })), total: summary.users, summary, page, pages: Math.max(1, Math.ceil(summary.users / 50)) });
     }
     const [rows, total, summary] = await Promise.all([
       Session.find(query).sort({ loginAt: -1, _id: -1 }).skip((page - 1) * 50).limit(50).lean(),

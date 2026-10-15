@@ -84,3 +84,33 @@ test('all listed management accounts validate with their password and reject inc
     }
   }
 });
+test('user totals support IST time selection and exact-user drilldown', async () => {
+  const app = express();
+  app.use((req, _res, next) => { req.user = { role: 'admin' }; next(); });
+  app.use('/tracking', router);
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  const url = `http://127.0.0.1:${server.address().port}/tracking`;
+  const originalAggregate = Session.aggregate;
+  let match;
+  Session.aggregate = async pipeline => {
+    match = pipeline[0].$match;
+    assert.equal(pipeline[2].$group._id, '$userId');
+    assert.equal(pipeline[2].$group.activeMs.$sum, '$activeMs');
+    return [{ rows: [{ _id: 'person@example.org', name: 'Person', centres: ['AGR'], roles: ['centre'], loginCount: 2, activeMs: 90000 }], totals: [{ users: 1, loginCount: 2, activeMs: 90000 }] }];
+  };
+  try {
+    const result = await (await fetch(url + '?view=users&from=2026-10-15T09:30&to=2026-10-15T10:15&userId=PERSON%40EXAMPLE.ORG')).json();
+    assert.equal(match.userId, 'person@example.org');
+    assert.equal(match.loginAt.$gte.toISOString(), '2026-10-15T04:00:00.000Z');
+    assert.equal(match.loginAt.$lte.toISOString(), '2026-10-15T04:45:59.999Z');
+    assert.equal(result.rows[0].userId, 'person@example.org');
+    assert.equal(result.summary.loginCount, 2);
+    assert.equal(result.summary.activeMs, 90000);
+    assert.equal(result.total, 1);
+    assert.equal((await fetch(url + '?from=2026-10-16T10:00&to=2026-10-15T10:00')).status, 400);
+  } finally {
+    Session.aggregate = originalAggregate;
+    await new Promise(resolve => server.close(resolve));
+  }
+});
