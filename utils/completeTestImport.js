@@ -25,6 +25,13 @@ export function validateCompleteTestImport({ testKey, stream, marks }, profiles)
     if (!nested || !Object.hasOwn(nested, 'total')) fail(`Roll ${roll}: total marks are required for a complete test import.`);
     const scores = {};
     for (const [subject, value] of Object.entries(nested)) {
+      // MBBS is NEET result metadata, not a numeric subject score.
+      if (stream === 'NEET' && subject === 'MBBS') {
+        const status = String(value).trim().toUpperCase();
+        if (!['MBBS', 'NO'].includes(status)) fail(`Roll ${roll}: MBBS status must be MBBS or NO.`);
+        scores.MBBS = status;
+        continue;
+      }
       if (subject !== 'total' && !subjects.has(subject)) fail(`Roll ${roll}: unsupported marks column ${subject}.`);
       if (typeof value === 'boolean' || value === null || String(value).trim() === '' || !Number.isFinite(Number(value))) fail(`Roll ${roll}: ${subject} must be numeric (zero and negative marks are allowed).`);
       scores[subject] = Number(value);
