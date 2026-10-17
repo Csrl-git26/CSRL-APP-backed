@@ -1,3 +1,4 @@
+import chatRouter from './routes/chat.js';
 import { portalUsers } from './services/portalUserService.js';
 import portalUsersRouter from './routes/portalUsers.js';
 import { randomUUID } from 'node:crypto';
@@ -226,6 +227,7 @@ function requireAdmin(req, res, next) {
 app.use('/api/portal-users', authenticateToken, portalUsersRouter);
 app.use('/api/portal-login-tracking', authenticateToken, portalTrackingRouter);
 app.use('/api/faculty-tests', authenticateToken, facultyTestsRouter);
+app.use('/api/chat', authenticateToken, chatRouter);
 
 app.get('/api/data/global', authenticateToken, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
@@ -2351,4 +2353,5 @@ app.listen(PORT, async () => {
     console.log("Mongo Check Error:", e);
   }
 });
+
 
