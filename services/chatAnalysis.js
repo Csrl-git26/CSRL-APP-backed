@@ -182,5 +182,5 @@ export function conversationReply(question, role) {
   const examples = role === 'student'
     ? (hindi ? 'पूछें: “पिछले 3 CMT टेस्ट में मेरी Physics की प्रगति दिखाएँ।”' : 'Try: “Show my student progress in Physics in the last 3 CMT tests.”')
     : (hindi ? 'आप पूछ सकते हैं:\n• पिछले 2 CMT टेस्ट में किन केंद्रों का औसत बढ़ा?\n• KNP केंद्र में Physics में किन छात्रों को विशेष ध्यान चाहिए?\n• DEL केंद्र का CMT02 औसत कितना है?' : 'You can ask:\n• Which centres improved in the last 2 CMT tests?\n• Which KNP students need attention in Physics?\n• What is the DEL centre average in CMT02?');
-  return `${thanks ? (hindi ? 'आपका स्वागत है!' : "You're welcome!") : (hindi ? 'नमस्ते! मैं प्रगति हूँ। मैं आपके पोर्टल के शैक्षणिक डेटा को आसान भाषा में समझने में मदद कर सकती हूँ।' : "Hello! I'm Pragati. I can help you understand your portal’s academic data in simple language.")}\n\n${examples}`;
+  return `${thanks ? (hindi ? 'आपका स्वागत है!' : "You're welcome!") : (hindi ? 'नमस्ते! मैं आपके पोर्टल के शैक्षणिक डेटा को आसान भाषा में समझने में मदद कर सकती हूँ।' : "Hello! I can help you understand your portal’s academic data in simple language.")}\n\n${examples}`;
 }
