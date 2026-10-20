@@ -66,3 +66,14 @@ test('all missing latest marks do not create a false attention flag',()=>{
 });
 
 test('new centre comparison does not inherit previous single-centre filters',()=>{ const p=parseQuestion('KNP attention Physics last 3 CMT tests',cat); const next=parseQuestion('Which centres improved in last 2 CMT tests?',cat,p);assert.deepEqual(next.centers,[]); });
+test('explicit CMT02 does not also select MT02; test numbers match exactly',()=>{
+ const catalog={...cat,tests:['CMT02','MT02','NMT02','CMT020']};
+ assert.deepEqual(parseQuestion('What is the DEL centre average in CMT02?',catalog).testIds,['CMT02']);
+ assert.deepEqual(parseQuestion('average in MT02?',catalog).testIds,['MT02']);
+ assert.deepEqual(parseQuestion('compare CMT02 and MT02',catalog).testIds,['CMT02','MT02']);
+ assert.deepEqual(parseQuestion('average cmt020',catalog).testIds,['CMT020']);
+ const actual=makeCatalog({profiles:[profile('DEL','1','One'),profile('DEL','2','Two')],tests:[{centerCode:'DEL',ROLL_KEY:'1',stream:'JEE',CMT02_Total:100,MT02_Total:20},{centerCode:'DEL',ROLL_KEY:'2',stream:'JEE',CMT02_Total:80,MT02_Total:10}],testColumns:[]});
+ const answer=run('What is the DEL centre average in CMT02?',actual);
+ assert.equal(answer.sources.length,1);assert.equal(answer.sources[0].test,'CMT02');
+ assert.ok(!answer.answer.includes('same series'));assert.ok(answer.rows.length);
+});

@@ -43,7 +43,11 @@ router.post('/', async (req,res) => {
     let plan = parseQuestion(question,cat,context), mode = 'database';
     const aiText = await askAI(PLANNER_PROMPT, { question, previousContext: context, centers: cat.centers, availableTests: cat.tests.slice(-100), selectedStream: stream, selectedBranch: branch });
     const aiPlan = validatePlan(readPlan(aiText),cat);
-    if (aiPlan) { plan = aiPlan; mode = 'ai'; }
+    if (aiPlan) {
+      // Explicit test names take precedence over AI guesses (MT02 is not CMT02).
+      if (plan.testIds.length) aiPlan.testIds = plan.testIds;
+      plan = aiPlan; mode = 'ai';
+    }
     // Never reinterpret unsupported metrics as average-mark analysis.
     if (/percent|%|qualif|rank|attendance|faculty|teacher|why|topic|chapter|क्यों|प्रतिशत|रैंक/i.test(question)) plan.intent = 'unknown';
     const validated = validatePlan(plan,cat);

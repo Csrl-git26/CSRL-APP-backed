@@ -76,7 +76,8 @@ export function parseQuestion(question, catalog, context = {}) {
   const series = norm(question.match(/\b(CMT|CAT|FMT|JCT|MT|PT|NCT|NMT|MMT|NFT|MFT)\b/i)?.[1] || context.series);
   const n = question.match(/(?:last|latest|पिछले)\s*(\d+)/i)?.[1];
   const threshold = question.match(/(?:below|under|less than)\s*(-?\d+(?:\.\d+)?)(?!\d)/i);
-  const testIds = catalog.tests.filter(t => norm(question).includes(norm(t)));
+  const mentionedTests = new Set((norm(question).match(/[A-Z]+[0-9]+/g) || []));
+  const testIds = catalog.tests.filter(t => mentionedTests.has(norm(t)));
   const rollMatch = question.match(/(?:roll|रोल)\s*[:#-]?\s*([a-z0-9_-]+)/i);
   return { intent: intent || (Object.keys(context).length && /only|show|their|these|also|सिर्फ|दिखा/.test(q) ? context.intent : 'unknown'), subject, centers: explicitCenters.length ? explicitCenters : /all cent|every cent|सभी केंद्र/.test(q) ? [] : context.centers || [], series, count: n ? Math.min(10, Math.max(1, Number(n))) : context.count || 3, direction: /declin|fall|गिरावट/.test(q) ? 'declining' : /improv|positive|सुधार/.test(q) ? 'improving' : context.direction || 'all', threshold: threshold && !/%|percent/.test(q) ? Number(threshold[1]) : context.threshold ?? null, testIds, roll: rollMatch?.[1] || context.roll || '' };
 }
