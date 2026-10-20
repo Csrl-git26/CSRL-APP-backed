@@ -2,7 +2,7 @@ import express from 'express';
 import { loadApplicationData } from '../services/dbService.js';
 import { portalUsers } from '../services/portalUserService.js';
 import { TestBranch, scopeApplicationData } from '../services/testBranchService.js';
-import { scopeChatData, makeCatalog, parseQuestion, validatePlan, analyzeChat, centerCode } from '../services/chatAnalysis.js';
+import { scopeChatData, makeCatalog, parseQuestion, validatePlan, analyzeChat, centerCode, conversationReply } from '../services/chatAnalysis.js';
 import { aiConfigured, askAI, PLANNER_PROMPT, readPlan } from '../services/chatAI.js';
 
 const router = express.Router();
@@ -33,6 +33,8 @@ router.post('/', async (req,res) => {
     const assigned = await assignments(req.user);
     // Fail closed before data retrieval if the role has no chat permissions.
     scopeChatData({ profiles: [], tests: [] },req.user,assigned);
+    const greeting = conversationReply(question, req.user.role);
+    if (greeting) return res.json({ answer: greeting, columns: [], rows: [], sources: [], notes: [], mode: 'conversation', aiEnabled: aiConfigured(), generatedAt: new Date().toISOString() });
     const source = scopeChatData(await loadApplicationData(),req.user,assigned);
     const branches = await TestBranch.find({}).lean();
     const scoped = scopeApplicationData(source,branch,branches);

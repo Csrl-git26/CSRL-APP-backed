@@ -170,3 +170,17 @@ export function analyzeChat(cat, plan, { role, stream, branch }) {
   }
   return { answer, columns: studentColumns, rows: rows.slice(0,200), totalRows: rows.length, sources, notes };
 }
+
+// Match only standalone conversation; greetings before a data question must not hide it.
+export function conversationReply(question, role) {
+  const q = question.trim().toLowerCase().replace(/[!?.।,]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const greeting = /^(?:h+i+|h+e+l+o+|h+l+o+|hey+|hai|namaste|namaskar|नमस्ते|नमस्कार|good morning|good afternoon|good evening)(?: pragati| प्रगति| bot)?$/u.test(q);
+  const help = /^(?:help|help me|what can you do|how can you help me|who are you|मदद|आप क्या कर सकते हैं)$/u.test(q);
+  const thanks = /^(?:thanks|thank you|thankyou|thank u|धन्यवाद|शुक्रिया)$/u.test(q);
+  if (!greeting && !help && !thanks) return null;
+  const hindi = /[\u0900-\u097f]/u.test(q);
+  const examples = role === 'student'
+    ? (hindi ? 'पूछें: “पिछले 3 CMT टेस्ट में मेरी Physics की प्रगति दिखाएँ।”' : 'Try: “Show my student progress in Physics in the last 3 CMT tests.”')
+    : (hindi ? 'आप पूछ सकते हैं:\n• पिछले 2 CMT टेस्ट में किन केंद्रों का औसत बढ़ा?\n• KNP केंद्र में Physics में किन छात्रों को विशेष ध्यान चाहिए?\n• DEL केंद्र का CMT02 औसत कितना है?' : 'You can ask:\n• Which centres improved in the last 2 CMT tests?\n• Which KNP students need attention in Physics?\n• What is the DEL centre average in CMT02?');
+  return `${thanks ? (hindi ? 'आपका स्वागत है!' : "You're welcome!") : (hindi ? 'नमस्ते! मैं प्रगति हूँ। मैं आपके पोर्टल के शैक्षणिक डेटा को आसान भाषा में समझने में मदद कर सकती हूँ।' : "Hello! I'm Pragati. I can help you understand your portal’s academic data in simple language.")}\n\n${examples}`;
+}

@@ -44,3 +44,16 @@ test('invalid stream and oversized question fail before reading records',async()
  const a=await route({user:{role:'admin'},body:{question:'hello',stream:'INVALID'}});assert.equal(a.status,400);assert.equal(a.loads,0);
  const b=await route({user:{role:'admin'},body:{question:'x'.repeat(801)}});assert.equal(b.status,400);assert.equal(b.loads,0);
 });
+test('standalone greetings get helpful replies without loading records or trusting AI',async()=>{
+ for (const question of ['hii','hlo','hello!','Hi Pragati','नमस्ते','help','thank you']) {
+  const r=await route({user:{role:'admin',id:'admin'},body:{question},ai:'not json'});
+  assert.equal(r.status,200);assert.equal(r.result.mode,'conversation');assert.equal(r.loads,0);assert.equal(r.result.rows.length,0);
+  assert.ok(!r.result.answer.includes('could not confidently'));
+ }
+});
+test('conversation preserves access boundaries and student-specific guidance',async()=>{
+ const denied=await route({user:{role:'centre',id:'centre'},body:{question:'hi'}});assert.equal(denied.status,403);
+ const student=await route({user:{role:'student',id:'1',centerCode:'KNP'},body:{question:'hello'}});
+ assert.match(student.result.answer,/my student progress/);assert.equal(student.loads,0);
+ assert.equal(analysis.conversationReply('Hi, which centres improved in last 2 CMT tests?','admin'),null);
+});
