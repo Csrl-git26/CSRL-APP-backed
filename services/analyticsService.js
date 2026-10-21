@@ -388,6 +388,7 @@ export function buildStudentChartData(studentTestFlat, testColumns, stream) {
   });
 
   relevantColumns.forEach((col) => {
+    if (/_(MBBS|STATUS)$/i.test(col)) return;
     const { subject, testName, isTotal } = parseTestColumn(col);
     if (!testsMap[testName]) testsMap[testName] = { name: testName };
 
@@ -404,6 +405,16 @@ export function buildStudentChartData(studentTestFlat, testColumns, stream) {
     }
 
   });
+
+  // Status is metadata, not a numeric score. Preserve it for its own test only.
+  for (const [key, value] of Object.entries(studentTestFlat || {})) {
+    const match = key.match(/^(.*)_(MBBS|STATUS)$/i);
+    if (!match) continue;
+    const test = Object.keys(testsMap).find(name => name.toUpperCase() === match[1].toUpperCase());
+    if (test && (match[2].toUpperCase() === 'MBBS' || testsMap[test][`${test}_MBBS`] == null)) {
+      testsMap[test][`${test}_MBBS`] = String(value ?? '').trim().toUpperCase();
+    }
+  }
 
   Object.values(testsMap).forEach((testRow) => {
     const vals = Object.entries(testRow)
