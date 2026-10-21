@@ -127,7 +127,7 @@ export function rankStudentsByTest(profiles, tests, testKey) {
         if (m !== null) { sum += m; count++; }
       });
     }
-    const mark = count > 0 ? Math.round(sum / count) : null;
+    const mark = count > 0 ? (sum / count) : null;
     
     let injectedRawScores = { ...(testDoc || {}) };
     if (testDoc && testKeys.length > 1) {
@@ -141,7 +141,7 @@ export function rankStudentsByTest(profiles, tests, testKey) {
           if (m !== null) { subSum += m; subCount++; }
         });
         if (subCount > 0) {
-           injectedRawScores[sub] = Math.round(subSum / subCount);
+           injectedRawScores[sub] = (subSum / subCount);
         }
       });
     }
@@ -331,7 +331,7 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
   return Object.entries(centreAgg)
     .filter(([, s]) => s.count > 0)
     .map(([code, s]) => {
-      const avg     = s.count ? Math.round(s.sum / s.count) : 0;
+      const avg     = s.count ? (s.sum / s.count) : 0;
       const top     = s.max === -Infinity ? 0 : s.max;
       const bottom  = s.min === Infinity ? 0 : s.min;
       const rollSet = new Set(
@@ -343,12 +343,12 @@ export function rankCentresByTest(profiles, tests, testKeyRaw, testColumns) {
       const weakSubject    = weakAnalysis.length ? weakAnalysis[0].subject : 'N/A';
       return { 
          code, avg, top, bottom, tested: s.count, studentCount: s.studentCount, weakSubject,
-         Physics: s.phyCount ? Math.round(s.phySum / s.phyCount) : 0,
-         Chemistry: s.cheCount ? Math.round(s.cheSum / s.cheCount) : 0,
-         Math: s.mathCount ? Math.round(s.mathSum / s.mathCount) : 0,
-         Biology: s.bioCount ? Math.round(s.bioSum / s.bioCount) : 0,
-         Botany: s.botCount ? Math.round(s.botSum / s.botCount) : 0,
-         Zoology: s.zooCount ? Math.round(s.zooSum / s.zooCount) : 0
+         Physics: s.phyCount ? (s.phySum / s.phyCount) : 0,
+         Chemistry: s.cheCount ? (s.cheSum / s.cheCount) : 0,
+         Math: s.mathCount ? (s.mathSum / s.mathCount) : 0,
+         Biology: s.bioCount ? (s.bioSum / s.bioCount) : 0,
+         Botany: s.botCount ? (s.botSum / s.botCount) : 0,
+         Zoology: s.zooCount ? (s.zooSum / s.zooCount) : 0
       };
     })
     .sort((a, b) => b.avg - a.avg)
@@ -795,7 +795,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
         const arr = agg.subjectMarks[subj] || [];
         subjectAvgs[subj] = arr.length ? round2(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
       });
-      const qualRate = agg.appeared ? round2((agg.qualified / agg.appeared) * 100) : 0;
+      const qualRate = agg.appeared ? ((agg.qualified / agg.appeared) * 100) : 0;
       return {
         code,
         appeared: agg.appeared,
@@ -1011,12 +1011,12 @@ export function buildCentreChartData(centerTests, testColumns, stream) {
   });
 
   const res = Object.values(testsMap).map(agg => {
-    const row = { name: agg.name, Total: agg.count > 0 ? Math.round(agg.sumTotal / agg.count) : null };
+    const row = { name: agg.name, Total: agg.count > 0 ? (agg.sumTotal / agg.count) : null };
     allSubjects.forEach(sub => {
       const sum = agg.subjectSums[sub];
       const count = agg.subjectCounts[sub];
       if (count > 0) {
-        row[sub] = Math.round(sum / count);
+        row[sub] = (sum / count);
       }
     });
     return row;

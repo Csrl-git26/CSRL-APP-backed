@@ -883,7 +883,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
 
         const rawChartData = Object.entries(testAggMap).map(([tid, agg]) => {
           const row = { name: tid };
-          row['Total'] = agg.count > 0 ? Math.round(agg.sumTotal / agg.count) : null;
+          row['Total'] = agg.count > 0 ? (agg.sumTotal / agg.count) : null;
           
           if (agg.count > 0) {
             const avgTotalAttempted = Math.round(agg.totalAttemptedSum / agg.count);
@@ -892,7 +892,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
             const streamKey = String(stream).toUpperCase() === 'NEET' ? 'NEET' : 'JEE';
             const defaultMin = streamKey === 'NEET' ? 550 : 100;
             const qCount = agg.studentTotals.filter(t => t >= defaultMin).length;
-            row.qualRate = Math.round((qCount / agg.count) * 100);
+            row.qualRate = ((qCount / agg.count) * 100);
           } else {
             row['Total_Attempted'] = null;
             row['Total_Accuracy'] = null;
@@ -904,7 +904,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
             : ['Physics', 'Chemistry', 'Math'];
 
           subjectsForStream.forEach(sub => {
-            row[sub] = agg.count > 0 ? Math.round((agg.subjectSums[sub] || 0) / agg.count) : null;
+            row[sub] = agg.count > 0 ? ((agg.subjectSums[sub] || 0) / agg.count) : null;
             if (agg.count > 0) {
               const avgAttempted = Math.round((agg.subjectAttemptedSum[sub] || 0) / agg.count);
               row[`${sub}_Attempted`] = avgAttempted;
@@ -995,7 +995,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
             const overallMin = rankInsights.cutoffs?.[streamKey]?.overallMin ?? (streamKey === 'NEET' ? 550 : 100);
             if (agg.studentTotals && agg.studentTotals.length > 0) {
               const qCount = agg.studentTotals.filter(t => t >= overallMin).length;
-              row.qualRate = Math.round((qCount / agg.studentTotals.length) * 100);
+              row.qualRate = ((qCount / agg.studentTotals.length) * 100);
             }
           }
         }
@@ -2294,9 +2294,9 @@ app.get('/api/debug-marks', async (req, res) => {
 
       rawChartData = Object.entries(testAggMap).map(([tid, agg]) => {
         const row = { name: tid };
-        row['Total'] = agg.count > 0 ? Math.round(agg.sumTotal / agg.count) : null;
+        row['Total'] = agg.count > 0 ? (agg.sumTotal / agg.count) : null;
         ['Physics', 'Chemistry', 'Math'].forEach(sub => {
-          row[sub] = agg.count > 0 ? Math.round((agg.subjectSums[sub] || 0) / agg.count) : null;
+          row[sub] = agg.count > 0 ? ((agg.subjectSums[sub] || 0) / agg.count) : null;
         });
         return row;
       });
