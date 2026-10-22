@@ -1343,6 +1343,27 @@ app.delete('/api/students/clear-all', authenticateToken, requireAdmin, async (re
   }
 });
 
+// Delete one explicitly selected profile; retain all test and analysis records.
+app.post('/api/student-profiles/delete-one', authenticateToken, requireAdmin, async (req, res) => {
+  const roll = normalizeRollKey(req.body.rollKey);
+  const center = normalizeCenterCode(req.body.centerCode);
+  if (!roll || !center) return res.status(400).json({ message: 'Roll number and centre are required.' });
+  try {
+    if (!isDbEnabled()) return res.status(503).json({ message: 'Database not enabled' });
+    await initMongo();
+    const Profile = (await import('./models/Profile.js')).default;
+    const matches = await Profile.find({ ROLL_KEY: roll, centerCode: center }).limit(2).lean();
+    if (!matches.length) return res.status(404).json({ message: 'Profile not found. Refresh the student list.' });
+    if (matches.length !== 1) return res.status(409).json({ message: 'More than one profile matches this roll and centre. No profile was deleted.' });
+    const result = await Profile.deleteOne({ _id: matches[0]._id, ROLL_KEY: roll, centerCode: center });
+    if (result.deletedCount !== 1) return res.status(409).json({ message: 'Profile changed. Refresh and try again.' });
+    invalidateDataCache();
+    return res.json({ success: true, deletedCount: 1, rollKey: roll, centerCode: center });
+  } catch (e) {
+    return res.status(500).json({ message: e.message || 'Unable to delete profile.' });
+  }
+});
+
 app.delete('/api/students/:rollKey', authenticateToken, requireAdmin, async (req, res) => {
   const { rollKey } = req.params;
   const centerCode = req.query.centerCode;
