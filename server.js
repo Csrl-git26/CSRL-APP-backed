@@ -751,6 +751,73 @@ app.get('/api/analytics/student-chart', async (req, res) => {
  * GET /api/analytics/centre-chart?centerCode=
  * Aggregates all students in a centre to provide chart-ready performance averages.
  */
+
+/** Question-level attempt and accuracy metrics for the qualification summary. */
+app.get('/api/analytics/qualification-metrics', authenticateToken, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  try {
+    const { testKey, stream = 'JEE' } = req.query;
+    if (!testKey) return res.status(400).json({ message: 'testKey is required' });
+    const global = await loadApplicationData();
+    const scoped = filterByStream(global.profiles, global.tests, stream);
+    const keys = testKey === 'ALL_FMT'
+      ? [...new Set(global.testColumns.filter(k => k.startsWith('FMT')).map(k => k.split('_')[0]))]
+      : String(testKey).split(',').map(k => k.trim()).filter(Boolean);
+    const allowed = new Map(scoped.profiles.map(p => [String(p.ROLL_KEY).trim(), p.centerCode]));
+    const [raw, maps] = await Promise.all([
+      StudentRawMarks.find({ testId: { $in: keys } }).lean(),
+      TopicMap.find({ testId: { $in: keys } }).lean(),
+    ]);
+    const docs = await filterTestDocuments(raw);
+    const aliases = { PHYSICS: 'Physics', PHY: 'Physics', CHEMISTRY: 'Chemistry', CHEM: 'Chemistry', MATHEMATICS: 'Math', MATH: 'Math', MATHS: 'Math', BOTANY: 'Botany', ZOOLOGY: 'Zoology', BIOLOGY: 'Biology' };
+    const questions = new Map(maps.map(map => {
+      const lookup = new Map();
+      for (const topic of map.topics || []) {
+        const subject = aliases[String(topic.subject).trim().toUpperCase()];
+        if (!subject || (stream === 'NEET' ? subject === 'Math' : ['Botany', 'Zoology', 'Biology'].includes(subject))) continue;
+        for (const q of topic.questions || []) lookup.set(String(q), subject);
+      }
+      return [map.testId, lookup];
+    }));
+    const byCentre = {};
+    const overall = {};
+    const add = (target, subject, metric) => {
+      const item = target[subject] ||= { attempted: 0, correct: 0, records: 0 };
+      item.attempted += metric.attempted; item.correct += metric.correct; item.records++;
+    };
+    const seen = new Set();
+    for (const doc of docs) {
+      const roll = String(doc.studentId).trim(), centre = allowed.get(roll);
+      const lookup = questions.get(doc.testId);
+      const identity = roll + ':' + doc.testId;
+      if (!centre || !lookup?.size || seen.has(identity)) continue;
+      seen.add(identity);
+      const marks = doc.marks instanceof Map ? Object.fromEntries(doc.marks) : doc.marks || {};
+      const metrics = {};
+      for (const [question, subject] of lookup) {
+        const rawMark = marks[question];
+        if (rawMark === null || rawMark === undefined || String(rawMark).trim() === '' || !Number.isFinite(Number(rawMark))) continue;
+        const metric = metrics[subject] ||= { attempted: 0, correct: 0 };
+        const value = Number(rawMark);
+        if (value !== 0) metric.attempted++;
+        if (value > 0) metric.correct++;
+      }
+      if (!Object.keys(metrics).length) continue;
+      metrics.Total = Object.values(metrics).reduce((sum, m) => ({ attempted: sum.attempted + m.attempted, correct: sum.correct + m.correct }), { attempted: 0, correct: 0 });
+      const centreMetrics = byCentre[centre] ||= {};
+      for (const [subject, metric] of Object.entries(metrics)) { add(centreMetrics, subject, metric); add(overall, subject, metric); }
+    }
+    const finish = group => Object.fromEntries(Object.entries(group).flatMap(([subject, m]) => [
+      [subject + '_Attempted', m.attempted / m.records],
+      [subject + '_Accuracy', m.attempted ? m.correct / m.attempted * 100 : 0],
+    ]));
+    res.json({ testKey, centres: Object.fromEntries(Object.entries(byCentre).map(([centre, metrics]) => [centre, finish(metrics)])), overall: finish(overall) });
+  } catch (error) {
+    console.error('Qualification metrics failed:', error.message);
+    res.status(500).json({ message: 'Unable to load attempt and accuracy data.' });
+  }
+});
+
 app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
