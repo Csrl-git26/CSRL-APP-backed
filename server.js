@@ -953,9 +953,9 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
           row['Total'] = agg.count > 0 ? (agg.sumTotal / agg.count) : null;
           
           if (agg.count > 0) {
-            const avgTotalAttempted = Math.round(agg.totalAttemptedSum / agg.count);
+            const avgTotalAttempted = (agg.totalAttemptedSum / agg.count);
             row['Total_Attempted'] = avgTotalAttempted;
-            row['Total_Accuracy'] = agg.totalAttemptedSum > 0 ? Math.round((agg.totalCorrectSum / agg.totalAttemptedSum) * 100) : 0;
+            row['Total_Accuracy'] = agg.totalAttemptedSum > 0 ? ((agg.totalCorrectSum / agg.totalAttemptedSum) * 100) : 0;
             const streamKey = String(stream).toUpperCase() === 'NEET' ? 'NEET' : 'JEE';
             const defaultMin = streamKey === 'NEET' ? 550 : 100;
             const qCount = agg.studentTotals.filter(t => t >= defaultMin).length;
@@ -973,11 +973,11 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
           subjectsForStream.forEach(sub => {
             row[sub] = agg.count > 0 ? ((agg.subjectSums[sub] || 0) / agg.count) : null;
             if (agg.count > 0) {
-              const avgAttempted = Math.round((agg.subjectAttemptedSum[sub] || 0) / agg.count);
+              const avgAttempted = ((agg.subjectAttemptedSum[sub] || 0) / agg.count);
               row[`${sub}_Attempted`] = avgAttempted;
               const subAttSum = agg.subjectAttemptedSum[sub] || 0;
               const subCorSum = agg.subjectCorrectSum[sub] || 0;
-              row[`${sub}_Accuracy`] = subAttSum > 0 ? Math.round((subCorSum / subAttSum) * 100) : 0;
+              row[`${sub}_Accuracy`] = subAttSum > 0 ? ((subCorSum / subAttSum) * 100) : 0;
             } else {
               row[`${sub}_Attempted`] = null;
               row[`${sub}_Accuracy`] = null;
