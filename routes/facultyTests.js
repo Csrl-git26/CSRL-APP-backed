@@ -15,7 +15,15 @@ router.post('/import', async (req,res) => {
   let rows;
   try { rows = validateFacultyResults(req.body.rows); } catch(error) { return res.status(400).json({ message: error.message }); }
   try {
-    await FacultyTestResult.bulkWrite(rows.map(row => ({ updateOne: { filter: { year: row.year, email: row.email, test: row.test, subject: row.subject }, update: { $set: row }, upsert: true } })));
+    const profileFields = ['facultyId','serialNumber','contact','projectManager','mentor','degree','college','passingYear','joiningDate'];
+    await FacultyTestResult.bulkWrite(rows.map(row => {
+      const values = { ...row };
+      // Missing optional profile columns in marks uploads must not erase saved details.
+      for (const key of profileFields) {
+        if (values[key] === null || values[key] === undefined || String(values[key]).trim() === '') delete values[key];
+      }
+      return { updateOne: { filter: { year: row.year, email: row.email, test: row.test, subject: row.subject }, update: { $set: values }, upsert: true } };
+    }));
     res.json({ count: rows.length });
   } catch { res.status(500).json({ message: 'Import could not finish. Please retry the same file; existing results will not be duplicated.' }); }
 });
