@@ -23,7 +23,12 @@ router.get('/', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ message: 'Management only' });
   try {
     const page = Math.max(1, Math.min(100000, Number.parseInt(req.query.page, 10) || 1));
+    if (req.query.view === 'centres') {
+      const centres = (await Session.distinct('centres')).filter(value => typeof value === 'string' && value.trim()).sort((a, b) => a.localeCompare(b));
+      return res.json({ centres });
+    }
     const query = {};
+    if (req.query.centre) query.centres = String(req.query.centre).trim();
     if (req.query.userId) query.userId = String(req.query.userId).trim().toLowerCase();
     const search = String(req.query.search || '').trim().slice(0, 120);
     if (search) {
