@@ -702,7 +702,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
   // NEET-specific prefixes: MMT, NCT, NMT, NEET  /  JEE-specific prefixes: MT, CMT, FMT, PT, JCT
   const rawStream = profileDoc.stream || profileDoc.STREAM || profileDoc.Stream || req.query.stream || testDoc.stream || 'JEE';
   const studentStream = String(rawStream).trim().toUpperCase();
-  const NEET_PREFIXES = /^(MMT|NCT|NMT|NEET)/i;
+  const NEET_PREFIXES = /^(MMT|NCT|NMT|NRT|NEET)/i;
   const filteredTestColumns = source.testColumns.filter((col) => {
     const { testName } = parseTestColumn(col);
     const isNeetTest = NEET_PREFIXES.test(testName);
