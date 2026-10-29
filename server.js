@@ -247,7 +247,7 @@ app.use('/api/result-notifications', authenticateToken, createResultNotification
     throw Object.assign(new Error('This test has no saved results in the selected scope.'), { status: 400 });
   }
   const scoped = filterByStream(global.profiles, global.tests, stream);
-  const insights = computeTestInsights(scoped.profiles, scoped.tests, testKey, global.testColumns, { stream });
+  const insights = computeTestInsights(scoped.profiles, scoped.tests, testKey, global.testColumns, { stream, branch });
   const board = rankCentresByTest(scoped.profiles, scoped.tests, testKey, global.testColumns).map(centre => ({
     ...centre, qualifiedCount: insights.centreRows.find(row => row.code === centre.code)?.qualified || 0,
   }));
@@ -572,7 +572,7 @@ app.get('/api/analytics/centre-leaderboard', authenticateToken, async (req, res)
   let result = rankCentresByTest(lbProfiles, lbTests, resolvedTestKey, global.testColumns);
   
   const baseTestKeys = resolvedTestKey.split(',').map(k => k.split('_')[0]).join(',');
-  const insights = computeTestInsights(lbProfiles, lbTests, baseTestKeys, global.testColumns, { isAllFMT: testKey === 'ALL_FMT', stream });
+  const insights = computeTestInsights(lbProfiles, lbTests, baseTestKeys, global.testColumns, { isAllFMT: testKey === 'ALL_FMT', stream, branch: currentTestBranch() });
 
   try {
     const weakData = await CenterWeakTopics.find({ testId: testKey }).lean();
@@ -690,6 +690,7 @@ app.get('/api/analytics/test-insights', authenticateToken, async (req, res) => {
   const result = computeTestInsights(insProfiles, insTests, resolvedTestKey, global.testColumns, {
     rollKey: rollKey || undefined,
     isAllFMT: testKey === 'ALL_FMT',
+    branch: currentTestBranch(),
     stream: effectiveStream || 'ALL'
   });
   res.json(result);
@@ -890,7 +891,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
     const { profiles: streamProfiles, tests: streamTests } = filterByStream(global.profiles, global.tests, stream);
     const finalChartData = chartData.map((row) => {
       const testName = row.name;
-      const insights = computeTestInsights(streamProfiles, streamTests, testName, global.testColumns, { stream });
+      const insights = computeTestInsights(streamProfiles, streamTests, testName, global.testColumns, { stream, branch: currentTestBranch() });
       const centreRow = insights.centreRows.find(r => r.code === centerCode);
       row.qualRate = centreRow && centreRow.appeared > 0 ? centreRow.qualRate : null;
       if (centreRow) {
@@ -1068,7 +1069,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
         for (const row of finalChartData) {
           if (row['Total_Rank'] !== undefined && row['Total_Rank'] !== null) continue; // already ranked
           const testName = row.name;
-          const rankInsights = computeTestInsights(streamProfiles, streamTests, testName, global.testColumns, { stream });
+          const rankInsights = computeTestInsights(streamProfiles, streamTests, testName, global.testColumns, { stream, branch: currentTestBranch() });
           
           // Combine centres from rankInsights with this centre's row if not present
           const allCentres = (rankInsights.centreRows || []).map(r => ({
@@ -1123,6 +1124,13 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
       console.error('[Analytics] Error merging MongoDB data:', dbErr);
     }
 
+    if (isAdvanced(stream, currentTestBranch())) {
+      for (const row of finalChartData) {
+        const result = computeTestInsights(streamProfiles, streamTests, row.name, global.testColumns, { stream, branch: 'ADVANCED' });
+        const centre = result.centreRows.find(c => c.code === centerCode);
+        row.qualRate = centre?.appeared > 0 ? centre.qualRate : null;
+      }
+    }
     await applyAdvancedChartMetrics(finalChartData, { stream, branch: currentTestBranch(), profiles: streamProfiles, centre: centerCode });
     res.json({ chartData: finalChartData });
   } catch (e) {

@@ -1,3 +1,4 @@
+import { advancedCutoff, qualifiesAdvanced } from '../utils/advancedQualification.js';
 /**
  * Backend analytics service.
  * All heavy computation lives here so the frontend only renders — never computes.
@@ -617,6 +618,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       else if (cat.includes('OBC')) overallMin = 85;
       else if (cat.includes('EWS')) overallMin = 90;
       else overallMin = 110; // GEN or default
+      if (options.branch === 'ADVANCED') overallMin = advancedCutoff(cat, caps.maxTotal, caps.maxBySubject.Physics).overallMin;
 
       subjects.forEach((subj) => {
         subjectMins[subj] = 30; // 30 marks per subject for all categories
@@ -717,7 +719,9 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       // A student is MBBS if the stored flag equals 'MBBS' (any case)
       qualified = typeof mbbsFlag === 'string' && mbbsFlag.trim().toUpperCase() === 'MBBS';
     } else {
-      qualified = total !== null && total >= overallMin;
+      qualified = stream === 'JEE' && options.branch === 'ADVANCED'
+        ? qualifiesAdvanced(total, subjectScores, p.CATEGORY, caps.maxTotal, caps.maxBySubject.Physics)
+        : total !== null && total >= overallMin;
     }
 
     studentStates.push({
