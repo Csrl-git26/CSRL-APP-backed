@@ -28,7 +28,7 @@ export function createAdvancedAttemptsRouter({Model=AdvancedAttemptSheet,Catalog
   }
   router.post('/preview',wrap(async(req,res)=>{
     const {testId,records}=await prepare(req.body);const saved=await Model.findById(testId).lean();
-    res.json({testId,count:records.length,questionCounts:[...new Set(records.map(r=>r.totalQuestions))].sort((a,b)=>a-b),centres:[...new Set(records.map(r=>r.centre))].sort(),metrics:aggregateAttemptRecords(records),version:saved?.version||null,previousCount:saved?.records.length||0,preview:records.slice(0,10)});
+    res.json({testId,count:records.length,hasSubjects:!!records[0].subjects,questionCounts:[...new Set(records.map(r=>r.totalQuestions))].sort((a,b)=>a-b),centres:[...new Set(records.map(r=>r.centre))].sort(),metrics:aggregateAttemptRecords(records),version:saved?.version||null,previousCount:saved?.records.length||0,preview:records.slice(0,10)});
   }));
   router.post('/',wrap(async(req,res)=>{
     if(req.body.confirm!=='UPLOAD')throw fail(400,'Preview and confirm this upload first.');

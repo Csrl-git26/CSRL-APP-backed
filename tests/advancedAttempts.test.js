@@ -46,3 +46,18 @@ test('HTTP requires admin and Advanced catalog, validates all rows and replaces 
  assert.equal((await post('/',{confirm:'UPLOAD'})).status,200);assert.equal(writes,1);assert.equal((await post('/',{confirm:'UPLOAD'})).status,409);assert.equal((await post('/',{confirm:'UPLOAD',version:'stale'})).status,409);assert.equal(writes,1);
  const version=saved.version;assert.equal((await post('/',{confirm:'UPLOAD',version})).status,200);assert.equal(writes,2);assert.notEqual(saved.version,version);assert.equal(saved.records.length,1);
 });
+test('subject columns including repeated ACC% validate and produce independent subject metrics',async()=>{
+ const subjectHeaders=['physics','chemistry','mathematics'].flatMap(s=>[s+'_total',s+'_attempted',s+'_not_attempted',s+'_correct','ACC%',s+'_incorrect']);
+ const detailed=[...row,32,31,1,22,70.97,9,32,30,2,22,73.33333333,8,32,29,3,15,51.72,14];
+ const fullHeaders=[...headers,...subjectHeaders];
+ const records=parseAdvancedAttemptRows([fullHeaders,detailed],profiles);
+ const metrics=aggregateAttemptRecords(records);
+ assert.equal(metrics.Physics_Attempted,31);assert.equal(metrics.Chemistry_Accuracy,22/30*100);assert.equal(metrics.Math_Accuracy,15/29*100);
+ const bad=[...detailed];bad[14]=65.56;assert.throws(()=>parseAdvancedAttemptRows([fullHeaders,bad],profiles),/Physics ACC/);
+ const mismatch=[...detailed];mismatch[11]=30;mismatch[12]=2;mismatch[15]=8;mismatch[14]=22/30*100;
+ assert.throws(()=>parseAdvancedAttemptRows([fullHeaders,mismatch],profiles),/add up/);
+ assert.throws(()=>parseAdvancedAttemptRows([fullHeaders.slice(0,-1),detailed],profiles),/Missing or duplicate/);
+ const chart=[{name:'ADV01',Physics:90}];await applyAdvancedChartMetrics(chart,{stream:'JEE',branch:'ADVANCED',profiles,roll:'2701079'},{find:()=>({lean:async()=>[{_id:'ADV01',records}]})});assert.equal(chart[0].Physics_Attempted,31);assert.equal(chart[0].Physics_Correct,22);assert.equal(chart[0].Physics,90);
+ const legacy=parseAdvancedAttemptRows(rows,profiles);assert.equal(aggregateAttemptRecords([...records,...legacy]).Physics_Attempted,null);
+ const {default:Model}=await import('../models/AdvancedAttemptSheet.js');const doc=new Model({_id:'ADV01',version:'v',records});assert.equal(doc.records[0].subjects.Physics.correct,22);assert.equal(doc.validateSync(),undefined);
+});

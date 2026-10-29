@@ -13,6 +13,18 @@ export function parseAdvancedAttemptRows(rows, profiles) {
   if (missing.length) throw error('Missing columns: '+missing.join(', ')+'. Use the provided attempt-count sheet format.');
   if (required.some(key => headers.filter(h => h === key).length !== 1)) throw error('The sheet contains duplicate column headers.');
   const accIndex = headers.indexOf('acc');
+  const subjectDefinitions = [['physics','Physics'],['chemistry','Chemistry'],['mathematics','Math']];
+  const hasSubjects = subjectDefinitions.some(([prefix]) => headers.some(h => h.startsWith(prefix)));
+  const subjectColumns = hasSubjects ? subjectDefinitions.map(([prefix, subject]) => {
+    const fields = Object.fromEntries([['total','totalQuestions'],['attempted','attempted'],['notattempted','notAttempted'],['correct','correct'],['incorrect','incorrect']].map(([suffix,key]) => {
+      const header = prefix + suffix;
+      if (headers.filter(h => h === header).length !== 1) throw error('Missing or duplicate subject column: ' + header);
+      return [key, headers.indexOf(header)];
+    }));
+    const start = Math.min(...Object.values(fields)), end = Math.max(...Object.values(fields));
+    const acc = headers.findIndex((h,i) => i >= start && i <= end && h === 'acc');
+    return { subject, fields, acc };
+  }) : [];
   const profileMap = new Map();
   for (const p of profiles) { const key=rollKey(p.ROLL_KEY); const list=profileMap.get(key)||[]; list.push(p); profileMap.set(key,list); }
   const seen = new Set(), records = [], errors = [];
@@ -40,7 +52,27 @@ export function parseAdvancedAttemptRows(rows, profiles) {
       const value=Number(String(row[accIndex]).replace(/%$/,''));
       if (!Number.isFinite(value) || Math.abs(value-accuracy)>0.051) { errors.push(`${prefix}: ACC% disagrees with correct ÷ attempted × 100.`); continue; }
     }
-    records.push({roll,name,centre,...counts});
+    const subjects = {};
+    for (const {subject, fields, acc} of subjectColumns) {
+      const values = Object.fromEntries(Object.entries(fields).map(([key,col]) => [key, Number(row[col])]));
+      if (Object.values(fields).some(col => row[col] === null || row[col] === undefined || String(row[col]).trim() === '' || !Number.isInteger(Number(row[col])) || Number(row[col]) < 0 || Number(row[col]) > 10000)) {
+        errors.push(`${prefix}: ${subject} counts must be non-negative whole numbers.`); invalid=true; break;
+      }
+      if (values.attempted + values.notAttempted !== values.totalQuestions || values.correct + values.incorrect !== values.attempted) {
+        errors.push(`${prefix}: ${subject} counts do not reconcile.`); invalid=true; break;
+      }
+      const expected = values.attempted ? values.correct / values.attempted * 100 : 0;
+      if (acc >= 0 && row[acc] !== null && row[acc] !== undefined && String(row[acc]).trim() !== '') {
+        const actual = Number(String(row[acc]).replace(/%$/,''));
+        if (!Number.isFinite(actual) || Math.abs(actual-expected) > 0.051) { errors.push(`${prefix}: ${subject} ACC% disagrees with correct ÷ attempted × 100.`); invalid=true; break; }
+      }
+      subjects[subject] = values;
+    }
+    if (invalid) continue;
+    if (hasSubjects && Object.keys(counts).some(key => Object.values(subjects).reduce((sum,v) => sum + v[key],0) !== counts[key])) {
+      errors.push(`${prefix}: subject counts must add up to the overall counts.`); continue;
+    }
+    records.push({roll,name,centre,...counts,...(hasSubjects ? {subjects} : {})});
   }
   if(errors.length) throw error(`${errors.length} row error(s). Nothing uploaded.\n`+errors.slice(0,30).join('\n')+(errors.length>30?'\n…Fix these and preview again.':''));
   if(!records.length) throw error('No student data found.');
@@ -51,7 +83,16 @@ export function emptyAdvancedMetrics() {
 }
 export function aggregateAttemptRecords(records) {
   const attempted=records.reduce((sum,r)=>sum+r.attempted,0), correct=records.reduce((sum,r)=>sum+r.correct,0);
-  return { ...emptyAdvancedMetrics(), Total_Attempted:records.length?attempted/records.length:null, Total_Accuracy:records.length?(attempted?correct/attempted*100:0):null, records:records.length };
+  const metrics = { ...emptyAdvancedMetrics(), Total_Attempted:records.length?attempted/records.length:null, Total_Accuracy:records.length?(attempted?correct/attempted*100:0):null, records:records.length };
+  for (const subject of ['Physics','Chemistry','Math']) {
+    const values = records.map(r => r.subjects?.[subject]);
+    // Do not present partial subject coverage as a full centre/test result.
+    if (!values.length || values.some(v => !v)) continue;
+    const att = values.reduce((sum,v) => sum + v.attempted,0), cor = values.reduce((sum,v) => sum + v.correct,0);
+    metrics[subject+'_Attempted'] = att / values.length;
+    metrics[subject+'_Accuracy'] = att ? cor / att * 100 : 0;
+  }
+  return metrics;
 }
 export function advancedMetricsFromSheets(sheets, profiles) {
   const allowed=new Set(profiles.map(p=>rollKey(p.ROLL_KEY)+'|'+String(p.centerCode||'').trim().toUpperCase()));
@@ -78,7 +119,12 @@ export async function applyAdvancedChartMetrics(rows, {stream,branch,profiles,ro
     const sheet=sheets.find(s=>s._id===row.name); if(!sheet) continue;
     if(roll) {
       const record=sheet.records.find(r=>r.roll===rollKey(roll) && (!centre || r.centre===String(centre).toUpperCase()));
-      if(record) Object.assign(row,{Total_Attempted:record.attempted,Total_Correct:record.correct,Total_Wrong:record.incorrect,Total_Accuracy:record.attempted?record.correct/record.attempted*100:0});
+      if(record) {
+        Object.assign(row,aggregateAttemptRecords([record]),{Total_Correct:record.correct,Total_Wrong:record.incorrect});
+        for (const [subject,counts] of Object.entries(record.subjects || {})) {
+          row[subject+'_Correct']=counts.correct; row[subject+'_Wrong']=counts.incorrect;
+        }
+      }
     } else {
       const metrics=advancedMetricsFromSheets([sheet],profiles);
       Object.assign(row,metrics.centres[centre]||emptyAdvancedMetrics());
