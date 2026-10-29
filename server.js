@@ -1,3 +1,6 @@
+import { createResultNotificationsRouter, startNotificationWorker } from './routes/resultNotifications.js';
+import { buildQualificationSummary, qualificationMetrics } from './services/resultNotificationAnalysis.js';
+import { TestBranch, scopeApplicationData } from './services/testBranchService.js';
 import chatRouter from './routes/chat.js';
 import { portalUsers } from './services/portalUserService.js';
 import portalUsersRouter from './routes/portalUsers.js';
@@ -225,6 +228,40 @@ function requireAdmin(req, res, next) {
 // ── Data Read Routes ───────────────────────────────────────────────────────────
 
 app.use('/api/portal-users', authenticateToken, portalUsersRouter);
+
+app.use('/api/result-notifications', authenticateToken, createResultNotificationsRouter(async selection => {
+  const { testKey, stream, branch } = selection;
+  const catalog = await TestBranch.find({}).lean();
+  const metadata = catalog.find(t => t.testId === testKey);
+  const testStream = metadata?.stream || (/^(MMT|NCT|NMT|NRT|NEET)/i.test(testKey) ? 'NEET' : 'JEE');
+  if (testStream !== stream || (stream === 'JEE' && (metadata?.branch || 'MAIN') !== branch)) {
+    throw Object.assign(new Error('The selected test belongs to a different stream or branch.'), { status: 400 });
+  }
+  const global = scopeApplicationData(await loadApplicationData(), branch, catalog);
+  if (!global.testColumns.some(column => parseTestColumn(column).testName === testKey)) {
+    throw Object.assign(new Error('This test has no saved results in the selected scope.'), { status: 400 });
+  }
+  const scoped = filterByStream(global.profiles, global.tests, stream);
+  const insights = computeTestInsights(scoped.profiles, scoped.tests, testKey, global.testColumns, { stream });
+  const board = rankCentresByTest(scoped.profiles, scoped.tests, testKey, global.testColumns).map(centre => ({
+    ...centre, qualifiedCount: insights.centreRows.find(row => row.code === centre.code)?.qualified || 0,
+  }));
+  const report = { ...buildQualificationSummary({ ...global, ...scoped }, board, testKey, stream), stream, warnings: [] };
+  const [raw, maps] = await Promise.all([StudentRawMarks.find({ testId: testKey }).lean(), TopicMap.find({ testId: testKey }).lean()]);
+  const metrics = qualificationMetrics(scoped, testKey, stream, raw, maps);
+  report.rows = report.rows.map(row => ({ ...row, ...(metrics.centres[row.code] || {}) }));
+  report.overall = { ...report.overall, ...metrics.overall };
+  if (!raw.length || !maps.some(map => map.topics?.length)) report.warnings.push('Question-wise marks or the topic mapping is missing. Upload both to include attempt and accuracy.');
+  const allowed = new Set(scoped.profiles.map(p => String(p.ROLL_KEY).trim()));
+  const rawRows = [...new Map(raw.filter(r => allowed.has(String(r.studentId).trim())).map(r => [String(r.studentId).trim(),r])).values()];
+  if (rawRows.length !== report.overall.appeared) report.warnings.push('The result sheet and question-wise marks have different student counts. Reconcile the uploads before sending.');
+  const rawMean = rawRows.length ? rawRows.reduce((sum, doc) => sum + Object.values(doc.marks instanceof Map ? Object.fromEntries(doc.marks) : doc.marks || {}).reduce((total, value) => total + (value !== null && String(value).trim() !== '' && Number.isFinite(Number(value)) ? Number(value) : 0), 0), 0) / rawRows.length : null;
+  if (rawMean !== null && Math.abs(rawMean - report.overall.Total) > 0.15) report.warnings.push('The result-sheet average differs from the question-wise marks. Verify that both uploads use the same result version.');
+  if (report.rows.some(row => report.subjects.some(subject => !Number.isFinite(row[subject]) || !Number.isFinite(metrics.centres[row.code]?.[subject + '_Attempted']) || !Number.isFinite(metrics.centres[row.code]?.[subject + '_Accuracy'])))) report.warnings.push('Some centres have incomplete subject marks or question-wise analysis. Complete the data before sending.');
+  return report;
+}));
+startNotificationWorker();
+
 app.use('/api/portal-login-tracking', authenticateToken, portalTrackingRouter);
 app.use('/api/faculty-tests', authenticateToken, facultyTestsRouter);
 app.use('/api/chat', authenticateToken, chatRouter);
