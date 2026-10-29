@@ -618,7 +618,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       else if (cat.includes('OBC')) overallMin = 85;
       else if (cat.includes('EWS')) overallMin = 90;
       else overallMin = 110; // GEN or default
-      if (options.branch === 'ADVANCED') overallMin = advancedCutoff(cat, caps.maxTotal, caps.maxBySubject.Physics).overallMin;
+      if (options.branch === 'ADVANCED') overallMin = advancedCutoff(cat).overallMin;
 
       subjects.forEach((subj) => {
         subjectMins[subj] = 30; // 30 marks per subject for all categories
@@ -720,7 +720,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       qualified = typeof mbbsFlag === 'string' && mbbsFlag.trim().toUpperCase() === 'MBBS';
     } else {
       qualified = stream === 'JEE' && options.branch === 'ADVANCED'
-        ? qualifiesAdvanced(total, subjectScores, p.CATEGORY, caps.maxTotal, caps.maxBySubject.Physics)
+        ? qualifiesAdvanced(total, subjectScores, p.CATEGORY)
         : total !== null && total >= overallMin;
     }
 
