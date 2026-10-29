@@ -1,3 +1,6 @@
+import advancedAttemptsRouter from './routes/advancedAttempts.js';
+import { currentTestBranch } from './services/testBranchService.js';
+import { isAdvanced, loadAdvancedMetrics, applyAdvancedChartMetrics } from './services/advancedAttemptService.js';
 import { createResultNotificationsRouter, startNotificationWorker } from './routes/resultNotifications.js';
 import { buildQualificationSummary, qualificationMetrics } from './services/resultNotificationAnalysis.js';
 import { TestBranch, scopeApplicationData } from './services/testBranchService.js';
@@ -228,6 +231,7 @@ function requireAdmin(req, res, next) {
 // ── Data Read Routes ───────────────────────────────────────────────────────────
 
 app.use('/api/portal-users', authenticateToken, portalUsersRouter);
+app.use('/api/advanced-attempts', authenticateToken, advancedAttemptsRouter);
 
 app.use('/api/result-notifications', authenticateToken, createResultNotificationsRouter(async selection => {
   const { testKey, stream, branch } = selection;
@@ -247,6 +251,13 @@ app.use('/api/result-notifications', authenticateToken, createResultNotification
     ...centre, qualifiedCount: insights.centreRows.find(row => row.code === centre.code)?.qualified || 0,
   }));
   const report = { ...buildQualificationSummary({ ...global, ...scoped }, board, testKey, stream), stream, warnings: [] };
+  if (isAdvanced(stream, branch)) {
+    const metrics = await loadAdvancedMetrics([testKey], scoped.profiles);
+    report.rows = report.rows.map(row => ({ ...row, ...metrics.centres[row.code] }));
+    report.overall = { ...report.overall, ...metrics.overall };
+    if (report.rows.some(row => row.records !== row.appeared)) report.warnings.push('Upload the JEE Advanced attempt-count sheet for all appeared students before sending.');
+    return report;
+  }
   const [raw, maps] = await Promise.all([StudentRawMarks.find({ testId: testKey }).lean(), TopicMap.find({ testId: testKey }).lean()]);
   const metrics = qualificationMetrics(scoped, testKey, stream, raw, maps);
   report.rows = report.rows.map(row => ({ ...row, ...(metrics.centres[row.code] || {}) }));
@@ -775,9 +786,11 @@ app.get('/api/analytics/student-chart', async (req, res) => {
       return row;
     });
 
+    await applyAdvancedChartMetrics(finalChartData, { stream: studentStream, branch: currentTestBranch(), profiles: globalData.profiles, roll: rollKey, centre: profileDoc.centerCode || centerCode });
     res.json({ chartData: finalChartData, weakSubject: weakSubj });
   } catch (e) {
     console.error('Error fetching student chart details', e);
+    if (isAdvanced(studentStream, currentTestBranch())) return res.status(503).json({ message: 'Unable to load JEE Advanced attempt-sheet data.', chartData: [] });
     // fallback with error info for debugging
     chartData.push({ name: 'ERROR: ' + e.message, Physics: 0, Chemistry: 0, Math: 0, Total: 0 });
     res.json({ chartData, weakSubject: weakSubj });
@@ -800,6 +813,7 @@ app.get('/api/analytics/qualification-metrics', authenticateToken, async (req, r
     const keys = testKey === 'ALL_FMT'
       ? [...new Set(global.testColumns.filter(k => k.startsWith('FMT')).map(k => k.split('_')[0]))]
       : String(testKey).split(',').map(k => k.trim()).filter(Boolean);
+    if (isAdvanced(stream, currentTestBranch())) return res.json({ testKey, ...await loadAdvancedMetrics(keys, scoped.profiles) });
     const allowed = new Map(scoped.profiles.map(p => [String(p.ROLL_KEY).trim(), p.centerCode]));
     const [raw, maps] = await Promise.all([
       StudentRawMarks.find({ testId: { $in: keys } }).lean(),
@@ -1108,6 +1122,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
       console.error('[Analytics] Error merging MongoDB data:', dbErr);
     }
 
+    await applyAdvancedChartMetrics(finalChartData, { stream, branch: currentTestBranch(), profiles: streamProfiles, centre: centerCode });
     res.json({ chartData: finalChartData });
   } catch (e) {
     console.error('Error fetching centre chart details', e);
