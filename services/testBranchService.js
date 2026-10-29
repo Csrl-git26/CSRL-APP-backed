@@ -18,7 +18,7 @@ export function testBranchMiddleware(req, res, next) {
 export function matchesTestBranch(testId, branch, catalog = []) {
   if (!branch) return true;
   const metadata = catalog.find(t => t.testId === testId);
-  const stream = metadata?.stream || (/^(MMT|NCT|NMT|NEET)/i.test(testId) ? 'NEET' : 'JEE');
+  const stream = metadata?.stream || (/^(MMT|NCT|NMT|NRT|NEET)/i.test(testId) ? 'NEET' : 'JEE');
   return stream === 'NEET' || (metadata?.branch || 'MAIN') === branch;
 }
 async function catalogForRequest() {
@@ -54,7 +54,7 @@ export async function registerTestBranch(testId, { stream, branch } = {}) {
   if (typeof testId !== 'string' || !testId.trim() || testId.includes('$') || testId.includes('\0')) {
     throw Object.assign(new Error('A valid test ID is required.'), { statusCode: 400 });
   }
-  const normalizedStream = String(stream || (/^(MMT|NCT|NMT|NEET)/i.test(testId) ? 'NEET' : 'JEE')).toUpperCase();
+  const normalizedStream = String(stream || (/^(MMT|NCT|NMT|NRT|NEET)/i.test(testId) ? 'NEET' : 'JEE')).toUpperCase();
   const normalizedBranch = normalizedStream === 'NEET' ? null : String(branch || 'MAIN').toUpperCase();
   if (!['JEE', 'NEET'].includes(normalizedStream) || (normalizedStream === 'JEE' && !['MAIN', 'ADVANCED'].includes(normalizedBranch))) {
     throw Object.assign(new Error('Select a valid stream and JEE branch.'), { statusCode: 400 });

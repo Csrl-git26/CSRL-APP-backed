@@ -377,7 +377,7 @@ export function buildStudentChartData(studentTestFlat, testColumns, stream) {
 
   // Determine the student's stream and filter out cross-stream tests.
   const studentStream = String(stream || (studentTestFlat && studentTestFlat.stream) || 'JEE').trim().toUpperCase();
-  const NEET_TEST_PREFIX = /^\s*(MMT|NCT|NMT|NEET)/i;
+  const NEET_TEST_PREFIX = /^\s*(MMT|NCT|NMT|NRT|NEET)/i;
 
   const relevantColumns = (testColumns || []).filter((col) => {
     if (!studentStream || studentStream === 'ALL') return true;
@@ -973,7 +973,7 @@ export function buildCentreChartData(centerTests, testColumns, stream) {
 
   // Filter out tests belonging to the other stream (mirrors buildStudentChartData).
   const centreStream = String(stream || 'JEE').trim().toUpperCase();
-  const NEET_TEST_PREFIX = /^\s*(MMT|NCT|NMT|NEET)/i;
+  const NEET_TEST_PREFIX = /^\s*(MMT|NCT|NMT|NRT|NEET)/i;
   const relevantColumns = (testColumns || []).filter((col) => {
     if (!centreStream || centreStream === 'ALL') return true;
     const { testName } = parseTestColumn(col);

@@ -4,7 +4,7 @@ export function enrichStudentChartFromRawMarks(rows, rawMarks, topicMaps, stream
   const subjects = { PHYSICS: 'Physics', CHEMISTRY: 'Chemistry', MATHEMATICS: 'Math', MATH: 'Math', BOTANY: 'Botany', ZOOLOGY: 'Zoology', BIOLOGY: 'Biology' };
   for (const doc of rawMarks) {
     const name = String(doc.testId || '').trim();
-    if (!name || (/^(MMT|NCT|NMT|NEET)/i.test(name) !== (stream === 'NEET'))) continue;
+    if (!name || (/^(MMT|NCT|NMT|NRT|NEET)/i.test(name) !== (stream === 'NEET'))) continue;
     const map = topicMaps.find(t => t.testId === doc.testId);
     if (!map) continue;
     const questions = new Map();

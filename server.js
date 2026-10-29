@@ -1,3 +1,4 @@
+import { matchesTestStream } from './utils/testStream.js';
 import advancedAttemptsRouter from './routes/advancedAttempts.js';
 import { currentTestBranch } from './services/testBranchService.js';
 import { isAdvanced, loadAdvancedMetrics, applyAdvancedChartMetrics } from './services/advancedAttemptService.js';
@@ -420,7 +421,7 @@ function filterByStream(profiles, tests, stream) {
         const isValid = v !== undefined && v !== null && String(v).trim() !== '' && String(v).toLowerCase() !== 'absent';
         if (isValid) {
           const kTrim = k.trim().toUpperCase();
-          if (kTrim.startsWith('NCT') || kTrim.startsWith('MMT') || kTrim.startsWith('NMT') || kTrim.startsWith('NEET')) {
+          if (kTrim.startsWith('NCT') || kTrim.startsWith('MMT') || kTrim.startsWith('NMT') || kTrim.startsWith('NRT') || kTrim.startsWith('NEET')) {
             hasNeet = true;
           }
           if (kTrim.startsWith('MT') || kTrim.startsWith('CMT') || kTrim.startsWith('FMT') || kTrim.startsWith('PT') || kTrim.startsWith('JCT')) {
@@ -928,7 +929,7 @@ app.get('/api/analytics/centre-chart', authenticateToken, async (req, res) => {
         }
       }
 
-      rawDocs = await filterTestDocuments(rawDocs);
+      rawDocs = (await filterTestDocuments(rawDocs)).filter(doc => matchesTestStream(doc.testId, stream));
       if (rawDocs.length > 0) {
         const testIds = Array.from(new Set(rawDocs.map(d => d.testId)));
         const topicMaps = await TopicMap.find({ testId: { $in: testIds } }).lean();
