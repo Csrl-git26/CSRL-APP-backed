@@ -621,7 +621,7 @@ export function computeTestInsights(profiles, tests, testKey, testColumns, optio
       if (options.branch === 'ADVANCED') overallMin = advancedCutoff(cat).overallMin;
 
       subjects.forEach((subj) => {
-        subjectMins[subj] = 30; // 30 marks per subject for all categories
+        subjectMins[subj] = options.branch === 'ADVANCED' ? 15 : 30; // Low-score card threshold; qualification is computed separately.
       });
     } else {
       overallMin = neetOverallMin;

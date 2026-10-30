@@ -34,3 +34,18 @@ test('Main retains original total-only cutoffs; NEET retains uploaded MBBS statu
 test('previous 300/100 thresholds no longer qualify Advanced students',()=>{
  for(const [cat,total,sub] of [['GEN',108,12],['EWS',99,12],['OBC',99,12],['SC',60,7],['ST',60,7],['PWD',60,7]]) assert.equal(result(cat,total,sub,sub,total-2*sub).studentInsight.qualified,false);
 });
+
+test('Advanced low-score counts and popup rows use <=15; Main and NEET retain their thresholds', () => {
+ for (const [stream, branch, limit] of [['JEE','ADVANCED',15], ['JEE','MAIN',30], ['NEET','ADVANCED',100]]) {
+  for (const marks of [limit - 0.1, limit, limit + 0.1]) {
+   const insights = result('GEN', 200, marks, marks, marks, branch, stream);
+   const expected = marks <= limit ? 1 : 0;
+   for (const subject of ['Physics','Chemistry']) {
+    assert.equal(insights.notQualifiedBySubject[subject].ABC || 0, expected, `${stream}/${branch}/${subject}/${marks}`);
+    const rows = insights.lowScoringStudentsBySubject[subject].ABC || [];
+    assert.equal(rows.length, expected);
+    if (expected) assert.equal(rows[0].marks, marks);
+   }
+  }
+ }
+});
