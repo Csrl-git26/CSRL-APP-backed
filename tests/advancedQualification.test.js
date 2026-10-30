@@ -9,7 +9,7 @@ function result(category, total, physics, chemistry, math, branch='ADVANCED',str
  return computeTestInsights(profiles,[doc],'CAT01',Object.keys(doc).filter(k=>k!=='ROLL_KEY'),{stream,branch,rollKey:'1'});
 }
 test('all six Advanced categories use inclusive total and subject cutoffs',()=>{
- for(const [category,total,min] of [['GEN',129.6,14.4],['EWS',118.8,14.4],['OBC',118.8,14.4],['SC',72,8.4],['ST',72,8.4],['PWD',72,8.4]]){
+ for(const [category,total,min] of [['GEN',130,14],['EWS',119,14],['OBC',119,14],['SC',72,8],['ST',72,8],['PWD',72,8]]){
   const yes=result(category,total,min,min,total-2*min);
   assert.equal(yes.studentInsight.qualified,true,category);assert.equal(yes.centreRows[0].qualified,1);assert.equal(yes.centreRows[0].qualRate,100);
   assert.equal(result(category,total-0.01,min,min,total-2*min-0.01).studentInsight.qualified,false);
@@ -20,7 +20,7 @@ test('missing subjects, absent totals and blank scores cannot qualify; percentag
  assert.equal(qualifiesAdvanced(150,{Physics:20,Chemistry:20,Math:null},'GEN'),false);
  assert.equal(qualifiesAdvanced(null,{Physics:20,Chemistry:20,Math:20},'GEN'),false);
  assert.equal(qualifiesAdvanced(150,{Physics:'',Chemistry:20,Math:20},'GEN'),false);
- assert.deepEqual(advancedCutoff('GEN'),{totalPercent:36,subjectPercent:12,overallMin:129.6,subjectMin:14.4});
+ assert.deepEqual(advancedCutoff('GEN'),{totalPercent:36,subjectPercent:12,overallMin:130,subjectMin:14});
  assert.equal(advancedCutoff('OBC-PwD').totalPercent,20);assert.equal(advancedCutoff('').totalPercent,36);
 });
 test('Main retains original total-only cutoffs; NEET retains uploaded MBBS status',()=>{
