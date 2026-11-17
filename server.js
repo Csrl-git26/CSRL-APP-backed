@@ -1,7 +1,7 @@
 import { matchesTestStream } from './utils/testStream.js';
 import advancedAttemptsRouter from './routes/advancedAttempts.js';
 import { currentTestBranch } from './services/testBranchService.js';
-import { isAdvanced, loadAdvancedMetrics, applyAdvancedChartMetrics } from './services/advancedAttemptService.js';
+import { aggregateAttemptRecords, isAdvanced, loadAdvancedMetrics, applyAdvancedChartMetrics } from './services/advancedAttemptService.js';
 import { createResultNotificationsRouter, startNotificationWorker } from './routes/resultNotifications.js';
 import { buildQualificationSummary, qualificationMetrics } from './services/resultNotificationAnalysis.js';
 import { TestBranch, scopeApplicationData } from './services/testBranchService.js';
@@ -506,7 +506,8 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
     resolvedCenterCode = '';
   }
 
-  const source = resolvedCenterCode ? await loadCenterApplicationData(resolvedCenterCode) : await loadApplicationData();
+  const details = req.query.studentDetails === '1';
+  const source = resolvedCenterCode && !details ? await loadCenterApplicationData(resolvedCenterCode) : await loadApplicationData();
   
   let resolvedTestKey = testKey;
   if (testKey === 'ALL_FMT') {
@@ -517,6 +518,42 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
   const { profiles: rankProfiles, tests: rankTests } = filterByStream(source.profiles, source.tests, stream);
   let ranked = rankStudentsByTest(rankProfiles, rankTests, resolvedTestKey);
   const absent = absentCount(rankProfiles, rankTests, resolvedTestKey);
+
+  if (details) {
+    try {
+      const subjects = stream === 'NEET' ? ['Physics','Chemistry','Botany','Zoology'] : ['Physics','Chemistry','Math'];
+      const ranks = Object.fromEntries(subjects.map(subject => [subject, new Map(rankStudentsByTest(rankProfiles, rankTests, resolvedTestKey.split(',').map(key => `${key}_${subject}`).join(',')).map(row => [String(row.roll), row.rank]))]));
+      const selected = ranked.filter(row => !resolvedCenterCode || row.center === resolvedCenterCode);
+      const single = !resolvedTestKey.includes(',');
+      let raw = [], maps = [], sheet;
+      if (single && isAdvanced(stream, currentTestBranch())) {
+        const Model = (await import('./models/AdvancedAttemptSheet.js')).default;
+        sheet = await Model.findById(resolvedTestKey).lean();
+      } else if (single) {
+        [raw, maps] = await Promise.all([
+          StudentRawMarks.find({testId: resolvedTestKey, studentId: {$in: selected.map(row => String(row.roll))}}).lean(),
+          TopicMap.find({testId: resolvedTestKey}).lean()
+        ]);
+      }
+      const rawByRoll = new Map(raw.map(row => [String(row.studentId), row]));
+      const advancedByRoll = new Map((sheet?.records || []).map(row => [JSON.stringify([String(row.roll), row.centre]), row]));
+      const output = selected.map(student => {
+        const metric = { name: resolvedTestKey, Total_Rank: student.rank };
+        for (const subject of subjects) metric[subject+'_Rank'] = ranks[subject].get(String(student.roll)) ?? null;
+        if (isAdvanced(stream, currentTestBranch())) {
+          const record = advancedByRoll.get(JSON.stringify([String(student.roll), student.center]));
+          if (record) Object.assign(metric, aggregateAttemptRecords([record]));
+        } else {
+          const record = rawByRoll.get(String(student.roll));
+          if (record && record.centerId === student.center) enrichStudentChartFromRawMarks([metric], [record], maps, stream);
+        }
+        return {...student, detailMetrics: metric};
+      });
+      return res.json({ranked: output, total: output.length, testKey});
+    } catch (error) {
+      return res.status(503).json({message: 'Unable to load student metrics. Please retry.'});
+    }
+  }
 
   if (order === 'asc') ranked = ranked.filter(s => s.marks !== 'Absent').reverse();
 
