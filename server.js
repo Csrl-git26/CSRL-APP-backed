@@ -1,3 +1,4 @@
+import { sameStudentMetricCentre } from './utils/studentMetricCentre.js';
 import { matchesTestStream } from './utils/testStream.js';
 import advancedAttemptsRouter from './routes/advancedAttempts.js';
 import { currentTestBranch } from './services/testBranchService.js';
@@ -548,7 +549,7 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
           if (record) Object.assign(metric, aggregateAttemptRecords([record]));
         } else {
           const record = rawByRoll.get(String(student.roll));
-          if (record && record.centerId === student.center) enrichStudentChartFromRawMarks([metric], [record], maps, stream);
+          if (record && sameStudentMetricCentre(record.centerId, student.center)) enrichStudentChartFromRawMarks([metric], [record], maps, stream);
         }
         return {...student, detailMetrics: metric};
       });
