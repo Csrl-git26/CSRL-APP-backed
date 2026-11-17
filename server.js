@@ -846,6 +846,23 @@ app.get('/api/analytics/student-chart', async (req, res) => {
  */
 
 /** Question-level attempt and accuracy metrics for the qualification summary. */
+app.get('/api/analytics/qualification-summary', authenticateToken, async (req, res) => {
+  if (!['centre', 'admin', 'bog'].includes(req.user.role)) return res.status(403).json({message:'Forbidden'});
+  const {testKey, stream = 'JEE'} = req.query;
+  if (!testKey) return res.status(400).json({message:'testKey is required'});
+  try {
+    const data = await loadApplicationData();
+    const scoped = filterByStream(data.profiles, data.tests, stream);
+    const keys = testKey === 'ALL_FMT' ? [...new Set(data.testColumns.filter(k => k.startsWith('FMT')).map(k => k.split('_')[0]))].join(',') : String(testKey);
+    const insights = computeTestInsights(scoped.profiles, scoped.tests, keys, data.testColumns, {stream, branch: currentTestBranch()});
+    const board = rankCentresByTest(scoped.profiles, scoped.tests, keys, data.testColumns).map(row => ({...row, qualifiedCount: insights.centreRows.find(c => c.code === row.code)?.qualified || 0}));
+    const summary = buildQualificationSummary({...data, ...scoped}, board, keys, stream);
+    if (isAdvanced(stream, currentTestBranch())) for (const row of [...summary.rows, summary.overall]) for (const key of Object.keys(row)) if (/_(Attempted|Accuracy)$/.test(key)) row[key] = null;
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(summary);
+  } catch { res.status(503).json({message:'Unable to load qualification summary.'}); }
+});
+
 app.get('/api/analytics/qualification-metrics', authenticateToken, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   try {
