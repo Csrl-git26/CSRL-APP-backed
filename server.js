@@ -538,7 +538,10 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
       const rawByRoll = new Map(raw.map(row => [String(row.studentId), row]));
       const advancedByRoll = new Map((sheet?.records || []).map(row => [JSON.stringify([String(row.roll), row.centre]), row]));
       const output = selected.map(student => {
-        const metric = { name: resolvedTestKey, Total_Rank: student.rank };
+        const stored = single && !isAdvanced(stream, currentTestBranch())
+          ? buildStudentChartData(student.rawScores || {}, source.testColumns, stream).find(row => row.name === resolvedTestKey)
+          : null;
+        const metric = { ...stored, name: resolvedTestKey, Total_Rank: student.rank };
         for (const subject of subjects) metric[subject+'_Rank'] = ranks[subject].get(String(student.roll)) ?? null;
         if (isAdvanced(stream, currentTestBranch())) {
           const record = advancedByRoll.get(JSON.stringify([String(student.roll), student.center]));
