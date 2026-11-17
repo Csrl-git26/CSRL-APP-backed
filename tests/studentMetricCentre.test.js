@@ -16,3 +16,15 @@ test('batch metrics accept import centre aliases and reject different centres', 
   assert.equal(sameStudentMetricCentre('OIL_INDIA','KNP'),false);
   assert.equal(sameStudentMetricCentre('', ''),false);
 });
+
+test('NEET Mumbai import alias matches MUMM without merging JEE centres', () => {
+  assert.equal(sameStudentMetricCentre('MUM', 'MUMM', 'NEET'), true);
+  assert.equal(sameStudentMetricCentre('MUM', 'MUMM', 'JEE'), false);
+  assert.equal(sameStudentMetricCentre('MUM', 'MUMM'), false);
+  const row = { name: 'NRT01' };
+  const record = {testId:'NRT01',centerId:'MUM',marks:{1:4,2:-1}};
+  if (sameStudentMetricCentre(record.centerId, 'MUMM', 'NEET')) enrichStudentChartFromRawMarks([row],[record],[{testId:'NRT01',topics:[{subject:'Physics',questions:[1,2]}]}],'NEET');
+  assert.equal(row.Physics_Attempted,2);
+  assert.equal(row.Physics_Accuracy,50);
+  assert.equal(row.Total_Attempted,2);
+});

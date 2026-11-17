@@ -549,7 +549,7 @@ app.get('/api/analytics/rankings', authenticateToken, async (req, res) => {
           if (record) Object.assign(metric, aggregateAttemptRecords([record]));
         } else {
           const record = rawByRoll.get(String(student.roll));
-          if (record && sameStudentMetricCentre(record.centerId, student.center)) enrichStudentChartFromRawMarks([metric], [record], maps, stream);
+          if (record && sameStudentMetricCentre(record.centerId, student.center, stream)) enrichStudentChartFromRawMarks([metric], [record], maps, stream);
         }
         return {...student, detailMetrics: metric};
       });
