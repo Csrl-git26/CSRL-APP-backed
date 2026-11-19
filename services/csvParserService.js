@@ -198,6 +198,7 @@ function inferSubject(rawTopic) {
   }
 
   // Topics shared by multiple subjects require an explicit subject.
+  if (normalized === 'BIOMOLECULE') return { subject: 'Zoology', topic: trimmed };
   if (normalized === 'BIOMOLECULES') return { subject: null, topic: trimmed };
   const corrected = correctedTopicSubject(trimmed);
   if (corrected) return { subject: corrected === 'MATHEMATICS' ? 'Mathematics' : 'Chemistry', topic: trimmed };
