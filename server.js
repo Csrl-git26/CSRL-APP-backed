@@ -239,7 +239,7 @@ app.use('/api/result-notifications', authenticateToken, createResultNotification
   const { testKey, stream, branch } = selection;
   const catalog = await TestBranch.find({}).lean();
   const metadata = catalog.find(t => t.testId === testKey);
-  const testStream = metadata?.stream || (/^(MMT|NCT|NMT|NRT|NEET)/i.test(testKey) ? 'NEET' : 'JEE');
+  const testStream = metadata?.stream || (/^(MMT|NCT|NMT|NRT|NAT|NEET)/i.test(testKey) ? 'NEET' : 'JEE');
   if (testStream !== stream || (stream === 'JEE' && (metadata?.branch || 'MAIN') !== branch)) {
     throw Object.assign(new Error('The selected test belongs to a different stream or branch.'), { status: 400 });
   }
@@ -793,7 +793,7 @@ app.get('/api/analytics/student-chart', async (req, res) => {
   // NEET-specific prefixes: MMT, NCT, NMT, NEET  /  JEE-specific prefixes: MT, CMT, FMT, PT, JCT
   const rawStream = profileDoc.stream || profileDoc.STREAM || profileDoc.Stream || req.query.stream || testDoc.stream || 'JEE';
   const studentStream = String(rawStream).trim().toUpperCase();
-  const NEET_PREFIXES = /^(MMT|NCT|NMT|NRT|NEET)/i;
+  const NEET_PREFIXES = /^(MMT|NCT|NMT|NRT|NAT|NEET)/i;
   const filteredTestColumns = source.testColumns.filter((col) => {
     const { testName } = parseTestColumn(col);
     const isNeetTest = NEET_PREFIXES.test(testName);

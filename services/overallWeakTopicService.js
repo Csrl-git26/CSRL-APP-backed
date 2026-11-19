@@ -66,7 +66,7 @@ export async function computeStudentOverallWeakTopics(studentId, { persist = tru
     const qMap = {};
     const sMap = {};
     const allQs = new Set();
-    let isNeet = /^(MMT|NCT|NMT|NEET)/i.test(String(tm.testId).trim());
+    let isNeet = /^(MMT|NCT|NMT|NRT|NAT|NEET)/i.test(String(tm.testId).trim());
     
     for (const entry of tm.topics) {
       for (const q of entry.questions) allQs.add(q);
@@ -200,7 +200,7 @@ export async function computeCenterOverallWeakTopics(centerId) {
     const qMap = {};
     const sMap = {};
     const allQs = new Set();
-    let isNeet = /^(MMT|NCT|NMT|NEET)/i.test(String(tm.testId).trim());
+    let isNeet = /^(MMT|NCT|NMT|NRT|NAT|NEET)/i.test(String(tm.testId).trim());
     
     for (const entry of tm.topics) {
       for (const q of entry.questions) allQs.add(q);

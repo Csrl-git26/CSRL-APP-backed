@@ -48,7 +48,7 @@ export function makeCatalog(data, stream = 'JEE') {
     if (metadata.has(col)) continue;
     const parsed = parseTestColumn(col);
     if (!SUBJECTS.includes(parsed.subject) || !/^[A-Za-z]+[\s-]*\d/.test(parsed.testName)) continue;
-    if ((/^(MMT|NCT|NMT|NEET|NFT|MFT)/i.test(parsed.testName)) !== (stream === 'NEET')) continue;
+    if ((/^(MMT|NCT|NMT|NRT|NAT|NEET|NFT|MFT)/i.test(parsed.testName)) !== (stream === 'NEET')) continue;
     if (!columns.has(parsed.testName)) columns.set(parsed.testName, new Map());
     const subs = columns.get(parsed.testName);
     if (!subs.has(parsed.subject)) subs.set(parsed.subject, []);
