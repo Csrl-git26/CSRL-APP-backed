@@ -47,7 +47,7 @@ test('HTTP routes require admin, setup, confirmation, and reconciled report befo
   delete process.env.RESEND_API_KEY; process.env.RESULT_EMAIL_ENABLED='false'; assert.equal((await post({confirm:'SEND'})).status,503);
   process.env.RESEND_API_KEY='test-placeholder'; process.env.RESULT_EMAIL_ENABLED='true';
   assert.equal((await post({})).status,400); assert.equal((await post({confirm:'SEND'})).status,400); assert.equal(queued,0);
-  c.report.warnings=[]; assert.equal((await post({confirm:'SEND'})).status,200); assert.equal(queued,1);
+  c.report.warnings=[]; assert.equal((await post({confirm:'SEND'})).status,400); c.selection={selectedEmails:['user@csrl.in']}; assert.equal((await post({confirm:'SEND'})).status,200); assert.equal(queued,1);
 });
 test('worker sends privately, preserves retry key, never resends accepted recipients, expires unsafe retries',async () => {
   const recipient={email:'user@csrl.in',status:'pending'};

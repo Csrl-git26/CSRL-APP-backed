@@ -43,11 +43,20 @@ export function createResultNotificationsRouter(buildReport, { Model = ResultNot
     const campaigns = await Model.find({}).sort({ createdAt: -1 }).limit(20).select('-attachment -html -text').lean();
     res.json({ configured: configured(), sender: SENDER, campaigns: campaigns.map(c => publicCampaign(c)) });
   }));
+  router.get('/recipients', wrap(async (req,res) => {
+    if (!['all','centre','admin'].includes(req.query.audience)) throw fail(400,'Select a recipient group.');
+    res.json(await recipientList(req.query.audience, service));
+  }));
   router.post('/preview', wrap(async (req,res) => {
     const selection = validateSelection(req.body);
     const report = await buildReport(selection);
     if (!report.rows?.length || !report.overall?.appeared) throw fail(400,'No results found for this test and stream.');
     const list = await recipientList(selection.audience, service);
+    if (!Array.isArray(req.body.selectedEmails) || !req.body.selectedEmails.length || req.body.selectedEmails.some(e => typeof e !== 'string')) throw fail(400,'Select at least one user.');
+    const selected = new Set(req.body.selectedEmails.map(e => e.trim().toLowerCase()));
+    if ([...selected].some(e => !list.recipients.some(r => r.email === e))) throw fail(400,'A selected user is no longer available in this group. Select users again.');
+    list.recipients = list.recipients.filter(r => selected.has(r.email));
+    selection.selectedEmails = [...selected].sort();
     const email = renderEmail(selection, report);
     const id = hash(JSON.stringify({ selection, report, emails: list.recipients.map(r => r.email), email }));
     let campaign = await Model.findById(id).lean();
@@ -70,6 +79,7 @@ export function createResultNotificationsRouter(buildReport, { Model = ResultNot
     if (req.body.confirm !== 'SEND') throw fail(400,'Confirm the reviewed email and recipient list before sending.');
     const c = await get(req.params.id);
     if (c.report?.warnings?.length) throw fail(400,'Resolve the report warnings and preview again before sending.');
+    if (!c.selection?.selectedEmails?.length) throw fail(400,'Create a new preview and select individual users before sending.');
     if (!c.recipients.length) throw fail(400,'No valid recipient email addresses.');
     await Model.updateOne({ _id: c._id, state: 'draft' }, { $set: { state: 'queued', startedAt: new Date() } });
     res.json({ campaign: publicCampaign(await get(c._id)) });
