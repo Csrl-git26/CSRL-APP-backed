@@ -1,3 +1,4 @@
+import {enabled as gmailEnabled, gmailSelected, sender, sendGmail} from '../services/gmailSender.js';
 import express from 'express';
 import { createHash } from 'node:crypto';
 import ResultNotification from '../models/ResultNotification.js';
@@ -5,7 +6,7 @@ import { portalUsers } from '../services/portalUserService.js';
 import { SENDER, PORTAL, renderEmail, reportWorkbook } from '../services/resultNotificationEmail.js';
 const hash = value => createHash('sha256').update(value).digest('hex');
 const fail = (status, message) => Object.assign(new Error(message), { status });
-export const configured = () => process.env.RESULT_EMAIL_ENABLED === 'true' && !!process.env.RESEND_API_KEY;
+export const configured = gmailEnabled;
 export function validateSelection(input = {}) {
   const { testKey, stream, testDate, audience } = input;
   const branch = stream === 'NEET' ? null : input.branch;
@@ -41,7 +42,7 @@ export function createResultNotificationsRouter(buildReport, { Model = ResultNot
   const get = async id => { if (!/^[a-f0-9]{64}$/.test(id)) throw fail(404,'Notification not found.'); const c = await Model.findById(id).lean(); if (!c) throw fail(404,'Notification not found.'); return c; };
   router.get('/', wrap(async (req,res) => {
     const campaigns = await Model.find({}).sort({ createdAt: -1 }).limit(20).select('-attachment -html -text').lean();
-    res.json({ configured: configured(), sender: SENDER, campaigns: campaigns.map(c => publicCampaign(c)) });
+    res.json({ configured: await configured(), sender: sender(), campaigns: campaigns.map(c => publicCampaign(c)) });
   }));
   router.get('/recipients', wrap(async (req,res) => {
     if (!['all','centre','admin'].includes(req.query.audience)) throw fail(400,'Select a recipient group.');
@@ -67,7 +68,7 @@ export function createResultNotificationsRouter(buildReport, { Model = ResultNot
       try { await Model.create(record); } catch(e) { if (e.code !== 11000) throw e; }
       campaign = await Model.findById(id).lean();
     }
-    res.json({ campaign: publicCampaign(campaign,true), configured: configured(), sender: SENDER });
+    res.json({ campaign: publicCampaign(campaign,true), configured: await configured(), sender: sender() });
   }));
   router.get('/:id', wrap(async (req,res) => res.json({ campaign: publicCampaign(await get(req.params.id),true) })));
   router.get('/:id/attachment', wrap(async (req,res) => {
@@ -75,7 +76,7 @@ export function createResultNotificationsRouter(buildReport, { Model = ResultNot
     res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').attachment(c.filename).send(Buffer.from(c.attachment,'base64'));
   }));
   router.post('/:id/send', wrap(async (req,res) => {
-    if (!configured()) throw fail(503,'Email setup is incomplete. Verify csrl.in in Resend and set the Render environment variables.');
+    if (!await configured()) throw fail(503,'Email setup is incomplete. Connect the configured email provider and set RESULT_EMAIL_ENABLED=true in Render.');
     if (req.body.confirm !== 'SEND') throw fail(400,'Confirm the reviewed email and recipient list before sending.');
     const c = await get(req.params.id);
     if (c.report?.warnings?.length) throw fail(400,'Resolve the report warnings and preview again before sending.');
@@ -85,7 +86,7 @@ export function createResultNotificationsRouter(buildReport, { Model = ResultNot
     res.json({ campaign: publicCampaign(await get(c._id)) });
   }));
   router.post('/:id/retry', wrap(async (req,res) => {
-    if (!configured()) throw fail(503,'Email sending is not configured.');
+    if (!await configured()) throw fail(503,'Email sending is not configured.');
     if (req.body.confirm !== 'RETRY') throw fail(400,'Confirm retry of failed recipients.');
     const c = await get(req.params.id);
     if (c.state === 'draft') throw fail(400,'Review and send the draft first.');
@@ -98,9 +99,10 @@ export function createResultNotificationsRouter(buildReport, { Model = ResultNot
 export function createNotificationWorker({ Model = ResultNotification, service = portalUsers, send = (...args) => fetch(...args), enabled = configured } = {}) {
   let working = false;
   return async function tick() {
-    if (working || !enabled()) return;
+    if (working) return;
     working = true;
     try {
+      if (!await enabled()) return;
       const c = await Model.findOne({ state: 'queued' }).sort({ startedAt: 1 }).lean();
       if (!c) return;
       const now = new Date();
@@ -109,15 +111,18 @@ export function createNotificationWorker({ Model = ResultNotification, service =
         await Model.updateOne({ _id: c._id, state: 'queued', recipients: { $not: { $elemMatch: { status: { $in: ['pending','sending'] } } } } }, { $set: { state: 'complete' } });
         return;
       }
+      const uncertainGmail = gmailSelected() && recipient.status === 'sending';
       const firstAttempt = recipient.firstAttempt || now;
       const lockUntil = new Date(now.getTime()+120000);
       const claim = await Model.updateOne({ _id: c._id, state: 'queued', recipients: { $elemMatch: { email: recipient.email, $or: [{ status: 'pending' }, { status: 'sending', lockUntil: { $lte: now } }] } } }, { $set: { 'recipients.$.status': 'sending', 'recipients.$.firstAttempt': firstAttempt, 'recipients.$.lockUntil': lockUntil } });
       if (!claim.modifiedCount) return;
       const finish = values => Model.updateOne({ _id: c._id, recipients: { $elemMatch: { email: recipient.email, status: 'sending', lockUntil } } }, { $set: Object.fromEntries(Object.entries(values).map(([key,value]) => ['recipients.$.'+key,value])) });
+      if (uncertainGmail) { await finish({status:'review',error:'Previous Gmail sending was interrupted. Check Gmail Sent before any manual resend.'}); return; }
       if (now - new Date(firstAttempt) > 23*60*60*1000) { await finish({ status: 'review', error: 'Retry window expired. Check provider logs before sending again.' }); return; }
       try {
         const active = await recipientList(c.selection.audience, service);
         if (!active.recipients.some(r => r.email === recipient.email)) { await finish({ status: 'skipped', error: 'User is no longer in the selected active directory.' }); return; }
+        if (gmailSelected()) { const id = await sendGmail(c,recipient.email); await finish({status:'sent',providerId:id,error:''}); return; }
         const response = await send('https://api.resend.com/emails', {
           method: 'POST', signal: AbortSignal.timeout(20000),
           headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': `result/${c._id}/${hash(recipient.email).slice(0,24)}` },
@@ -126,7 +131,7 @@ export function createNotificationWorker({ Model = ResultNotification, service =
         const result = await response.json().catch(() => ({}));
         if (!response.ok || !result.id) throw new Error(`Email provider rejected the request (${response.status}). Check Resend logs and setup.`);
         await finish({ status: 'sent', providerId: result.id, error: '' });
-      } catch(e) { await finish({ status: 'failed', error: e.name === 'TimeoutError' ? 'Provider timeout. Retry uses the same duplicate-protection key.' : e.message.startsWith('Email provider') ? e.message : 'Unable to confirm sending. Retry within 23 hours or check provider logs.' }); }
+      } catch(e) { await finish({ status: e.uncertain ? 'review' : 'failed', error: gmailSelected() ? (e.message || 'Gmail sending failed. Reconnect Gmail and retry.') : e.name === 'TimeoutError' ? 'Provider timeout. Retry uses the same duplicate-protection key.' : e.message.startsWith('Email provider') ? e.message : 'Unable to confirm sending. Retry within 23 hours or check provider logs.' }); }
     } catch(e) { console.error('Result notification worker:', e.message); }
     finally { working = false; }
   };

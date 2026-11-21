@@ -1,3 +1,4 @@
+import { gmailPublicRouter, gmailAdminRouter } from './routes/gmail.js';
 import { resultWorkbooksRouter } from './routes/resultWorkbooks.js';
 import { sameStudentMetricCentre } from './utils/studentMetricCentre.js';
 import { matchesTestStream } from './utils/testStream.js';
@@ -236,6 +237,8 @@ function requireAdmin(req, res, next) {
 app.use('/api/portal-users', authenticateToken, portalUsersRouter);
 app.use('/api/advanced-attempts', authenticateToken, advancedAttemptsRouter);
 
+app.use('/api/gmail', gmailPublicRouter);
+app.use('/api/gmail', authenticateToken, gmailAdminRouter);
 app.use('/api/result-workbooks', authenticateToken, resultWorkbooksRouter);
 app.use('/api/result-notifications', authenticateToken, createResultNotificationsRouter(async selection => {
   const { testKey, stream, branch } = selection;
